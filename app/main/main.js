@@ -212,6 +212,17 @@ async function executeAction(action) {
     return { ok: true, message: `URL abierta: ${url.toString()}` };
   }
 
+  if (type === 'SPOTIFY_SEARCH' || type === 'SPOTIFY_SEARCH_AND_PLAY') {
+    if (!payload) throw new Error('Falta la busqueda de Spotify.');
+    await openSpotifySearch(payload);
+    if (type === 'SPOTIFY_SEARCH_AND_PLAY') {
+      await sleep(2400);
+      await clickSpotifyFirstResult();
+      return { ok: true, message: `Buscando y reproduciendo en Spotify: ${payload}` };
+    }
+    return { ok: true, message: `Busqueda abierta en Spotify: ${payload}` };
+  }
+
   if (type === 'OPEN_FOLDER') {
     if (!payload) throw new Error('Falta la ruta de carpeta.');
     const result = await shell.openPath(payload);
@@ -303,6 +314,69 @@ Start-Sleep -Milliseconds 50
     '-WindowStyle', 'Hidden',
     '-EncodedCommand', encoded,
   ], { windowsHide: true });
+}
+
+function openSpotifySearch(query) {
+  const encodedQuery = encodeURIComponent(query).replace(/%20/g, '+');
+  return shell.openExternal(`spotify:search:${encodedQuery}`);
+}
+
+async function clickSpotifyFirstResult() {
+  if (process.platform === 'win32') {
+    return executeWindowsSpotifyFirstResultClick();
+  }
+
+  if (process.platform === 'darwin') {
+    return spawnAndWait('osascript', ['-e', 'tell application "System Events" to keystroke return']);
+  }
+
+  await spawnAndWait('xdotool', ['search', '--name', 'Spotify', 'windowactivate', '--sync']);
+  return spawnAndWait('xdotool', ['key', 'Return']);
+}
+
+function executeWindowsSpotifyFirstResultClick() {
+  const script = `
+$code = @"
+using System;
+using System.Runtime.InteropServices;
+public class RainyWin {
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+  [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+}
+public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+"@
+Add-Type -TypeDefinition $code
+$proc = Get-Process Spotify -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+if (-not $proc) { throw "No encontre la ventana de Spotify." }
+$hwnd = $proc.MainWindowHandle
+[RainyWin]::SetForegroundWindow($hwnd) | Out-Null
+Start-Sleep -Milliseconds 550
+$rect = New-Object RECT
+[RainyWin]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
+$width = $rect.Right - $rect.Left
+$height = $rect.Bottom - $rect.Top
+if ($width -le 0 -or $height -le 0) { throw "No pude leer el tamano de Spotify." }
+$x = $rect.Left + [Math]::Floor($width * 0.30)
+$y = $rect.Top + [Math]::Floor($height * 0.40)
+[RainyWin]::SetCursorPos($x, $y) | Out-Null
+Start-Sleep -Milliseconds 80
+[RainyWin]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+Start-Sleep -Milliseconds 80
+[RainyWin]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+`;
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
+  return spawnAndWait('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy', 'Bypass',
+    '-WindowStyle', 'Hidden',
+    '-EncodedCommand', encoded,
+  ], { windowsHide: true });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function spawnAndWait(command, args, options = {}) {

@@ -24,6 +24,8 @@ Acciones permitidas:
 [ACTION: MEDIA_PLAY_PAUSE]
 [ACTION: MEDIA_NEXT]
 [ACTION: MEDIA_PREVIOUS]
+[ACTION: SPOTIFY_SEARCH "cancion artista"]
+[ACTION: SPOTIFY_SEARCH_AND_PLAY "cancion artista"]
 [ACTION: SHOW_AVATAR]
 [ACTION: HIDE_AVATAR]
 
@@ -34,6 +36,7 @@ Reglas para acciones:
 4. Para apps usa nombres simples, por ejemplo: notepad, calculator, chrome, edge, explorer, vscode, spotify.
 5. No uses comandos peligrosos, terminal, borrar archivos, descargar cosas ni cambiar configuraciones sensibles.
 6. Para pausar/continuar musica usa MEDIA_PLAY_PAUSE. Para siguiente cancion usa MEDIA_NEXT. Para cancion anterior usa MEDIA_PREVIOUS.
+7. Para buscar musica en Spotify usa SPOTIFY_SEARCH. Si el usuario pide poner/reproducir una cancion especifica, usa SPOTIFY_SEARCH_AND_PLAY con "artista cancion".
 
 No uses acciones si solo estan conversando.
 """.strip()

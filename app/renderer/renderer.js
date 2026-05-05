@@ -122,6 +122,8 @@ function actionLabel(action) {
     MEDIA_PLAY_PAUSE: 'Play/Pause',
     MEDIA_NEXT: 'Siguiente cancion',
     MEDIA_PREVIOUS: 'Cancion anterior',
+    SPOTIFY_SEARCH: 'Buscar en Spotify',
+    SPOTIFY_SEARCH_AND_PLAY: 'Buscar y reproducir en Spotify',
     SHOW_AVATAR: 'Mostrar avatar',
     HIDE_AVATAR: 'Ocultar avatar',
   };

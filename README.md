@@ -85,6 +85,8 @@ Supported actions:
 - `MEDIA_PLAY_PAUSE`: toggle media playback.
 - `MEDIA_NEXT`: skip to the next track.
 - `MEDIA_PREVIOUS`: go to the previous track.
+- `SPOTIFY_SEARCH`: open a Spotify search.
+- `SPOTIFY_SEARCH_AND_PLAY`: open a Spotify search and click the first result.
 - `SHOW_AVATAR` / `HIDE_AVATAR`: show or hide the avatar window.
 
 Spotify can be opened with `OPEN_APP "spotify"`. Media controls use the OS media layer, so they can control Spotify or another active media player depending on the system.
