@@ -31,6 +31,10 @@ let drag = {
   startWindowX: 0,
   startWindowY: 0,
   dragging: false,
+  lastWindowX: 0,
+  lastWindowY: 0,
+  velocityX: 0,
+  velocityY: 0,
 };
 let look = { x: 0, y: 0 };
 let saccade = { x: 0, y: 0, nextAt: 0 };
@@ -198,10 +202,13 @@ function bindAvatarInteraction(target) {
       const distance = Math.hypot(dx, dy);
       if (distance > 6) drag.dragging = true;
       if (drag.dragging) {
-        window.rainyDesktop?.setWindowPosition({
-          x: drag.startWindowX + dx,
-          y: drag.startWindowY + dy,
-        });
+        const newX = drag.startWindowX + dx;
+        const newY = drag.startWindowY + dy;
+        drag.velocityX = newX - drag.lastWindowX;
+        drag.velocityY = newY - drag.lastWindowY;
+        drag.lastWindowX = newX;
+        drag.lastWindowY = newY;
+        window.rainyDesktop?.setWindowPosition({ x: newX, y: newY });
       }
     }
   }, { passive: true });
@@ -219,6 +226,10 @@ function bindAvatarInteraction(target) {
       startClientY: event.screenY,
       startWindowX: position.x,
       startWindowY: position.y,
+      lastWindowX: position.x,
+      lastWindowY: position.y,
+      velocityX: 0,
+      velocityY: 0,
       dragging: false,
     };
     target.setPointerCapture?.(event.pointerId);
@@ -229,8 +240,14 @@ function bindAvatarInteraction(target) {
     const wasDragging = drag.dragging;
     drag.pointerId = null;
     drag.dragging = false;
+    drag.velocityX = 0;
+    drag.velocityY = 0;
     target.releasePointerCapture?.(event.pointerId);
-    if (!wasDragging) triggerReaction();
+    if (wasDragging) {
+      triggerLanding();
+    } else {
+      triggerReaction();
+    }
   });
 
   target.addEventListener('pointercancel', (event) => {
@@ -247,6 +264,18 @@ function triggerReaction() {
   reactionKind = Math.random() > 0.35 ? 'bounce' : 'shy';
   activeExpression = reactionKind === 'shy' ? 'shy' : 'happy';
   applyExpressions();
+}
+
+function triggerLanding() {
+  if (!clock) return;
+  reactionUntil = clock.elapsedTime + 1.0;
+  reactionKind = 'landing';
+  activeExpression = 'surprised';
+  applyExpressions();
+}
+
+export function isDragging() {
+  return drag.dragging;
 }
 
 function loadVRM(url) {
@@ -304,11 +333,62 @@ function updateIdlePose(elapsed) {
   const leftLowerArm = getBone('leftLowerArm');
   const rightLowerArm = getBone('rightLowerArm');
   const hips = getBone('hips');
+  const leftUpperLeg = getBone('leftUpperLeg');
+  const rightUpperLeg = getBone('rightUpperLeg');
+  const leftLowerLeg = getBone('leftLowerLeg');
+  const rightLowerLeg = getBone('rightLowerLeg');
 
   const reaction = Math.max(0, reactionUntil - elapsed);
   const reactionPulse = reaction > 0 ? Math.sin((0.75 - reaction) * Math.PI * 3.2) * reaction : 0;
+  const landingPulse = (reaction > 0 && reactionKind === 'landing')
+    ? Math.max(0, Math.sin(reaction * Math.PI * 4) * Math.min(1, reaction * 3)) * 0.12
+    : 0;
   const speakingPulse = avatarState === 'speaking' ? currentLip : 0;
   const listeningTilt = avatarState === 'listening' ? 0.035 : 0;
+
+  if (drag.dragging) {
+    const vx = clampNumber(drag.velocityX * 0.003, -0.35, 0.35);
+    const vy = clampNumber(drag.velocityY * 0.002, -0.2, 0.2);
+    const sway = Math.sin(elapsed * 3.5) * 0.04;
+    const legSwing = Math.sin(elapsed * 4.2) * 0.15;
+
+    if (hips) {
+      hips.position.y = -0.03 + Math.sin(elapsed * 3.8) * 0.012;
+      hips.rotation.z = vx * 0.3;
+    }
+    if (spine) spine.rotation.z = vx * 0.15 + sway;
+    if (chest) chest.rotation.x = -0.08 + vy * 0.2;
+    if (neck) neck.rotation.x = 0.12 + vy * 0.15;
+    if (head) {
+      head.rotation.y = -vx * 0.5;
+      head.rotation.x = 0.08 + vy * 0.12;
+      head.rotation.z = vx * 0.2;
+    }
+    if (leftUpperArm) {
+      leftUpperArm.rotation.z = 0.3 + Math.sin(elapsed * 4.0) * 0.12;
+      leftUpperArm.rotation.x = -0.6;
+    }
+    if (rightUpperArm) {
+      rightUpperArm.rotation.z = -0.3 - Math.sin(elapsed * 4.0) * 0.12;
+      rightUpperArm.rotation.x = -0.6;
+    }
+    if (leftLowerArm) leftLowerArm.rotation.x = -0.8;
+    if (rightLowerArm) rightLowerArm.rotation.x = -0.8;
+    if (leftUpperLeg) {
+      leftUpperLeg.rotation.x = 0.3 + legSwing;
+      leftUpperLeg.rotation.z = 0.08;
+    }
+    if (rightUpperLeg) {
+      rightUpperLeg.rotation.x = 0.3 - legSwing;
+      rightUpperLeg.rotation.z = -0.08;
+    }
+    if (leftLowerLeg) leftLowerLeg.rotation.x = -0.5 + Math.sin(elapsed * 4.8) * 0.08;
+    if (rightLowerLeg) rightLowerLeg.rotation.x = -0.5 - Math.sin(elapsed * 4.8) * 0.08;
+
+    setExpressionValue('surprised', 0.7);
+    setExpressionValue('happy', 0.2);
+    return;
+  }
 
   if (head) {
     head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
@@ -318,11 +398,15 @@ function updateIdlePose(elapsed) {
   if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025;
   if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionPulse * 0.025;
   if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018;
-  if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + Math.max(0, reactionPulse) * 0.04;
+  if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + Math.max(0, reactionPulse) * 0.04 - landingPulse;
   if (leftUpperArm) leftUpperArm.rotation.z = 1.15 + Math.sin(elapsed * 0.8) * 0.035 * motion + reactionPulse * 0.08;
   if (rightUpperArm) rightUpperArm.rotation.z = -1.15 - Math.sin(elapsed * 0.8) * 0.035 * motion - reactionPulse * 0.08;
   if (leftLowerArm) leftLowerArm.rotation.x = Math.sin(elapsed * 0.9 + 0.8) * 0.025 * motion;
   if (rightLowerArm) rightLowerArm.rotation.x = Math.sin(elapsed * 0.9 + 2.2) * 0.025 * motion;
+  if (leftUpperLeg) leftUpperLeg.rotation.x = 0;
+  if (rightUpperLeg) rightUpperLeg.rotation.x = 0;
+  if (leftLowerLeg) leftLowerLeg.rotation.x = 0;
+  if (rightLowerLeg) rightLowerLeg.rotation.x = 0;
 }
 
 function updateLookTarget(elapsed, motion) {
