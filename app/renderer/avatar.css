@@ -69,6 +69,9 @@ button {
 
 .avatar-root {
   -webkit-app-region: no-drag;
+  --drag-trail-x: 0px;
+  --drag-trail-y: 0px;
+  --drag-trail-opacity: 0;
   position: relative;
   width: 100%;
   height: 100%;
@@ -77,6 +80,27 @@ button {
   overflow: visible;
   background: transparent;
   pointer-events: auto;
+}
+
+.avatar-root::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 220px;
+  height: 220px;
+  transform: translate(-50%, -50%) translate(var(--drag-trail-x), var(--drag-trail-y));
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(147, 214, 255, 0.22) 0%, rgba(113, 182, 255, 0.12) 45%, rgba(113, 182, 255, 0) 74%);
+  filter: blur(12px);
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.avatar-root.dragging::before {
+  opacity: var(--drag-trail-opacity);
 }
 
 .vrm-layer {

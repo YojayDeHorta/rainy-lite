@@ -28,9 +28,25 @@ let drag = {
   pointerId: null,
   startClientX: 0,
   startClientY: 0,
+  lastScreenX: 0,
+  lastScreenY: 0,
+  lastMoveAt: 0,
   startWindowX: 0,
   startWindowY: 0,
   dragging: false,
+};
+let dragFx = {
+  root: null,
+  isDragging: false,
+  targetTiltX: 0,
+  targetTiltZ: 0,
+  tiltX: 0,
+  tiltZ: 0,
+  velocityX: 0,
+  velocityY: 0,
+  trailX: 0,
+  trailY: 0,
+  trailPower: 0,
 };
 let look = { x: 0, y: 0 };
 let saccade = { x: 0, y: 0, nextAt: 0 };
@@ -56,6 +72,7 @@ export async function initAvatar() {
   const container = document.getElementById('vrm-layer');
   const root = document.getElementById('avatar-root');
   if (!container || renderer) return false;
+  dragFx.root = root;
 
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(24, 1, 0.1, 20);
@@ -198,11 +215,29 @@ function bindAvatarInteraction(target) {
       const distance = Math.hypot(dx, dy);
       if (distance > 6) drag.dragging = true;
       if (drag.dragging) {
+        const now = performance.now();
+        const dt = Math.max(1, now - drag.lastMoveAt);
+        const frameDx = event.screenX - drag.lastScreenX;
+        const frameDy = event.screenY - drag.lastScreenY;
+        const speedX = frameDx / dt;
+        const speedY = frameDy / dt;
+        dragFx.velocityX += (speedX - dragFx.velocityX) * 0.35;
+        dragFx.velocityY += (speedY - dragFx.velocityY) * 0.35;
+        dragFx.targetTiltZ = clampNumber(-dragFx.velocityX * 0.35, -0.22, 0.22, 0);
+        dragFx.targetTiltX = clampNumber(dragFx.velocityY * 0.22, -0.14, 0.14, 0);
+        dragFx.trailX += ((-frameDx * 1.4) - dragFx.trailX) * 0.3;
+        dragFx.trailY += ((-frameDy * 1.4) - dragFx.trailY) * 0.3;
+        dragFx.trailPower = Math.min(1, Math.hypot(dragFx.velocityX, dragFx.velocityY) * 10);
+        setDraggingVisual(true);
+
         window.rainyDesktop?.setWindowPosition({
           x: drag.startWindowX + dx,
           y: drag.startWindowY + dy,
         });
       }
+      drag.lastScreenX = event.screenX;
+      drag.lastScreenY = event.screenY;
+      drag.lastMoveAt = performance.now();
     }
   }, { passive: true });
 
@@ -217,6 +252,9 @@ function bindAvatarInteraction(target) {
       pointerId: event.pointerId,
       startClientX: event.screenX,
       startClientY: event.screenY,
+      lastScreenX: event.screenX,
+      lastScreenY: event.screenY,
+      lastMoveAt: performance.now(),
       startWindowX: position.x,
       startWindowY: position.y,
       dragging: false,
@@ -229,6 +267,7 @@ function bindAvatarInteraction(target) {
     const wasDragging = drag.dragging;
     drag.pointerId = null;
     drag.dragging = false;
+    setDraggingVisual(false);
     target.releasePointerCapture?.(event.pointerId);
     if (!wasDragging) triggerReaction();
   });
@@ -237,8 +276,20 @@ function bindAvatarInteraction(target) {
     if (drag.pointerId !== event.pointerId) return;
     drag.pointerId = null;
     drag.dragging = false;
+    setDraggingVisual(false);
     target.releasePointerCapture?.(event.pointerId);
   });
+}
+
+function setDraggingVisual(active) {
+  dragFx.isDragging = active;
+  if (!active) {
+    dragFx.targetTiltX = 0;
+    dragFx.targetTiltZ = 0;
+  }
+  if (dragFx.root) {
+    dragFx.root.classList.toggle('dragging', active);
+  }
 }
 
 function triggerReaction() {
@@ -285,6 +336,7 @@ function animate() {
   updateAutoExpression(elapsed);
   updateBlink(elapsed);
   updateLip(delta);
+  updateDragVisuals(delta);
   currentVrm?.update(delta);
   renderer.render(scene, camera);
 }
@@ -309,14 +361,16 @@ function updateIdlePose(elapsed) {
   const reactionPulse = reaction > 0 ? Math.sin((0.75 - reaction) * Math.PI * 3.2) * reaction : 0;
   const speakingPulse = avatarState === 'speaking' ? currentLip : 0;
   const listeningTilt = avatarState === 'listening' ? 0.035 : 0;
+  const dragTiltX = dragFx.tiltX;
+  const dragTiltZ = dragFx.tiltZ;
 
   if (head) {
     head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
-    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.05;
-    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionPulse * 0.08;
+    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.05 + dragTiltX * 0.55;
+    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionPulse * 0.08 + dragTiltZ * 0.6;
   }
-  if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025;
-  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionPulse * 0.025;
+  if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025 + dragTiltX * 0.4;
+  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionPulse * 0.025 + dragTiltZ * 0.45;
   if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018;
   if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + Math.max(0, reactionPulse) * 0.04;
   if (leftUpperArm) leftUpperArm.rotation.z = 1.15 + Math.sin(elapsed * 0.8) * 0.035 * motion + reactionPulse * 0.08;
@@ -359,6 +413,27 @@ function updateAutoExpression(elapsed) {
 function updateLip(delta) {
   currentLip += (targetLip - currentLip) * Math.min(1, delta * 18);
   setExpressionValue('aa', currentLip);
+}
+
+function updateDragVisuals(delta) {
+  const tiltSmoothing = Math.min(1, delta * 14);
+  const releaseSmoothing = Math.min(1, delta * 5);
+  dragFx.tiltX += (dragFx.targetTiltX - dragFx.tiltX) * tiltSmoothing;
+  dragFx.tiltZ += (dragFx.targetTiltZ - dragFx.tiltZ) * tiltSmoothing;
+
+  if (!dragFx.isDragging) {
+    dragFx.velocityX += (0 - dragFx.velocityX) * releaseSmoothing;
+    dragFx.velocityY += (0 - dragFx.velocityY) * releaseSmoothing;
+    dragFx.trailX += (0 - dragFx.trailX) * releaseSmoothing;
+    dragFx.trailY += (0 - dragFx.trailY) * releaseSmoothing;
+    dragFx.trailPower += (0 - dragFx.trailPower) * releaseSmoothing;
+  }
+
+  if (dragFx.root) {
+    dragFx.root.style.setProperty('--drag-trail-x', `${dragFx.trailX.toFixed(1)}px`);
+    dragFx.root.style.setProperty('--drag-trail-y', `${dragFx.trailY.toFixed(1)}px`);
+    dragFx.root.style.setProperty('--drag-trail-opacity', `${(dragFx.trailPower * 0.42).toFixed(3)}`);
+  }
 }
 
 function updateBlink(elapsed) {
