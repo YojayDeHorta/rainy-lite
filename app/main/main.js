@@ -64,10 +64,10 @@ function baseWindowOptions(extra = {}) {
 
 function createAvatarWindow() {
   avatarWindow = new BrowserWindow(baseWindowOptions({
-    width: 320,
-    height: 460,
-    minWidth: 220,
-    minHeight: 280,
+    width: 380,
+    height: 680,
+    minWidth: 240,
+    minHeight: 360,
     alwaysOnTop: true,
     skipTaskbar: false,
   }));

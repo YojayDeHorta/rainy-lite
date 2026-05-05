@@ -2,7 +2,6 @@ import { initAvatar, setAvatarEmotion, setAvatarLipSync } from './avatar-vrm.js'
 
 const API_BASE = 'http://127.0.0.1:8765';
 
-const bubble = document.getElementById('avatar-bubble');
 const avatarFace = document.getElementById('avatar-face');
 const mouth = document.getElementById('mouth');
 
@@ -76,7 +75,6 @@ function playWithLipSync(url) {
 window.rainyDesktop.onAvatarSpeak((payload) => {
   const text = payload?.text || '';
   const emotion = payload?.emotion || 'neutral';
-  bubble.textContent = text || '...';
   setEmotion(emotion);
   speak(text);
 });

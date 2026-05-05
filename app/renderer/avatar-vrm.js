@@ -31,8 +31,9 @@ export async function initAvatar() {
   if (!container || renderer) return false;
 
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(28, 1, 0.1, 20);
-  camera.position.set(0, 1.35, 4.0);
+  camera = new THREE.PerspectiveCamera(22, 1, 0.1, 20);
+  camera.position.set(0, 1.2, 2.15);
+  camera.lookAt(0, 1.12, 0);
 
   renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);
@@ -100,7 +101,8 @@ function loadVRM(url) {
           currentVrm = gltf.userData.vrm;
           if (!currentVrm) throw new Error('File loaded, but no VRM data was found.');
           currentVrm.scene.rotation.y = Math.PI;
-          currentVrm.scene.position.set(0, -0.78, 0);
+          currentVrm.scene.position.set(0, 0.02, 0);
+          currentVrm.scene.scale.setScalar(1.25);
           scene.add(currentVrm.scene);
           resolve(currentVrm);
         } catch (error) {

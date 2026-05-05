@@ -1,8 +1,7 @@
 :root {
   color-scheme: dark;
-  --line: rgba(178, 220, 255, 0.18);
+  --line: rgba(178, 220, 255, 0.22);
   --text: #edf7ff;
-  --muted: #b8d2e6;
 }
 
 * {
@@ -28,7 +27,7 @@ button {
   position: relative;
   width: 100vw;
   height: 100vh;
-  padding: 8px;
+  background: transparent;
 }
 
 .avatar-titlebar {
@@ -39,17 +38,23 @@ button {
   z-index: 10;
   display: flex;
   gap: 6px;
+  opacity: 0.12;
+  transition: opacity 140ms ease;
+}
+
+.avatar-titlebar:hover {
+  opacity: 1;
 }
 
 .avatar-titlebar button {
   -webkit-app-region: no-drag;
-  min-width: 34px;
-  height: 30px;
-  padding: 0 10px;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 9px;
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--text);
-  background: rgba(8, 13, 24, 0.48);
+  background: rgba(8, 13, 24, 0.32);
   backdrop-filter: blur(16px);
   cursor: pointer;
 }
@@ -57,20 +62,19 @@ button {
 .avatar-stage {
   -webkit-app-region: drag;
   width: 100%;
-  height: calc(100% - 70px);
+  height: 100%;
   display: grid;
   place-items: center;
 }
 
 .avatar-root {
   position: relative;
-  width: min(96vw, 330px);
-  height: min(96vw, 330px);
+  width: 100%;
+  height: 100%;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  overflow: hidden;
-  background: radial-gradient(circle at 50% 34%, rgba(185, 223, 255, 0.22), rgba(48, 65, 99, 0.12) 48%, rgba(7, 12, 26, 0.02) 70%);
+  overflow: visible;
+  background: transparent;
 }
 
 .vrm-layer {
@@ -89,40 +93,11 @@ button {
   display: none;
 }
 
-.avatar-root.vrm-loaded .halo {
-  z-index: 1;
-}
-
-.avatar-root.vrm-loaded .rain {
-  z-index: 3;
-  pointer-events: none;
-}
-
-.halo {
-  position: absolute;
-  width: 68%;
-  height: 68%;
-  border-radius: 50%;
-  border: 1px solid rgba(121, 199, 255, 0.24);
-  box-shadow: inset 0 0 24px rgba(121, 199, 255, 0.16), 0 0 42px rgba(121, 199, 255, 0.18);
-  animation: float 5s ease-in-out infinite;
-}
-
-.rain {
-  position: absolute;
-  inset: -30%;
-  background-image: linear-gradient(transparent 0 55%, rgba(173, 219, 255, 0.38) 56% 58%, transparent 59%);
-  background-size: 18px 54px;
-  transform: rotate(12deg);
-  animation: rain 0.75s linear infinite;
-  opacity: 0.5;
-}
-
 .avatar-face {
   position: relative;
   z-index: 4;
-  width: 128px;
-  height: 128px;
+  width: 160px;
+  height: 160px;
   border-radius: 42% 42% 48% 48%;
   background: linear-gradient(180deg, #eef8ff, #bedfff);
   box-shadow: 0 22px 45px rgba(27, 66, 108, 0.32);
@@ -132,23 +107,23 @@ button {
 .eyes {
   display: flex;
   justify-content: center;
-  gap: 28px;
-  padding-top: 48px;
+  gap: 36px;
+  padding-top: 62px;
 }
 
 .eyes span {
   display: block;
-  width: 13px;
-  height: 18px;
+  width: 15px;
+  height: 20px;
   border-radius: 999px;
   background: #18314a;
   box-shadow: 0 0 0 4px rgba(121, 199, 255, 0.2);
 }
 
 .mouth {
-  width: 28px;
-  height: 8px;
-  margin: 24px auto 0;
+  width: 34px;
+  height: 9px;
+  margin: 28px auto 0;
   border-radius: 0 0 999px 999px;
   background: #28516e;
   transform-origin: center top;
@@ -157,7 +132,7 @@ button {
 
 .avatar-face.happy .eyes span {
   height: 7px;
-  margin-top: 5px;
+  margin-top: 6px;
 }
 
 .avatar-face.sad {
@@ -165,37 +140,9 @@ button {
 }
 
 .avatar-face.surprised .mouth {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-}
-
-.avatar-bubble {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 10px;
-  min-height: 46px;
-  max-height: 92px;
-  overflow: hidden;
-  padding: 10px 13px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: rgba(7, 12, 22, 0.46);
-  color: var(--muted);
-  text-align: center;
-  line-height: 1.35;
-  backdrop-filter: blur(18px);
-}
-
-@keyframes rain {
-  from { transform: translateY(-20px) rotate(12deg); }
-  to { transform: translateY(34px) rotate(12deg); }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-8px) scale(1.03); }
 }
 
 @keyframes breathe {

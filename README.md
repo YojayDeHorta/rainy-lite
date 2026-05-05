@@ -52,6 +52,8 @@ Rainy opens two windows:
 - Avatar window: the floating assistant meant to stay over the desktop.
 - Chat window: text chat, microphone button and controls.
 
+The avatar window is intentionally clean: it only shows the character. Text responses stay in the chat window.
+
 ## Avatar
 
 Rainy looks for a VRM model at:
