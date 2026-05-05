@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rainy Lite</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.154.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.154.0/examples/jsm/",
+          "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@2.0.0/lib/three-vrm.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <header class="titlebar">
+          <div class="brand">
+            <span class="status-dot" id="status-dot"></span>
+            <span>Rainy Lite</span>
+          </div>
+          <div class="window-actions">
+            <button id="pin-button" title="Siempre encima">Pin</button>
+            <button id="min-button" title="Minimizar">_</button>
+            <button id="close-button" title="Ocultar">x</button>
+          </div>
+        </header>
+
+        <section class="stage">
+          <div id="avatar-root" class="avatar-root" aria-label="Rainy avatar placeholder">
+            <div id="vrm-layer" class="vrm-layer"></div>
+            <div class="rain"></div>
+            <div class="halo"></div>
+            <div class="avatar-face" id="avatar-face">
+              <div class="eyes">
+                <span></span>
+                <span></span>
+              </div>
+              <div class="mouth" id="mouth"></div>
+            </div>
+          </div>
+          <div class="subtitle" id="subtitle">Pulsa Ctrl+Shift+R o escribe para hablar conmigo.</div>
+        </section>
+
+        <section class="chat" id="chat-log"></section>
+
+        <footer class="composer">
+          <button id="voice-button" class="voice-button" title="Hablar">Mic</button>
+          <input id="message-input" type="text" placeholder="Dile algo a Rainy..." />
+          <button id="send-button">Enviar</button>
+        </footer>
+      </section>
+    </main>
+
+    <script src="renderer.js" type="module"></script>
+  </body>
+</html>

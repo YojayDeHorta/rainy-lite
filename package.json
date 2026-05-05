@@ -1,0 +1,15 @@
+{
+  "name": "rainy-lite",
+  "version": "0.1.0",
+  "description": "Desktop AI companion for Windows.",
+  "main": "app/main/main.js",
+  "private": true,
+  "scripts": {
+    "dev": "electron .",
+    "backend": "python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8765",
+    "backend:win": "python -m uvicorn backend.main:app --host 127.0.0.1 --port 8765"
+  },
+  "devDependencies": {
+    "electron": "^39.2.6"
+  }
+}

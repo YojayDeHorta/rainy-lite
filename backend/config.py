@@ -1,0 +1,38 @@
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT_DIR / "data"
+TEMP_DIR = ROOT_DIR / "temp"
+
+load_dotenv(ROOT_DIR / ".env")
+
+DATA_DIR.mkdir(exist_ok=True)
+TEMP_DIR.mkdir(exist_ok=True)
+
+APP_HOST = os.getenv("RAINY_HOST", "127.0.0.1")
+APP_PORT = int(os.getenv("RAINY_PORT", "8765"))
+
+AI_PROVIDER = os.getenv("AI_PROVIDER", "local").strip().lower()
+AI_MODEL = os.getenv("AI_MODEL", "gemini-1.5-flash")
+AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.8"))
+
+GEMINI_KEY = os.getenv("GEMINI_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1")
+
+STT_PROVIDER = os.getenv("STT_PROVIDER", "groq").strip().lower()
+STT_LANGUAGE = os.getenv("STT_LANGUAGE", "es")
+TTS_VOICE = os.getenv("TTS_VOICE", "es-MX-DaliaNeural")
+TTS_RATE = os.getenv("TTS_RATE", "+8%")
+TTS_PITCH = os.getenv("TTS_PITCH", "+20Hz")
+
+SQLITE_PATH = DATA_DIR / "rainy.sqlite"
