@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ai_core, config, memory, stt, tts
+from . import ai_core, config, memory, spotify, stt, tts
 
 
 class ChatRequest(BaseModel):
@@ -79,6 +79,17 @@ def remember(req: MemoryRequest):
 @app.get("/api/memory")
 def memories():
     return {"items": memory.get_memories()}
+
+
+@app.get("/api/spotify/search")
+async def spotify_search(q: str = "", limit: int = 5):
+    if not q.strip():
+        raise HTTPException(status_code=400, detail="q is required")
+    try:
+        tracks = spotify.search_track(q.strip(), limit=limit)
+        return {"tracks": tracks}
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.post("/api/tts")

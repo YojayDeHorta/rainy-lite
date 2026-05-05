@@ -29,6 +29,9 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1")
 
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
+
 STT_PROVIDER = os.getenv("STT_PROVIDER", "groq").strip().lower()
 STT_LANGUAGE = os.getenv("STT_LANGUAGE", "es")
 TTS_VOICE = os.getenv("TTS_VOICE", "es-MX-DaliaNeural")

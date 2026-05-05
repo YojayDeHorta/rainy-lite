@@ -1,4 +1,4 @@
-const { app, BrowserWindow, clipboard, globalShortcut, ipcMain, screen, shell } = require('electron');
+const { app, BrowserWindow, clipboard, globalShortcut, ipcMain, net, screen, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -212,15 +212,17 @@ async function executeAction(action) {
     return { ok: true, message: `URL abierta: ${url.toString()}` };
   }
 
-  if (type === 'SPOTIFY_SEARCH' || type === 'SPOTIFY_SEARCH_AND_PLAY') {
+  if (type === 'SPOTIFY_SEARCH') {
     if (!payload) throw new Error('Falta la busqueda de Spotify.');
     await openSpotifySearch(payload);
-    if (type === 'SPOTIFY_SEARCH_AND_PLAY') {
-      await sleep(1200);
-      await playSpotifyQuickSearch(payload);
-      return { ok: true, message: `Buscando y reproduciendo en Spotify: ${payload}` };
-    }
     return { ok: true, message: `Busqueda abierta en Spotify: ${payload}` };
+  }
+
+  if (type === 'SPOTIFY_SEARCH_AND_PLAY') {
+    if (!payload) throw new Error('Falta la busqueda de Spotify.');
+    const track = await searchSpotifyTrack(payload);
+    await shell.openExternal(track.uri);
+    return { ok: true, message: `Reproduciendo en Spotify: ${track.name} - ${track.artists}` };
   }
 
   if (type === 'OPEN_FOLDER') {
@@ -321,77 +323,30 @@ function openSpotifySearch(query) {
   return shell.openExternal(`spotify:search:${encodedQuery}`);
 }
 
-async function playSpotifyQuickSearch(query) {
-  if (process.platform === 'win32') {
-    return executeWindowsSpotifyQuickSearch(query);
-  }
-
-  if (process.platform === 'darwin') {
-    clipboard.writeText(query);
-    return spawnAndWait('osascript', [
-      '-e', 'tell application "Spotify" to activate',
-      '-e', 'delay 0.5',
-      '-e', 'tell application "System Events" to keystroke "k" using command down',
-      '-e', 'delay 0.2',
-      '-e', 'tell application "System Events" to keystroke "v" using command down',
-      '-e', 'delay 0.2',
-      '-e', 'tell application "System Events" to key code 36',
-    ]);
-  }
-
-  await spawnAndWait('xdotool', ['search', '--name', 'Spotify', 'windowactivate', '--sync']);
-  await spawnAndWait('xdotool', ['key', 'ctrl+k']);
-  await spawnAndWait('xdotool', ['type', '--clearmodifiers', query]);
-  return spawnAndWait('xdotool', ['key', 'Return']);
-}
-
-async function executeWindowsSpotifyQuickSearch(query) {
-  const previousClipboard = clipboard.readText();
-  clipboard.writeText(query);
-
-  try {
-    return await executeWindowsSpotifyQuickSearchScript();
-  } finally {
-    setTimeout(() => clipboard.writeText(previousClipboard), 500);
-  }
-}
-
-function executeWindowsSpotifyQuickSearchScript() {
-  const script = `
-$code = @"
-using System;
-using System.Runtime.InteropServices;
-public class RainyWin {
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-  [DllImport("user32.dll", SetLastError = true)] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
-}
-"@
-Add-Type -TypeDefinition $code
-$proc = Get-Process Spotify -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-if (-not $proc) { throw "No encontre la ventana de Spotify." }
-$hwnd = $proc.MainWindowHandle
-[RainyWin]::SetForegroundWindow($hwnd) | Out-Null
-Start-Sleep -Milliseconds 700
-[RainyWin]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero)
-[RainyWin]::keybd_event(0x4B, 0, 0, [UIntPtr]::Zero)
-[RainyWin]::keybd_event(0x4B, 0, 2, [UIntPtr]::Zero)
-[RainyWin]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero)
-Start-Sleep -Milliseconds 250
-[RainyWin]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero)
-[RainyWin]::keybd_event(0x56, 0, 0, [UIntPtr]::Zero)
-[RainyWin]::keybd_event(0x56, 0, 2, [UIntPtr]::Zero)
-[RainyWin]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero)
-Start-Sleep -Milliseconds 350
-[RainyWin]::keybd_event(0x0D, 0, 0, [UIntPtr]::Zero)
-[RainyWin]::keybd_event(0x0D, 0, 2, [UIntPtr]::Zero)
-`;
-  const encoded = Buffer.from(script, 'utf16le').toString('base64');
-  return spawnAndWait('powershell.exe', [
-    '-NoProfile',
-    '-ExecutionPolicy', 'Bypass',
-    '-WindowStyle', 'Hidden',
-    '-EncodedCommand', encoded,
-  ], { windowsHide: true });
+function searchSpotifyTrack(query) {
+  return new Promise((resolve, reject) => {
+    const request = net.request({
+      url: `http://127.0.0.1:8765/api/spotify/search?q=${encodeURIComponent(query)}&limit=1`,
+    });
+    let body = '';
+    request.on('response', (response) => {
+      response.on('data', (chunk) => { body += chunk.toString(); });
+      response.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.tracks && data.tracks.length > 0) {
+            resolve(data.tracks[0]);
+          } else {
+            reject(new Error(`No encontre "${query}" en Spotify.`));
+          }
+        } catch (e) {
+          reject(new Error(body || 'Error al buscar en Spotify.'));
+        }
+      });
+    });
+    request.on('error', (err) => reject(new Error(`Spotify API error: ${err.message}`)));
+    request.end();
+  });
 }
 
 function sleep(ms) {
