@@ -7,6 +7,9 @@ let chatWindow;
 let avatarWindow;
 let backendProcess;
 let cursorTrackingId;
+let spotifyMonitorId;
+let spotifyCheckInFlight = false;
+let spotifyPlaying = false;
 
 function getPythonCommand(rootDir) {
   const venvPython = process.platform === 'win32'
@@ -136,6 +139,17 @@ function updateAvatarState(state) {
   }
 }
 
+function updateAvatarSpotifyPlayback(isPlaying) {
+  if (!avatarWindow) createAvatarWindow();
+  spotifyPlaying = Boolean(isPlaying);
+  const send = () => avatarWindow?.webContents.send('rainy:spotify-playback', { isPlaying: spotifyPlaying });
+  if (avatarWindow.webContents.isLoading()) {
+    avatarWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+}
+
 function startGlobalCursorTracking() {
   if (cursorTrackingId) return;
   cursorTrackingId = setInterval(() => {
@@ -147,6 +161,30 @@ function startGlobalCursorTracking() {
       bounds: avatarWindow.getBounds(),
     });
   }, 33);
+}
+
+function startSpotifyMonitor() {
+  if (process.platform !== 'win32' || spotifyMonitorId) return;
+  spotifyMonitorId = setInterval(async () => {
+    if (spotifyCheckInFlight) return;
+    spotifyCheckInFlight = true;
+    try {
+      const next = await queryWindowsSpotifyPlaying();
+      if (next !== spotifyPlaying) {
+        updateAvatarSpotifyPlayback(next);
+      }
+    } catch (_) {
+      if (spotifyPlaying) updateAvatarSpotifyPlayback(false);
+    } finally {
+      spotifyCheckInFlight = false;
+    }
+  }, 800);
+}
+
+function stopSpotifyMonitor() {
+  if (!spotifyMonitorId) return;
+  clearInterval(spotifyMonitorId);
+  spotifyMonitorId = null;
 }
 
 const APP_COMMANDS = {
@@ -318,6 +356,49 @@ Start-Sleep -Milliseconds 50
   ], { windowsHide: true });
 }
 
+function queryWindowsSpotifyPlaying() {
+  const script = `
+$ErrorActionPreference = "SilentlyContinue"
+if (-not (Get-Process -Name "Spotify" -ErrorAction SilentlyContinue)) {
+  Write-Output "paused"
+  exit 0
+}
+$titles = Get-Process -Name "Spotify" -ErrorAction SilentlyContinue |
+  Where-Object { $_.MainWindowTitle -and $_.MainWindowTitle.Trim().Length -gt 0 } |
+  Select-Object -ExpandProperty MainWindowTitle
+if (-not $titles -or $titles.Count -eq 0) {
+  Write-Output "paused"
+  exit 0
+}
+$candidate = ($titles | Sort-Object Length -Descending | Select-Object -First 1).Trim()
+if ($candidate -match "^(Spotify|Spotify Premium|Spotify Free)$") {
+  Write-Output "paused"
+  exit 0
+}
+Write-Output "playing"
+`;
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
+  return new Promise((resolve) => {
+    const child = spawn('powershell.exe', [
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-WindowStyle', 'Hidden',
+      '-EncodedCommand', encoded,
+    ], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    let stdout = '';
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+    child.on('error', () => resolve(false));
+    child.on('exit', () => {
+      resolve(stdout.trim().toLowerCase().includes('playing'));
+    });
+  });
+}
+
 function openSpotifySearch(query) {
   const encodedQuery = encodeURIComponent(query).replace(/%20/g, '+');
   return shell.openExternal(`spotify:search:${encodedQuery}`);
@@ -378,6 +459,7 @@ app.whenReady().then(() => {
   createAvatarWindow();
   createChatWindow();
   startGlobalCursorTracking();
+  startSpotifyMonitor();
 
   globalShortcut.register('CommandOrControl+Shift+R', () => {
     if (!chatWindow) return;
@@ -399,6 +481,7 @@ app.on('will-quit', () => {
     clearInterval(cursorTrackingId);
     cursorTrackingId = null;
   }
+  stopSpotifyMonitor();
   if (backendProcess) {
     backendProcess.kill();
     backendProcess = null;

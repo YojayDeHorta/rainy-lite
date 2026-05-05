@@ -6,6 +6,21 @@ const avatarFace = document.getElementById('avatar-face');
 const mouth = document.getElementById('mouth');
 
 let audioContext = null;
+let isSpeaking = false;
+let spotifyPlaying = false;
+let requestedState = 'idle';
+let appliedState = 'idle';
+
+function resolveAvatarState() {
+  let next = 'idle';
+  if (isSpeaking) next = 'speaking';
+  else if (requestedState === 'listening' || requestedState === 'thinking') next = requestedState;
+  else if (spotifyPlaying) next = 'dancing';
+  if (next !== appliedState) {
+    appliedState = next;
+    setAvatarState(next);
+  }
+}
 
 function setFallbackEmotion(emotion) {
   avatarFace.className = 'avatar-face';
@@ -63,16 +78,21 @@ function playWithLipSync(url) {
   }
 
   audio.onplay = tick;
-  audio.onplaying = () => setAvatarState('speaking');
+  audio.onplaying = () => {
+    isSpeaking = true;
+    resolveAvatarState();
+  };
   audio.onended = () => {
     mouth.style.transform = 'scaleY(1)';
     mouth.style.height = '8px';
     setAvatarLipSync(0);
     setEmotion('neutral');
-    setAvatarState('idle');
+    isSpeaking = false;
+    resolveAvatarState();
   };
   audio.play().catch((error) => {
-    setAvatarState('idle');
+    isSpeaking = false;
+    resolveAvatarState();
     console.error(error);
   });
 }
@@ -85,7 +105,14 @@ window.rainyDesktop.onAvatarSpeak((payload) => {
 });
 
 window.rainyDesktop.onAvatarSettings((settings) => updateAvatarSettings(settings));
-window.rainyDesktop.onAvatarState((state) => setAvatarState(state));
+window.rainyDesktop.onAvatarState((state) => {
+  requestedState = String(state || 'idle').toLowerCase();
+  resolveAvatarState();
+});
+window.rainyDesktop.onSpotifyPlayback((payload) => {
+  spotifyPlaying = Boolean(payload?.isPlaying);
+  resolveAvatarState();
+});
 window.rainyDesktop.onGlobalCursor((payload) => updateGlobalCursor(payload));
 
 document.getElementById('close-button').addEventListener('click', () => window.rainyDesktop.close());

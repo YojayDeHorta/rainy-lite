@@ -217,9 +217,10 @@ export function setAvatarEmotion(emotion) {
 
 export function setAvatarState(state) {
   const next = String(state || 'idle').toLowerCase();
-  avatarState = ['idle', 'listening', 'thinking', 'speaking'].includes(next) ? next : 'idle';
+  avatarState = ['idle', 'listening', 'thinking', 'speaking', 'dancing'].includes(next) ? next : 'idle';
   if (avatarState === 'listening') activeExpression = 'surprised';
   if (avatarState === 'thinking') activeExpression = 'thinking';
+  if (avatarState === 'dancing') activeExpression = 'happy';
   applyExpressions();
 }
 
@@ -455,7 +456,7 @@ function animate() {
 
 function updateIdlePose(elapsed) {
   if (!currentVrm?.humanoid) return;
-  const stateMotion = avatarState === 'speaking' ? 1.35 : avatarState === 'listening' ? 1.15 : avatarState === 'thinking' ? 0.65 : 1;
+  const stateMotion = avatarState === 'speaking' ? 1.35 : avatarState === 'listening' ? 1.15 : avatarState === 'thinking' ? 0.65 : avatarState === 'dancing' ? 1.55 : 1;
   const motion = avatarSettings.motion * stateMotion;
   updateLookTarget(elapsed, motion);
 
@@ -480,34 +481,41 @@ function updateIdlePose(elapsed) {
   const reactionHipsLift = reactionFx.hipsLift;
   const speakingPulse = avatarState === 'speaking' ? currentLip : 0;
   const listeningTilt = avatarState === 'listening' ? 0.035 : 0;
+  const dancing = avatarState === 'dancing' ? 1 : 0;
+  const danceSide = Math.sin(elapsed * 2.35 + Math.PI * 0.25);
+  const danceHead = Math.sin(elapsed * 2.8 + 0.6) * 0.018 * dancing;
+  const danceSpine = danceSide * 0.058 * dancing;
+  const danceChest = Math.sin(elapsed * 2.9 + 0.9) * 0.016 * dancing;
+  const danceArmSwing = Math.sin(elapsed * 2.7 + 0.6) * 0.055 * dancing;
+  const danceForearm = Math.sin(elapsed * 2.9 + 2.1) * 0.03 * dancing;
   const dragTiltX = dragFx.tiltX;
   const dragTiltZ = dragFx.tiltZ;
 
   if (head) {
     head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
-    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.03 + reactionHeadPitch + dragTiltX * 0.55;
-    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionHeadRoll + dragTiltZ * 0.6;
+    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.03 + reactionHeadPitch + dragTiltX * 0.55 + danceHead;
+    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionHeadRoll + dragTiltZ * 0.6 + danceSpine * 0.6;
   }
   if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025 + reactionNeckPitch + dragTiltX * 0.4;
-  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionSpineRoll + dragTiltZ * 0.45;
-  if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018 + reactionChestPitch;
+  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionSpineRoll + dragTiltZ * 0.45 + danceSpine;
+  if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018 + reactionChestPitch + danceChest;
   if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + reactionHipsLift;
   if (leftUpperArm) {
     leftUpperArm.rotation.x = 0.24 + Math.sin(elapsed * 0.64) * 0.012 * motion;
-    leftUpperArm.rotation.z = 1.22 + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045;
+    leftUpperArm.rotation.z = 1.22 + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045 + danceArmSwing;
     leftUpperArm.rotation.y = -0.02 + Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion;
   }
   if (rightUpperArm) {
     rightUpperArm.rotation.x = 0.24 + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion;
-    rightUpperArm.rotation.z = -1.22 - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045;
+    rightUpperArm.rotation.z = -1.22 - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing;
     rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion;
   }
   if (leftLowerArm) {
-    leftLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 0.55) * 0.014 * motion;
+    leftLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 0.55) * 0.014 * motion + danceForearm;
     leftLowerArm.rotation.y = 0.04 + Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion;
   }
   if (rightLowerArm) {
-    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion;
+    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion - danceForearm;
     rightLowerArm.rotation.y = -0.04 - Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion;
   }
   if (leftHand) {
