@@ -119,56 +119,39 @@ function actionLabel(action) {
     OPEN_APP: 'Abrir app',
     OPEN_FOLDER: 'Abrir carpeta',
     COPY_TEXT: 'Copiar texto',
+    MEDIA_PLAY_PAUSE: 'Play/Pause',
+    MEDIA_NEXT: 'Siguiente cancion',
+    MEDIA_PREVIOUS: 'Cancion anterior',
     SHOW_AVATAR: 'Mostrar avatar',
     HIDE_AVATAR: 'Ocultar avatar',
   };
   return labels[action.type] || action.type;
 }
 
-function addActionCard(action) {
+async function executeAction(action) {
   const card = document.createElement('div');
-  card.className = 'action-card';
+  card.className = 'action-card running';
 
   const title = document.createElement('div');
   title.className = 'action-title';
-  title.textContent = `Rainy quiere: ${actionLabel(action)}`;
+  title.textContent = `Accion: ${actionLabel(action)}`;
 
   const payload = document.createElement('div');
   payload.className = 'action-payload';
   payload.textContent = action.payload || '(sin parametros)';
 
-  const actions = document.createElement('div');
-  actions.className = 'action-buttons';
-
-  const confirm = document.createElement('button');
-  confirm.textContent = 'Permitir';
-
-  const deny = document.createElement('button');
-  deny.textContent = 'Cancelar';
-  deny.className = 'secondary';
-
   const result = document.createElement('div');
   result.className = 'action-result';
+  result.textContent = 'Ejecutando...';
 
-  confirm.addEventListener('click', async () => {
-    confirm.disabled = true;
-    deny.disabled = true;
-    result.textContent = 'Ejecutando...';
-    const response = await window.rainyDesktop.executeAction(action);
-    result.textContent = response.message || (response.ok ? 'Accion completada.' : 'No se pudo ejecutar.');
-    card.classList.toggle('failed', !response.ok);
-  });
-
-  deny.addEventListener('click', () => {
-    confirm.disabled = true;
-    deny.disabled = true;
-    result.textContent = 'Accion cancelada.';
-  });
-
-  actions.append(confirm, deny);
-  card.append(title, payload, actions, result);
+  card.append(title, payload, result);
   chatLog.appendChild(card);
   chatLog.scrollTop = chatLog.scrollHeight;
+
+  const response = await window.rainyDesktop.executeAction(action);
+  card.classList.remove('running');
+  card.classList.toggle('failed', !response.ok);
+  result.textContent = response.message || (response.ok ? 'Accion completada.' : 'No se pudo ejecutar.');
 }
 
 function stripTags(text) {
@@ -221,7 +204,7 @@ async function sendMessage(text) {
     const clean = stripTags(reply);
     subtitle.textContent = clean;
     addMessage('assistant', reply);
-    if (action) addActionCard(action);
+    if (action) await executeAction(action);
     await window.rainyDesktop.speakOnAvatar({ text: clean, emotion });
   } catch (error) {
     subtitle.textContent = 'Algo fallo hablando con mi backend local.';

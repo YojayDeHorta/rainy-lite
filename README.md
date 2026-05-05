@@ -74,7 +74,7 @@ The avatar also has lightweight live behavior inspired by Asuka Lite:
 
 ## Safe System Actions
 
-Rainy can propose a limited set of desktop actions. The chat always asks for confirmation before execution.
+Rainy can execute a limited set of desktop actions directly. Actions are still restricted to an allowlist.
 
 Supported actions:
 
@@ -82,7 +82,12 @@ Supported actions:
 - `OPEN_APP`: open an allowlisted app such as `notepad`, `calculator`, `chrome`, `edge`, `explorer` or `vscode` on Windows.
 - `OPEN_FOLDER`: open a folder path.
 - `COPY_TEXT`: copy text to the clipboard.
+- `MEDIA_PLAY_PAUSE`: toggle media playback.
+- `MEDIA_NEXT`: skip to the next track.
+- `MEDIA_PREVIOUS`: go to the previous track.
 - `SHOW_AVATAR` / `HIDE_AVATAR`: show or hide the avatar window.
+
+Spotify can be opened with `OPEN_APP "spotify"`. Media controls use the OS media layer, so they can control Spotify or another active media player depending on the system.
 
 ## Avatar
 

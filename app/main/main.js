@@ -159,6 +159,7 @@ const APP_COMMANDS = {
     edge: 'msedge.exe',
     vscode: 'code.cmd',
     code: 'code.cmd',
+    spotify: 'spotify',
   },
   linux: {
     files: 'xdg-open',
@@ -170,6 +171,7 @@ const APP_COMMANDS = {
     code: 'code',
     calculator: 'gnome-calculator',
     calc: 'gnome-calculator',
+    spotify: 'spotify',
   },
   darwin: {
     finder: 'Finder',
@@ -178,7 +180,14 @@ const APP_COMMANDS = {
     vscode: 'Visual Studio Code',
     code: 'Visual Studio Code',
     calculator: 'Calculator',
+    spotify: 'Spotify',
   },
+};
+
+const MEDIA_KEYS = {
+  MEDIA_PREVIOUS: { win: '0xB1', linux: 'previous', mac: 'previous track' },
+  MEDIA_PLAY_PAUSE: { win: '0xB3', linux: 'play-pause', mac: 'playpause' },
+  MEDIA_NEXT: { win: '0xB0', linux: 'next', mac: 'next track' },
 };
 
 function normalizeAction(action) {
@@ -190,6 +199,11 @@ function normalizeAction(action) {
 
 async function executeAction(action) {
   const { type, payload } = normalizeAction(action);
+
+  if (MEDIA_KEYS[type]) {
+    await executeMediaKey(type);
+    return { ok: true, message: mediaActionMessage(type) };
+  }
 
   if (type === 'OPEN_URL') {
     const url = new URL(payload);
@@ -223,6 +237,11 @@ async function executeAction(action) {
 
   if (type === 'OPEN_APP') {
     const appKey = payload.toLowerCase().replace(/\.exe$/i, '').trim();
+    if (appKey === 'spotify') {
+      await shell.openExternal('spotify:');
+      return { ok: true, message: 'Spotify abierto.' };
+    }
+
     const platformMap = APP_COMMANDS[process.platform] || APP_COMMANDS.linux;
     const command = platformMap[appKey];
     if (!command) throw new Error(`App no permitida todavia: ${payload}`);
@@ -238,6 +257,42 @@ async function executeAction(action) {
   }
 
   throw new Error(`Accion no soportada: ${type}`);
+}
+
+function mediaActionMessage(type) {
+  if (type === 'MEDIA_PLAY_PAUSE') return 'Play/Pause enviado.';
+  if (type === 'MEDIA_NEXT') return 'Siguiente cancion enviada.';
+  if (type === 'MEDIA_PREVIOUS') return 'Cancion anterior enviada.';
+  return 'Control multimedia enviado.';
+}
+
+function executeMediaKey(type) {
+  const media = MEDIA_KEYS[type];
+  if (!media) throw new Error(`Control multimedia no soportado: ${type}`);
+
+  if (process.platform === 'win32') {
+    const command = [
+      'Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);\' -Name Keyboard -Namespace Win32;',
+      `[Win32.Keyboard]::keybd_event(${media.win},0,0,[UIntPtr]::Zero);`,
+      `[Win32.Keyboard]::keybd_event(${media.win},0,2,[UIntPtr]::Zero);`,
+    ].join(' ');
+    return spawnDetached('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', command]);
+  }
+
+  if (process.platform === 'darwin') {
+    return spawnDetached('osascript', ['-e', `tell application "Spotify" to ${media.mac}`]);
+  }
+
+  return spawnDetached('playerctl', [media.linux]);
+}
+
+function spawnDetached(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { detached: true, stdio: 'ignore', shell: process.platform === 'win32' });
+    child.on('error', reject);
+    child.unref();
+    resolve();
+  });
 }
 
 app.whenReady().then(() => {
