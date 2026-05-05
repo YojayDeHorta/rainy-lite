@@ -24,6 +24,14 @@ let microExpressionUntil = 0;
 let reactionUntil = 0;
 let reactionKind = 'none';
 let pointer = { x: 0, y: 0, active: false };
+let drag = {
+  pointerId: null,
+  startClientX: 0,
+  startClientY: 0,
+  startWindowX: 0,
+  startWindowY: 0,
+  dragging: false,
+};
 let look = { x: 0, y: 0 };
 let saccade = { x: 0, y: 0, nextAt: 0 };
 let avatarSettings = {
@@ -170,15 +178,54 @@ function bindAvatarInteraction(target) {
     pointer.x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
     pointer.y = -(((event.clientY - rect.top) / rect.height - 0.5) * 2);
     pointer.active = true;
+
+    if (drag.pointerId === event.pointerId) {
+      const dx = event.screenX - drag.startClientX;
+      const dy = event.screenY - drag.startClientY;
+      const distance = Math.hypot(dx, dy);
+      if (distance > 6) drag.dragging = true;
+      if (drag.dragging) {
+        window.rainyDesktop?.setWindowPosition({
+          x: drag.startWindowX + dx,
+          y: drag.startWindowY + dy,
+        });
+      }
+    }
   }, { passive: true });
 
   target.addEventListener('pointerleave', () => {
-    pointer.active = false;
+    if (drag.pointerId === null) pointer.active = false;
   }, { passive: true });
 
-  target.addEventListener('pointerdown', () => {
-    triggerReaction();
-  }, { passive: true });
+  target.addEventListener('pointerdown', async (event) => {
+    if (event.button !== 0) return;
+    const position = await window.rainyDesktop?.getWindowPosition?.() || { x: 0, y: 0 };
+    drag = {
+      pointerId: event.pointerId,
+      startClientX: event.screenX,
+      startClientY: event.screenY,
+      startWindowX: position.x,
+      startWindowY: position.y,
+      dragging: false,
+    };
+    target.setPointerCapture?.(event.pointerId);
+  });
+
+  target.addEventListener('pointerup', (event) => {
+    if (drag.pointerId !== event.pointerId) return;
+    const wasDragging = drag.dragging;
+    drag.pointerId = null;
+    drag.dragging = false;
+    target.releasePointerCapture?.(event.pointerId);
+    if (!wasDragging) triggerReaction();
+  });
+
+  target.addEventListener('pointercancel', (event) => {
+    if (drag.pointerId !== event.pointerId) return;
+    drag.pointerId = null;
+    drag.dragging = false;
+    target.releasePointerCapture?.(event.pointerId);
+  });
 }
 
 function triggerReaction() {

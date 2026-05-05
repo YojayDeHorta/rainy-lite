@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   minimize: () => ipcRenderer.invoke('window:minimize'),
   close: () => ipcRenderer.invoke('window:close'),
   toggleAlwaysOnTop: () => ipcRenderer.invoke('window:toggle-always-on-top'),
+  getWindowPosition: () => ipcRenderer.invoke('window:get-position'),
+  setWindowPosition: (position) => ipcRenderer.invoke('window:set-position', position),
   speakOnAvatar: (payload) => ipcRenderer.invoke('avatar:speak', payload),
   updateAvatarSettings: (settings) => ipcRenderer.invoke('avatar:update-settings', settings),
   setAvatarState: (state) => ipcRenderer.invoke('avatar:set-state', state),

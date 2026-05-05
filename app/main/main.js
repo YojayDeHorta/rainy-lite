@@ -175,6 +175,21 @@ ipcMain.handle('window:toggle-always-on-top', (event) => {
   return next;
 });
 
+ipcMain.handle('window:get-position', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return { x: 0, y: 0 };
+  const [x, y] = win.getPosition();
+  return { x, y };
+});
+
+ipcMain.handle('window:set-position', (event, position) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  const x = Math.round(Number(position?.x) || 0);
+  const y = Math.round(Number(position?.y) || 0);
+  win.setPosition(x, y, false);
+});
+
 ipcMain.handle('avatar:speak', (_event, payload) => {
   sendToAvatar(payload);
 });
