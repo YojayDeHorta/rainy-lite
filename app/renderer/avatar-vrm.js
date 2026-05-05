@@ -467,6 +467,8 @@ function updateIdlePose(elapsed) {
   const rightUpperArm = getBone('rightUpperArm');
   const leftLowerArm = getBone('leftLowerArm');
   const rightLowerArm = getBone('rightLowerArm');
+  const leftHand = getBone('leftHand');
+  const rightHand = getBone('rightHand');
   const hips = getBone('hips');
 
   const reactionPulse = reactionFx.intensity;
@@ -490,10 +492,61 @@ function updateIdlePose(elapsed) {
   if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionSpineRoll + dragTiltZ * 0.45;
   if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018 + reactionChestPitch;
   if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + reactionHipsLift;
-  if (leftUpperArm) leftUpperArm.rotation.z = 1.15 + Math.sin(elapsed * 0.8) * 0.035 * motion + reactionPulse * 0.08;
-  if (rightUpperArm) rightUpperArm.rotation.z = -1.15 - Math.sin(elapsed * 0.8) * 0.035 * motion - reactionPulse * 0.08;
-  if (leftLowerArm) leftLowerArm.rotation.x = Math.sin(elapsed * 0.9 + 0.8) * 0.025 * motion;
-  if (rightLowerArm) rightLowerArm.rotation.x = Math.sin(elapsed * 0.9 + 2.2) * 0.025 * motion;
+  if (leftUpperArm) {
+    leftUpperArm.rotation.x = 0.24 + Math.sin(elapsed * 0.64) * 0.012 * motion;
+    leftUpperArm.rotation.z = 1.22 + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045;
+    leftUpperArm.rotation.y = -0.02 + Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion;
+  }
+  if (rightUpperArm) {
+    rightUpperArm.rotation.x = 0.24 + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion;
+    rightUpperArm.rotation.z = -1.22 - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045;
+    rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion;
+  }
+  if (leftLowerArm) {
+    leftLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 0.55) * 0.014 * motion;
+    leftLowerArm.rotation.y = 0.04 + Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion;
+  }
+  if (rightLowerArm) {
+    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion;
+    rightLowerArm.rotation.y = -0.04 - Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion;
+  }
+  if (leftHand) {
+    leftHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 0.5) * 0.01 * motion;
+    leftHand.rotation.y = 0.07 + Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion;
+    leftHand.rotation.z = 0.05 + Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion;
+  }
+  if (rightHand) {
+    rightHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 1.6) * 0.01 * motion;
+    rightHand.rotation.y = -0.07 - Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion;
+    rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion;
+  }
+  applyRelaxedFingers(elapsed, motion);
+}
+
+function applyRelaxedFingers(elapsed, motion) {
+  const curlWave = 1 + Math.sin(elapsed * 0.86) * 0.05 * motion;
+  const fingerCurl = -0.32 * curlWave;
+  const thumbCurl = 0.2 * curlWave;
+  const fingerNames = ['Index', 'Middle', 'Ring', 'Little'];
+  const segments = ['Proximal', 'Intermediate'];
+  for (const side of ['left', 'right']) {
+    for (const name of fingerNames) {
+      for (const segment of segments) {
+        const bone = getBone(`${side}${name}${segment}`);
+        if (!bone) continue;
+        bone.rotation.x = fingerCurl;
+      }
+    }
+    const thumbProximal = getBone(`${side}ThumbProximal`);
+    const thumbIntermediate = getBone(`${side}ThumbIntermediate`);
+    if (thumbProximal) {
+      thumbProximal.rotation.y = side === 'left' ? thumbCurl : -thumbCurl;
+      thumbProximal.rotation.z = side === 'left' ? -thumbCurl * 0.35 : thumbCurl * 0.35;
+    }
+    if (thumbIntermediate) {
+      thumbIntermediate.rotation.y = side === 'left' ? thumbCurl * 0.5 : -thumbCurl * 0.5;
+    }
+  }
 }
 
 function updateLookTarget(elapsed, motion) {
