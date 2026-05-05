@@ -482,12 +482,12 @@ function updateIdlePose(elapsed) {
   const speakingPulse = avatarState === 'speaking' ? currentLip : 0;
   const listeningTilt = avatarState === 'listening' ? 0.035 : 0;
   const dancing = avatarState === 'dancing' ? 1 : 0;
-  const danceSide = Math.sin(elapsed * 2.35 + Math.PI * 0.25);
-  const danceHead = Math.sin(elapsed * 2.8 + 0.6) * 0.018 * dancing;
-  const danceSpine = danceSide * 0.058 * dancing;
-  const danceChest = Math.sin(elapsed * 2.9 + 0.9) * 0.016 * dancing;
-  const danceArmSwing = Math.sin(elapsed * 2.7 + 0.6) * 0.055 * dancing;
-  const danceForearm = Math.sin(elapsed * 2.9 + 2.1) * 0.03 * dancing;
+  const danceSide = Math.sin(elapsed * 2.75 + Math.PI * 0.25);
+  const danceHead = Math.sin(elapsed * 3.2 + 0.6) * 0.024 * dancing;
+  const danceSpine = danceSide * 0.078 * dancing;
+  const danceChest = Math.sin(elapsed * 3.25 + 0.9) * 0.022 * dancing;
+  const danceArmSwing = Math.sin(elapsed * 3.05 + 0.6) * 0.075 * dancing;
+  const danceForearm = Math.sin(elapsed * 3.2 + 2.1) * 0.04 * dancing;
   const dragTiltX = dragFx.tiltX;
   const dragTiltZ = dragFx.tiltZ;
 
@@ -558,6 +558,12 @@ function applyRelaxedFingers(elapsed, motion) {
 }
 
 function updateLookTarget(elapsed, motion) {
+  if (avatarState === 'dancing') {
+    look.x += (0 - look.x) * 0.12;
+    look.y += (0 - look.y) * 0.12;
+    return;
+  }
+
   if (elapsed > saccade.nextAt) {
     saccade.x = (Math.random() - 0.5) * 0.16 * motion;
     saccade.y = (Math.random() - 0.5) * 0.08 * motion;
@@ -662,6 +668,11 @@ function updateDragVisuals(delta) {
 }
 
 function updateBlink(elapsed) {
+  if (avatarState === 'dancing') {
+    setExpressionValue('blink', 0);
+    return;
+  }
+
   if (elapsed > nextBlinkAt) {
     blinkUntil = elapsed + 0.12;
     scheduleBlink(elapsed);
