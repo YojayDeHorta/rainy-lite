@@ -1,10 +1,11 @@
 const { app, BrowserWindow, globalShortcut, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 
-let mainWindow;
+let chatWindow;
+let avatarWindow;
 let backendProcess;
-let isAlwaysOnTop = true;
 
 function getPythonCommand(rootDir) {
   const venvPython = process.platform === 'win32'
@@ -12,7 +13,7 @@ function getPythonCommand(rootDir) {
     : path.join(rootDir, '.venv', 'bin', 'python');
 
   try {
-    require('fs').accessSync(venvPython);
+    fs.accessSync(venvPython);
     return venvPython;
   } catch (_) {
     return process.platform === 'win32' ? 'python' : 'python3';
@@ -28,7 +29,7 @@ function startBackend() {
       cwd: rootDir,
       env: { ...process.env, PYTHONUNBUFFERED: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
-    }
+    },
   );
 
   backendProcess.stdout.on('data', (data) => {
@@ -45,16 +46,11 @@ function startBackend() {
   });
 }
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 420,
-    height: 680,
-    minWidth: 320,
-    minHeight: 520,
+function baseWindowOptions(extra = {}) {
+  return {
     transparent: true,
     frame: false,
     resizable: true,
-    alwaysOnTop: isAlwaysOnTop,
     hasShadow: false,
     backgroundColor: '#00000000',
     webPreferences: {
@@ -62,29 +58,71 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-  });
+    ...extra,
+  };
+}
 
-  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+function createAvatarWindow() {
+  avatarWindow = new BrowserWindow(baseWindowOptions({
+    width: 320,
+    height: 460,
+    minWidth: 220,
+    minHeight: 280,
+    alwaysOnTop: true,
+    skipTaskbar: false,
+  }));
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  avatarWindow.loadFile(path.join(__dirname, '..', 'renderer', 'avatar.html'));
+  avatarWindow.on('closed', () => {
+    avatarWindow = null;
   });
+}
+
+function createChatWindow() {
+  chatWindow = new BrowserWindow(baseWindowOptions({
+    width: 420,
+    height: 520,
+    minWidth: 330,
+    minHeight: 380,
+    alwaysOnTop: false,
+  }));
+
+  chatWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  chatWindow.on('closed', () => {
+    chatWindow = null;
+  });
+}
+
+function toggleWindow(win) {
+  if (!win) return;
+  win.isVisible() ? win.hide() : win.show();
+}
+
+function sendToAvatar(payload) {
+  if (!avatarWindow) createAvatarWindow();
+  if (!avatarWindow.isVisible()) avatarWindow.show();
+
+  const send = () => avatarWindow?.webContents.send('rainy:avatar-speak', payload);
+  if (avatarWindow.webContents.isLoading()) {
+    avatarWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
 }
 
 app.whenReady().then(() => {
   startBackend();
-  createWindow();
+  createAvatarWindow();
+  createChatWindow();
 
   globalShortcut.register('CommandOrControl+Shift+R', () => {
-    if (!mainWindow) return;
-    if (!mainWindow.isVisible()) mainWindow.show();
-    mainWindow.webContents.send('rainy:toggle-voice');
+    if (!chatWindow) return;
+    if (!chatWindow.isVisible()) chatWindow.show();
+    chatWindow.webContents.send('rainy:toggle-voice');
   });
 
-  globalShortcut.register('CommandOrControl+Shift+H', () => {
-    if (!mainWindow) return;
-    mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
-  });
+  globalShortcut.register('CommandOrControl+Shift+H', () => toggleWindow(chatWindow));
+  globalShortcut.register('CommandOrControl+Shift+A', () => toggleWindow(avatarWindow));
 });
 
 app.on('window-all-closed', () => {
@@ -99,17 +137,22 @@ app.on('will-quit', () => {
   }
 });
 
-ipcMain.handle('window:minimize', () => {
-  if (mainWindow) mainWindow.minimize();
+ipcMain.handle('window:minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
 });
 
-ipcMain.handle('window:close', () => {
-  if (mainWindow) mainWindow.hide();
+ipcMain.handle('window:close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.hide();
 });
 
-ipcMain.handle('window:toggle-always-on-top', () => {
-  if (!mainWindow) return false;
-  isAlwaysOnTop = !isAlwaysOnTop;
-  mainWindow.setAlwaysOnTop(isAlwaysOnTop);
-  return isAlwaysOnTop;
+ipcMain.handle('window:toggle-always-on-top', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return false;
+  const next = !win.isAlwaysOnTop();
+  win.setAlwaysOnTop(next);
+  return next;
+});
+
+ipcMain.handle('avatar:speak', (_event, payload) => {
+  sendToAvatar(payload);
 });

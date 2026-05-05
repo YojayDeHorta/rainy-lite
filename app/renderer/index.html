@@ -5,16 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rainy Lite</title>
     <link rel="stylesheet" href="styles.css" />
-    <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://unpkg.com/three@0.154.0/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.154.0/examples/jsm/",
-          "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@2.0.0/lib/three-vrm.module.js"
-        }
-      }
-    </script>
   </head>
   <body>
     <main class="shell">
@@ -31,20 +21,8 @@
           </div>
         </header>
 
-        <section class="stage">
-          <div id="avatar-root" class="avatar-root" aria-label="Rainy avatar placeholder">
-            <div id="vrm-layer" class="vrm-layer"></div>
-            <div class="rain"></div>
-            <div class="halo"></div>
-            <div class="avatar-face" id="avatar-face">
-              <div class="eyes">
-                <span></span>
-                <span></span>
-              </div>
-              <div class="mouth" id="mouth"></div>
-            </div>
-          </div>
-          <div class="subtitle" id="subtitle">Pulsa Ctrl+Shift+R o escribe para hablar conmigo.</div>
+        <section class="chat-status">
+          <div class="subtitle" id="subtitle">El avatar esta en una ventana separada. Pulsa Ctrl+Shift+R para hablar.</div>
         </section>
 
         <section class="chat" id="chat-log"></section>

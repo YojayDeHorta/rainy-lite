@@ -5,10 +5,12 @@ Rainy Lite is a Windows-first desktop AI companion prototype. It uses Electron f
 ## Current MVP
 
 - Transparent frameless desktop window.
-- Always-on-top toggle.
+- Separate floating avatar window and chat/control window.
+- Always-on-top toggle per window.
 - Global shortcuts:
   - `Ctrl+Shift+R`: start/stop voice recording.
-  - `Ctrl+Shift+H`: hide/show Rainy.
+  - `Ctrl+Shift+H`: hide/show chat.
+  - `Ctrl+Shift+A`: hide/show avatar.
 - Text chat with local FastAPI backend.
 - TTS with `edge-tts`.
 - Optional STT with Groq Whisper.
@@ -44,6 +46,11 @@ npm run dev
 ```
 
 Electron starts the local backend automatically on `127.0.0.1:8765`.
+
+Rainy opens two windows:
+
+- Avatar window: the floating assistant meant to stay over the desktop.
+- Chat window: text chat, microphone button and controls.
 
 ## Avatar
 

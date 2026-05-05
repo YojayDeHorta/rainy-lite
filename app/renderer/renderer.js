@@ -1,5 +1,3 @@
-import { initAvatar, setAvatarEmotion, setAvatarLipSync } from './avatar-vrm.js';
-
 const API_BASE = 'http://127.0.0.1:8765';
 
 const chatLog = document.getElementById('chat-log');
@@ -8,13 +6,9 @@ const sendButton = document.getElementById('send-button');
 const voiceButton = document.getElementById('voice-button');
 const subtitle = document.getElementById('subtitle');
 const statusDot = document.getElementById('status-dot');
-const avatarFace = document.getElementById('avatar-face');
-const mouth = document.getElementById('mouth');
 
 let mediaRecorder = null;
 let chunks = [];
-let audioContext = null;
-let analyser = null;
 let isRecording = false;
 
 function addMessage(role, text) {
@@ -35,14 +29,6 @@ function stripTags(text) {
 function parseEmotion(text) {
   const match = (text || '').match(/^\[(NEUTRAL|HAPPY|SAD|SURPRISED|THINKING|SHY)\]/i);
   return match ? match[1].toLowerCase() : 'neutral';
-}
-
-function setEmotion(emotion) {
-  avatarFace.className = 'avatar-face';
-  if (emotion === 'happy') avatarFace.classList.add('happy');
-  if (emotion === 'sad') avatarFace.classList.add('sad');
-  if (emotion === 'surprised') avatarFace.classList.add('surprised');
-  setAvatarEmotion(emotion);
 }
 
 async function waitForBackend() {
@@ -77,67 +63,15 @@ async function sendMessage(text) {
     });
     const data = await res.json();
     const reply = data.response || '[NEUTRAL] Me quede sin palabras por un segundo.';
-    setEmotion(parseEmotion(reply));
+    const emotion = parseEmotion(reply);
     const clean = stripTags(reply);
     subtitle.textContent = clean;
     addMessage('assistant', reply);
-    await speak(clean);
+    await window.rainyDesktop.speakOnAvatar({ text: clean, emotion });
   } catch (error) {
     subtitle.textContent = 'Algo fallo hablando con mi backend local.';
     console.error(error);
   }
-}
-
-async function speak(text) {
-  if (!text) return;
-  try {
-    const res = await fetch(`${API_BASE}/api/tts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
-    const data = await res.json();
-    if (data.url) playWithLipSync(`${API_BASE}${data.url}`);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-function playWithLipSync(url) {
-  const audio = new Audio(url);
-  audio.crossOrigin = 'anonymous';
-
-  if (!audioContext) audioContext = new AudioContext();
-  if (audioContext.state === 'suspended') audioContext.resume();
-
-  const source = audioContext.createMediaElementSource(audio);
-  analyser = audioContext.createAnalyser();
-  analyser.fftSize = 256;
-  source.connect(analyser);
-  analyser.connect(audioContext.destination);
-
-  const data = new Uint8Array(analyser.frequencyBinCount);
-
-  function tick() {
-    if (audio.paused || audio.ended) return;
-    analyser.getByteFrequencyData(data);
-    const avg = data.slice(2, 18).reduce((sum, value) => sum + value, 0) / 16;
-    const lipValue = Math.min(1, Math.max(0, avg / 120));
-    const scale = Math.min(1.9, 0.65 + avg / 110);
-    mouth.style.transform = `scaleY(${scale})`;
-    mouth.style.height = `${Math.max(8, Math.min(24, avg / 7))}px`;
-    setAvatarLipSync(lipValue);
-    requestAnimationFrame(tick);
-  }
-
-  audio.onplay = tick;
-  audio.onended = () => {
-    mouth.style.transform = 'scaleY(1)';
-    mouth.style.height = '8px';
-    setAvatarLipSync(0);
-    setEmotion('neutral');
-  };
-  audio.play().catch(console.error);
 }
 
 async function toggleRecording() {
@@ -203,5 +137,4 @@ document.getElementById('pin-button').addEventListener('click', async () => {
 
 window.rainyDesktop.onToggleVoice(() => toggleRecording());
 
-initAvatar();
 waitForBackend();
