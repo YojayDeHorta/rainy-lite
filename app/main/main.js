@@ -11,6 +11,13 @@ let spotifyMonitorId;
 let spotifyCheckInFlight = false;
 let spotifyPlaying = false;
 
+const AVATAR_BASE_WINDOW = {
+  width: 380,
+  height: 680,
+  scale: 0.85,
+  cameraZ: 3.4,
+};
+
 function getPythonCommand(rootDir) {
   const venvPython = process.platform === 'win32'
     ? path.join(rootDir, '.venv', 'Scripts', 'python.exe')
@@ -68,10 +75,10 @@ function baseWindowOptions(extra = {}) {
 
 function createAvatarWindow() {
   avatarWindow = new BrowserWindow(baseWindowOptions({
-    width: 380,
-    height: 680,
-    minWidth: 240,
-    minHeight: 360,
+    width: AVATAR_BASE_WINDOW.width,
+    height: AVATAR_BASE_WINDOW.height,
+    minWidth: 150,
+    minHeight: 240,
     alwaysOnTop: true,
     skipTaskbar: false,
   }));
@@ -119,6 +126,7 @@ function sendToAvatar(payload) {
 
 function updateAvatarSettings(settings) {
   if (!avatarWindow) createAvatarWindow();
+  applyAvatarWindowScale(settings);
 
   const send = () => avatarWindow?.webContents.send('rainy:avatar-settings', settings);
   if (avatarWindow.webContents.isLoading()) {
@@ -126,6 +134,40 @@ function updateAvatarSettings(settings) {
   } else {
     send();
   }
+}
+
+function applyAvatarWindowScale(settings) {
+  if (!avatarWindow || avatarWindow.isDestroyed()) return;
+  const numericScale = Number(settings?.scale);
+  if (!Number.isFinite(numericScale)) return;
+  const numericCameraZ = Number(settings?.cameraZ);
+  const cameraZ = Number.isFinite(numericCameraZ) ? numericCameraZ : AVATAR_BASE_WINDOW.cameraZ;
+
+  const scaleRatio = numericScale / AVATAR_BASE_WINDOW.scale;
+  const cameraRatio = AVATAR_BASE_WINDOW.cameraZ / Math.max(0.2, cameraZ);
+  const visualRatio = scaleRatio * Math.pow(cameraRatio, 0.9);
+
+  // Big avatars need extra breathing room in every direction.
+  const largeBoost = visualRatio > 1 ? 1 + (visualRatio - 1) * 0.24 : 1;
+  // Small avatars benefit from tighter framing to remove empty space.
+  const smallTighten = visualRatio < 1 ? 1 - (1 - visualRatio) * 0.15 : 1;
+  const tunedRatio = visualRatio * largeBoost * smallTighten;
+
+  const widthFactor = visualRatio > 1 ? 1.14 : 0.96;
+  const heightFactor = visualRatio > 1 ? 1.22 : 0.93;
+  const nextWidth = Math.max(150, Math.round(AVATAR_BASE_WINDOW.width * tunedRatio * widthFactor));
+  const nextHeight = Math.max(240, Math.round(AVATAR_BASE_WINDOW.height * tunedRatio * heightFactor));
+
+  const [x, y] = avatarWindow.getPosition();
+  const [currentWidth, currentHeight] = avatarWindow.getSize();
+  if (currentWidth === nextWidth && currentHeight === nextHeight) return;
+
+  const centerX = x + currentWidth / 2;
+  const centerY = y + currentHeight / 2;
+  const nextX = Math.round(centerX - nextWidth / 2);
+  const nextY = Math.round(centerY - nextHeight / 2);
+
+  avatarWindow.setBounds({ x: nextX, y: nextY, width: nextWidth, height: nextHeight }, false);
 }
 
 function updateAvatarState(state) {

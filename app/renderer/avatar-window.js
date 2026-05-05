@@ -80,6 +80,7 @@ function playWithLipSync(url) {
   audio.onplay = tick;
   audio.onplaying = () => {
     isSpeaking = true;
+    requestedState = 'idle';
     resolveAvatarState();
   };
   audio.onended = () => {
