@@ -271,27 +271,57 @@ function executeMediaKey(type) {
   if (!media) throw new Error(`Control multimedia no soportado: ${type}`);
 
   if (process.platform === 'win32') {
-    const command = [
-      'Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);\' -Name Keyboard -Namespace Win32;',
-      `[Win32.Keyboard]::keybd_event(${media.win},0,0,[UIntPtr]::Zero);`,
-      `[Win32.Keyboard]::keybd_event(${media.win},0,2,[UIntPtr]::Zero);`,
-    ].join(' ');
-    return spawnDetached('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', command]);
+    return executeWindowsMediaKey(media.win);
   }
 
   if (process.platform === 'darwin') {
-    return spawnDetached('osascript', ['-e', `tell application "Spotify" to ${media.mac}`]);
+    return spawnAndWait('osascript', ['-e', `tell application "Spotify" to ${media.mac}`]);
   }
 
-  return spawnDetached('playerctl', [media.linux]);
+  return spawnAndWait('playerctl', [media.linux]);
 }
 
-function spawnDetached(command, args) {
+function executeWindowsMediaKey(virtualKey) {
+  const script = `
+$code = @"
+using System;
+using System.Runtime.InteropServices;
+public class RainyKeyboard {
+  [DllImport("user32.dll", SetLastError = true)]
+  public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+}
+"@
+Add-Type -TypeDefinition $code
+[RainyKeyboard]::keybd_event([byte]${virtualKey}, 0, 0, [UIntPtr]::Zero)
+Start-Sleep -Milliseconds 50
+[RainyKeyboard]::keybd_event([byte]${virtualKey}, 0, 2, [UIntPtr]::Zero)
+`;
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
+  return spawnAndWait('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy', 'Bypass',
+    '-WindowStyle', 'Hidden',
+    '-EncodedCommand', encoded,
+  ], { windowsHide: true });
+}
+
+function spawnAndWait(command, args, options = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { detached: true, stdio: 'ignore', shell: process.platform === 'win32' });
+    const child = spawn(command, args, {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      shell: false,
+      windowsHide: true,
+      ...options,
+    });
+    let stderr = '';
+    child.stderr?.on('data', (data) => {
+      stderr += data.toString();
+    });
     child.on('error', reject);
-    child.unref();
-    resolve();
+    child.on('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(stderr.trim() || `${command} salio con codigo ${code}`));
+    });
   });
 }
 
