@@ -72,6 +72,18 @@ The avatar also has lightweight live behavior inspired by Asuka Lite:
 - Click reactions on the avatar window.
 - Different motion states for idle, listening, thinking and speaking.
 
+## Safe System Actions
+
+Rainy can propose a limited set of desktop actions. The chat always asks for confirmation before execution.
+
+Supported actions:
+
+- `OPEN_URL`: open an `http` or `https` URL.
+- `OPEN_APP`: open an allowlisted app such as `notepad`, `calculator`, `chrome`, `edge`, `explorer` or `vscode` on Windows.
+- `OPEN_FOLDER`: open a folder path.
+- `COPY_TEXT`: copy text to the clipboard.
+- `SHOW_AVATAR` / `HIDE_AVATAR`: show or hide the avatar window.
+
 ## Avatar
 
 Rainy looks for a VRM model at:

@@ -314,6 +314,61 @@ button {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.action-card {
+  align-self: stretch;
+  padding: 12px;
+  border: 1px solid rgba(121, 199, 255, 0.28);
+  border-radius: 18px;
+  background: rgba(121, 199, 255, 0.09);
+}
+
+.action-card.failed {
+  border-color: rgba(255, 132, 163, 0.42);
+  background: rgba(255, 80, 126, 0.1);
+}
+
+.action-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.action-payload {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.action-buttons button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(121, 199, 255, 0.16);
+  cursor: pointer;
+  padding: 7px 12px;
+}
+
+.action-buttons button.secondary {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.action-buttons button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.action-result {
+  min-height: 18px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
 .composer {
   display: grid;
   grid-template-columns: auto 1fr auto;

@@ -104,6 +104,73 @@ function addMessage(role, text) {
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+function parseAction(text) {
+  const match = (text || '').match(/\[ACTION:\s*(\w+)(?:\s+"([\s\S]*?)")?\]/i);
+  if (!match) return null;
+  return {
+    type: match[1].toUpperCase(),
+    payload: match[2] || '',
+  };
+}
+
+function actionLabel(action) {
+  const labels = {
+    OPEN_URL: 'Abrir URL',
+    OPEN_APP: 'Abrir app',
+    OPEN_FOLDER: 'Abrir carpeta',
+    COPY_TEXT: 'Copiar texto',
+    SHOW_AVATAR: 'Mostrar avatar',
+    HIDE_AVATAR: 'Ocultar avatar',
+  };
+  return labels[action.type] || action.type;
+}
+
+function addActionCard(action) {
+  const card = document.createElement('div');
+  card.className = 'action-card';
+
+  const title = document.createElement('div');
+  title.className = 'action-title';
+  title.textContent = `Rainy quiere: ${actionLabel(action)}`;
+
+  const payload = document.createElement('div');
+  payload.className = 'action-payload';
+  payload.textContent = action.payload || '(sin parametros)';
+
+  const actions = document.createElement('div');
+  actions.className = 'action-buttons';
+
+  const confirm = document.createElement('button');
+  confirm.textContent = 'Permitir';
+
+  const deny = document.createElement('button');
+  deny.textContent = 'Cancelar';
+  deny.className = 'secondary';
+
+  const result = document.createElement('div');
+  result.className = 'action-result';
+
+  confirm.addEventListener('click', async () => {
+    confirm.disabled = true;
+    deny.disabled = true;
+    result.textContent = 'Ejecutando...';
+    const response = await window.rainyDesktop.executeAction(action);
+    result.textContent = response.message || (response.ok ? 'Accion completada.' : 'No se pudo ejecutar.');
+    card.classList.toggle('failed', !response.ok);
+  });
+
+  deny.addEventListener('click', () => {
+    confirm.disabled = true;
+    deny.disabled = true;
+    result.textContent = 'Accion cancelada.';
+  });
+
+  actions.append(confirm, deny);
+  card.append(title, payload, actions, result);
+  chatLog.appendChild(card);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
 function stripTags(text) {
   return (text || '')
     .replace(/^\[(NEUTRAL|HAPPY|SAD|SURPRISED|THINKING|SHY)\]\s*/i, '')
@@ -150,9 +217,11 @@ async function sendMessage(text) {
     const data = await res.json();
     const reply = data.response || '[NEUTRAL] Me quede sin palabras por un segundo.';
     const emotion = parseEmotion(reply);
+    const action = parseAction(reply);
     const clean = stripTags(reply);
     subtitle.textContent = clean;
     addMessage('assistant', reply);
+    if (action) addActionCard(action);
     await window.rainyDesktop.speakOnAvatar({ text: clean, emotion });
   } catch (error) {
     subtitle.textContent = 'Algo fallo hablando con mi backend local.';
