@@ -21,8 +21,6 @@ let blinkUntil = 0;
 let nextBlinkAt = 0;
 let nextMicroExpressionAt = 0;
 let microExpressionUntil = 0;
-let reactionUntil = 0;
-let reactionKind = 'none';
 let pointer = { x: 0, y: 0, active: false };
 let drag = {
   pointerId: null,
@@ -57,6 +55,103 @@ let avatarSettings = {
   cameraZ: 3.4,
   light: 0.65,
   motion: 1.0,
+};
+const reactionProfiles = [
+  {
+    id: 'head_nod',
+    type: 'head',
+    weight: 1.45,
+    duration: 0.72,
+    expression: 'happy',
+    headPitch: 0.12,
+    headRoll: 0.04,
+    neckPitch: 0.07,
+    frequency: 2.4,
+  },
+  {
+    id: 'head_tilt_shy',
+    type: 'head',
+    weight: 1.2,
+    duration: 0.82,
+    expression: 'shy',
+    headPitch: 0.06,
+    headRoll: 0.13,
+    neckPitch: 0.03,
+    frequency: 1.8,
+  },
+  {
+    id: 'head_micro_shake',
+    type: 'head',
+    weight: 0.9,
+    duration: 0.7,
+    expression: 'surprised',
+    headPitch: 0.03,
+    headRoll: 0.07,
+    neckPitch: 0.02,
+    frequency: 4.2,
+  },
+  {
+    id: 'body_bounce',
+    type: 'body',
+    weight: 1.15,
+    duration: 0.78,
+    expression: 'happy',
+    bodyLift: 0.055,
+    bodySway: 0.045,
+    chestPitch: 0.028,
+    frequency: 2.2,
+  },
+  {
+    id: 'body_sway',
+    type: 'body',
+    weight: 1.0,
+    duration: 0.95,
+    expression: 'thinking',
+    bodyLift: 0.018,
+    bodySway: 0.08,
+    chestPitch: 0.018,
+    frequency: 1.6,
+  },
+  {
+    id: 'combo_nod_bounce',
+    type: 'combo',
+    weight: 1.1,
+    duration: 0.92,
+    expression: 'happy',
+    headPitch: 0.11,
+    headRoll: 0.08,
+    neckPitch: 0.06,
+    bodyLift: 0.04,
+    bodySway: 0.05,
+    chestPitch: 0.025,
+    frequency: 2.8,
+  },
+  {
+    id: 'combo_shy_sway',
+    type: 'combo',
+    weight: 0.85,
+    duration: 1.02,
+    expression: 'shy',
+    headPitch: 0.055,
+    headRoll: 0.11,
+    neckPitch: 0.04,
+    bodyLift: 0.02,
+    bodySway: 0.07,
+    chestPitch: 0.015,
+    frequency: 1.95,
+  },
+];
+let reactionFx = {
+  profile: null,
+  startAt: 0,
+  endAt: 0,
+  intensity: 0,
+  headPitch: 0,
+  headRoll: 0,
+  neckPitch: 0,
+  spineRoll: 0,
+  chestPitch: 0,
+  hipsLift: 0,
 };
 
 const expressionMap = {
@@ -294,9 +389,25 @@ function setDraggingVisual(active) {
 
 function triggerReaction() {
   if (!clock) return;
-  reactionUntil = clock.elapsedTime + 0.75;
-  reactionKind = Math.random() > 0.35 ? 'bounce' : 'shy';
-  activeExpression = reactionKind === 'shy' ? 'shy' : 'happy';
+  startReaction(pickReactionProfile(), clock.elapsedTime);
+}
+
+function pickReactionProfile() {
+  const totalWeight = reactionProfiles.reduce((sum, profile) => sum + profile.weight, 0);
+  let roll = Math.random() * totalWeight;
+  for (const profile of reactionProfiles) {
+    roll -= profile.weight;
+    if (roll <= 0) return profile;
+  }
+  return reactionProfiles[0];
+}
+
+function startReaction(profile, now) {
+  if (!profile) return;
+  reactionFx.profile = profile;
+  reactionFx.startAt = now;
+  reactionFx.endAt = now + profile.duration;
+  activeExpression = profile.expression || 'happy';
   applyExpressions();
 }
 
@@ -332,6 +443,7 @@ function animate() {
   const delta = clock.getDelta();
   const elapsed = clock.elapsedTime;
 
+  updateReaction(elapsed, delta);
   updateIdlePose(elapsed);
   updateAutoExpression(elapsed);
   updateBlink(elapsed);
@@ -357,8 +469,13 @@ function updateIdlePose(elapsed) {
   const rightLowerArm = getBone('rightLowerArm');
   const hips = getBone('hips');
 
-  const reaction = Math.max(0, reactionUntil - elapsed);
-  const reactionPulse = reaction > 0 ? Math.sin((0.75 - reaction) * Math.PI * 3.2) * reaction : 0;
+  const reactionPulse = reactionFx.intensity;
+  const reactionHeadPitch = reactionFx.headPitch;
+  const reactionHeadRoll = reactionFx.headRoll;
+  const reactionNeckPitch = reactionFx.neckPitch;
+  const reactionSpineRoll = reactionFx.spineRoll;
+  const reactionChestPitch = reactionFx.chestPitch;
+  const reactionHipsLift = reactionFx.hipsLift;
   const speakingPulse = avatarState === 'speaking' ? currentLip : 0;
   const listeningTilt = avatarState === 'listening' ? 0.035 : 0;
   const dragTiltX = dragFx.tiltX;
@@ -366,13 +483,13 @@ function updateIdlePose(elapsed) {
 
   if (head) {
     head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
-    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.05 + dragTiltX * 0.55;
-    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionPulse * 0.08 + dragTiltZ * 0.6;
+    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.03 + reactionHeadPitch + dragTiltX * 0.55;
+    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionHeadRoll + dragTiltZ * 0.6;
   }
-  if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025 + dragTiltX * 0.4;
-  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionPulse * 0.025 + dragTiltZ * 0.45;
-  if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018;
-  if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + Math.max(0, reactionPulse) * 0.04;
+  if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025 + reactionNeckPitch + dragTiltX * 0.4;
+  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionSpineRoll + dragTiltZ * 0.45;
+  if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018 + reactionChestPitch;
+  if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + reactionHipsLift;
   if (leftUpperArm) leftUpperArm.rotation.z = 1.15 + Math.sin(elapsed * 0.8) * 0.035 * motion + reactionPulse * 0.08;
   if (rightUpperArm) rightUpperArm.rotation.z = -1.15 - Math.sin(elapsed * 0.8) * 0.035 * motion - reactionPulse * 0.08;
   if (leftLowerArm) leftLowerArm.rotation.x = Math.sin(elapsed * 0.9 + 0.8) * 0.025 * motion;
@@ -393,7 +510,7 @@ function updateLookTarget(elapsed, motion) {
 }
 
 function updateAutoExpression(elapsed) {
-  if (reactionUntil > elapsed || avatarState !== 'idle') return;
+  if (reactionFx.profile || avatarState !== 'idle') return;
 
   if (microExpressionUntil && elapsed > microExpressionUntil) {
     microExpressionUntil = 0;
@@ -407,6 +524,53 @@ function updateAutoExpression(elapsed) {
     microExpressionUntil = elapsed + 0.85 + Math.random() * 0.75;
     scheduleMicroExpression(elapsed);
     applyExpressions();
+  }
+}
+
+function updateReaction(elapsed, delta) {
+  const blendIn = Math.min(1, delta * 18);
+  const blendOut = Math.min(1, delta * 8);
+  if (!reactionFx.profile) {
+    reactionFx.intensity += (0 - reactionFx.intensity) * blendOut;
+    reactionFx.headPitch += (0 - reactionFx.headPitch) * blendOut;
+    reactionFx.headRoll += (0 - reactionFx.headRoll) * blendOut;
+    reactionFx.neckPitch += (0 - reactionFx.neckPitch) * blendOut;
+    reactionFx.spineRoll += (0 - reactionFx.spineRoll) * blendOut;
+    reactionFx.chestPitch += (0 - reactionFx.chestPitch) * blendOut;
+    reactionFx.hipsLift += (0 - reactionFx.hipsLift) * blendOut;
+    return;
+  }
+
+  const profile = reactionFx.profile;
+  const progress = clampNumber((elapsed - reactionFx.startAt) / Math.max(0.001, profile.duration), 0, 1, 1);
+  const envelope = Math.sin(progress * Math.PI);
+  const phase = elapsed * profile.frequency * Math.PI * 2;
+  const headWave = Math.sin(phase);
+  const bodyWave = Math.sin(phase + Math.PI * 0.5);
+  const swayWave = Math.sin(phase * 0.7 + Math.PI * 0.25);
+  const targetIntensity = envelope;
+
+  const headPitch = (profile.headPitch || 0) * Math.max(-0.5, headWave);
+  const headRoll = (profile.headRoll || 0) * swayWave;
+  const neckPitch = (profile.neckPitch || 0) * Math.max(-0.45, headWave);
+  const spineRoll = (profile.bodySway || 0) * swayWave * 0.65;
+  const chestPitch = (profile.chestPitch || 0) * bodyWave;
+  const hipsLift = (profile.bodyLift || 0) * Math.max(0, bodyWave);
+
+  reactionFx.intensity += (targetIntensity - reactionFx.intensity) * blendIn;
+  reactionFx.headPitch += (headPitch * envelope - reactionFx.headPitch) * blendIn;
+  reactionFx.headRoll += (headRoll * envelope - reactionFx.headRoll) * blendIn;
+  reactionFx.neckPitch += (neckPitch * envelope - reactionFx.neckPitch) * blendIn;
+  reactionFx.spineRoll += (spineRoll * envelope - reactionFx.spineRoll) * blendIn;
+  reactionFx.chestPitch += (chestPitch * envelope - reactionFx.chestPitch) * blendIn;
+  reactionFx.hipsLift += (hipsLift * envelope - reactionFx.hipsLift) * blendIn;
+
+  if (elapsed >= reactionFx.endAt) {
+    reactionFx.profile = null;
+    if (avatarState === 'idle') {
+      activeExpression = 'neutral';
+      applyExpressions();
+    }
   }
 }
 
