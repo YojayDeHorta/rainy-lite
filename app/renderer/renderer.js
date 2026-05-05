@@ -13,10 +13,10 @@ const avatarResetButton = document.getElementById('avatar-reset-button');
 const AVATAR_SETTINGS_KEY = 'rainy-avatar-settings-v1';
 const DEFAULT_AVATAR_SETTINGS = {
   x: 0,
-  y: -0.45,
-  scale: 1.0,
+  y: 1.03,
+  scale: 0.85,
   cameraZ: 3.4,
-  light: 0.65,
+  light: 0.75,
   motion: 1.0,
 };
 
