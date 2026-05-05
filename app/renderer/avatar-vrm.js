@@ -31,6 +31,9 @@ let drag = {
   startWindowX: 0,
   startWindowY: 0,
   dragging: false,
+  dragUntil: 0,
+  dragVelocityX: 0,
+  dragVelocityY: 0,
 };
 let look = { x: 0, y: 0 };
 let saccade = { x: 0, y: 0, nextAt: 0 };
@@ -196,8 +199,15 @@ function bindAvatarInteraction(target) {
       const dx = event.screenX - drag.startClientX;
       const dy = event.screenY - drag.startClientY;
       const distance = Math.hypot(dx, dy);
-      if (distance > 6) drag.dragging = true;
+      if (distance > 6) {
+        drag.dragging = true;
+        drag.dragUntil = (clock?.elapsedTime || 0) + 0.1;
+      }
       if (drag.dragging) {
+        drag.dragVelocityX = (dx - (drag._lastDx || 0)) * 0.15;
+        drag.dragVelocityY = (dy - (drag._lastDy || 0)) * 0.15;
+        drag._lastDx = dx;
+        drag._lastDy = dy;
         window.rainyDesktop?.setWindowPosition({
           x: drag.startWindowX + dx,
           y: drag.startWindowY + dy,
@@ -213,6 +223,7 @@ function bindAvatarInteraction(target) {
   target.addEventListener('pointerdown', async (event) => {
     if (event.button !== 0) return;
     const position = await window.rainyDesktop?.getWindowPosition?.() || { x: 0, y: 0 };
+    const now = clock?.elapsedTime || 0;
     drag = {
       pointerId: event.pointerId,
       startClientX: event.screenX,
@@ -220,6 +231,9 @@ function bindAvatarInteraction(target) {
       startWindowX: position.x,
       startWindowY: position.y,
       dragging: false,
+      dragUntil: 0,
+      dragVelocityX: 0,
+      dragVelocityY: 0,
     };
     target.setPointerCapture?.(event.pointerId);
   });
@@ -227,8 +241,12 @@ function bindAvatarInteraction(target) {
   target.addEventListener('pointerup', (event) => {
     if (drag.pointerId !== event.pointerId) return;
     const wasDragging = drag.dragging;
+    const velocity = drag.dragVelocityX + drag.dragVelocityY;
     drag.pointerId = null;
     drag.dragging = false;
+    drag.dragUntil = (clock?.elapsedTime || 0) + (wasDragging ? 0.35 : 0);
+    drag._releaseVelocityX = wasDragging ? drag.dragVelocityX : 0;
+    drag._releaseVelocityY = wasDragging ? drag.dragVelocityY : 0;
     target.releasePointerCapture?.(event.pointerId);
     if (!wasDragging) triggerReaction();
   });
@@ -310,15 +328,21 @@ function updateIdlePose(elapsed) {
   const speakingPulse = avatarState === 'speaking' ? currentLip : 0;
   const listeningTilt = avatarState === 'listening' ? 0.035 : 0;
 
+  const isDragging = elapsed < drag.dragUntil;
+  const dragLift = isDragging ? 0.06 : 0;
+  const dragShake = isDragging ? Math.sin(elapsed * 28) * 0.025 : 0;
+  const dragTiltX = isDragging ? drag.dragVelocityX * 0.3 : (drag._releaseVelocityX || 0) * Math.max(0, drag.dragUntil - elapsed) * 0.5;
+  const dragTiltZ = isDragging ? drag.dragVelocityY * 0.2 : (drag._releaseVelocityY || 0) * Math.max(0, drag.dragUntil - elapsed) * 0.4;
+
   if (head) {
     head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
-    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.05;
-    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionPulse * 0.08;
+    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.05 + dragShake * 0.3;
+    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionPulse * 0.08 + dragTiltZ;
   }
   if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025;
-  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionPulse * 0.025;
+  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionPulse * 0.025 + dragTiltX;
   if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018;
-  if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + Math.max(0, reactionPulse) * 0.04;
+  if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + Math.max(0, reactionPulse) * 0.04 + dragLift;
   if (leftUpperArm) leftUpperArm.rotation.z = 1.15 + Math.sin(elapsed * 0.8) * 0.035 * motion + reactionPulse * 0.08;
   if (rightUpperArm) rightUpperArm.rotation.z = -1.15 - Math.sin(elapsed * 0.8) * 0.035 * motion - reactionPulse * 0.08;
   if (leftLowerArm) leftLowerArm.rotation.x = Math.sin(elapsed * 0.9 + 0.8) * 0.025 * motion;
