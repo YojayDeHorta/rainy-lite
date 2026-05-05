@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ai_core, config, memory, spotify, stt, tts
+from . import ai_core, config, memory, spotify, stt, tts, wakeword
 
 
 class ChatRequest(BaseModel):
@@ -34,16 +34,53 @@ app.add_middleware(
 app.mount("/temp", StaticFiles(directory=str(config.TEMP_DIR)), name="temp")
 
 memory.init_db()
+wakeword_service = wakeword.WakewordService(
+    enabled=config.WAKEWORD_ENABLED,
+    threshold=config.WAKEWORD_THRESHOLD,
+    cooldown_s=config.WAKEWORD_COOLDOWN_S,
+    keyword_name=config.WAKEWORD_NAME,
+    keyword_model=config.WAKEWORD_MODEL_PATH,
+)
 
 
 @app.on_event("startup")
 def startup():
     memory.init_db()
+    wakeword_service.start()
+
+
+@app.on_event("shutdown")
+def shutdown():
+    wakeword_service.stop()
 
 
 @app.get("/api/health")
 def health():
     return {"status": "ok", "provider": config.AI_PROVIDER}
+
+
+@app.get("/api/wakeword/status")
+def wakeword_status():
+    status = wakeword_service.status()
+    return {
+        "enabled": status.enabled,
+        "ready": status.ready,
+        "keyword": status.keyword,
+        "backend": status.backend,
+        "error": status.error,
+        "last_score": status.last_score,
+        "peak_score": status.peak_score,
+    }
+
+
+@app.post("/api/wakeword/consume")
+def wakeword_consume():
+    status = wakeword_service.status()
+    if not status.enabled:
+        return {"triggered": False, "ready": False, "enabled": False}
+    if not status.ready:
+        return {"triggered": False, "ready": False, "enabled": True, "error": status.error}
+    return {"triggered": wakeword_service.consume(), "ready": True, "enabled": True}
 
 
 @app.post("/api/chat")

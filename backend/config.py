@@ -38,4 +38,10 @@ TTS_VOICE = os.getenv("TTS_VOICE", "es-MX-DaliaNeural")
 TTS_RATE = os.getenv("TTS_RATE", "+8%")
 TTS_PITCH = os.getenv("TTS_PITCH", "+20Hz")
 
+WAKEWORD_ENABLED = os.getenv("WAKEWORD_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
+WAKEWORD_THRESHOLD = float(os.getenv("WAKEWORD_THRESHOLD", "0.55"))
+WAKEWORD_COOLDOWN_S = float(os.getenv("WAKEWORD_COOLDOWN_S", "2.5"))
+WAKEWORD_NAME = os.getenv("WAKEWORD_NAME", "alexa").strip().lower()
+WAKEWORD_MODEL_PATH = os.getenv("WAKEWORD_MODEL_PATH", "").strip()
+
 SQLITE_PATH = DATA_DIR / "rainy.sqlite"

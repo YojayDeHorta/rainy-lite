@@ -41,6 +41,25 @@ const avatarValueLabels = {
 let mediaRecorder = null;
 let chunks = [];
 let isRecording = false;
+let isAssistantBusy = false;
+let wakewordPollingId = null;
+let wakewordEnabled = false;
+let wakewordReady = false;
+let wakewordCooldownUntil = 0;
+let endpointAudioContext = null;
+let endpointAnalyser = null;
+let endpointSource = null;
+let endpointRafId = null;
+let endpointSilenceMs = 0;
+let endpointLastTick = 0;
+let endpointStartedAt = 0;
+let endpointSpeechStarted = false;
+let endpointStopCallback = null;
+
+const ENDPOINT_RMS_THRESHOLD = 0.028;
+const ENDPOINT_SILENCE_MS = 1000;
+const ENDPOINT_GRACE_MS = 650;
+const ENDPOINT_MAX_MS = 15000;
 
 function loadAvatarSettings() {
   try {
@@ -174,6 +193,8 @@ async function waitForBackend() {
       const res = await fetch(`${API_BASE}/api/health`);
       if (res.ok) {
         statusDot.classList.add('online');
+        await fetchWakewordStatus();
+        startWakewordPolling();
         return true;
       }
     } catch (_) {
@@ -192,6 +213,7 @@ async function sendMessage(text) {
   input.value = '';
   subtitle.textContent = 'Asuka esta pensando...';
   setAvatarState('thinking');
+  isAssistantBusy = true;
 
   try {
     const res = await fetch(`${API_BASE}/api/chat`, {
@@ -212,6 +234,8 @@ async function sendMessage(text) {
     subtitle.textContent = 'Algo fallo hablando con mi backend local.';
     setAvatarState('idle');
     console.error(error);
+  } finally {
+    isAssistantBusy = false;
   }
 }
 
@@ -228,7 +252,9 @@ async function toggleRecording() {
 
     mediaRecorder.ondataavailable = (event) => chunks.push(event.data);
     mediaRecorder.onstop = async () => {
+      stopSpeechEndpointing();
       isRecording = false;
+      isAssistantBusy = true;
       voiceButton.classList.remove('recording');
       stream.getTracks().forEach((track) => track.stop());
       subtitle.textContent = 'Transcribiendo...';
@@ -237,15 +263,137 @@ async function toggleRecording() {
     };
 
     mediaRecorder.start();
+    startSpeechEndpointing(stream, () => {
+      if (mediaRecorder?.state === 'recording') {
+        subtitle.textContent = 'Entendido, procesando...';
+        mediaRecorder.stop();
+      }
+    });
     isRecording = true;
     voiceButton.classList.add('recording');
     subtitle.textContent = 'Te escucho... pulsa otra vez para terminar.';
     setAvatarState('listening');
   } catch (error) {
+    stopSpeechEndpointing();
     subtitle.textContent = 'No pude acceder al microfono.';
     setAvatarState('idle');
     console.error(error);
   }
+}
+
+function startSpeechEndpointing(stream, onEndSpeech) {
+  stopSpeechEndpointing();
+  endpointStopCallback = onEndSpeech;
+  endpointAudioContext = new AudioContext();
+  endpointSource = endpointAudioContext.createMediaStreamSource(stream);
+  endpointAnalyser = endpointAudioContext.createAnalyser();
+  endpointAnalyser.fftSize = 1024;
+  endpointAnalyser.smoothingTimeConstant = 0.35;
+  endpointSource.connect(endpointAnalyser);
+  endpointSilenceMs = 0;
+  endpointLastTick = performance.now();
+  endpointStartedAt = performance.now();
+  endpointSpeechStarted = false;
+  const data = new Float32Array(endpointAnalyser.fftSize);
+
+  const tick = () => {
+    if (!endpointAnalyser || !isRecording) return;
+    endpointAnalyser.getFloatTimeDomainData(data);
+    let sumSquares = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      sumSquares += data[i] * data[i];
+    }
+    const rms = Math.sqrt(sumSquares / data.length);
+    const now = performance.now();
+    const dt = now - endpointLastTick;
+    endpointLastTick = now;
+    const elapsed = now - endpointStartedAt;
+
+    if (rms >= ENDPOINT_RMS_THRESHOLD) {
+      endpointSpeechStarted = true;
+      endpointSilenceMs = 0;
+    } else if (endpointSpeechStarted && elapsed > ENDPOINT_GRACE_MS) {
+      endpointSilenceMs += dt;
+    }
+
+    if (elapsed >= ENDPOINT_MAX_MS) {
+      endpointStopCallback?.();
+      return;
+    }
+
+    if (endpointSpeechStarted && endpointSilenceMs >= ENDPOINT_SILENCE_MS) {
+      endpointStopCallback?.();
+      return;
+    }
+
+    endpointRafId = requestAnimationFrame(tick);
+  };
+
+  endpointRafId = requestAnimationFrame(tick);
+}
+
+function stopSpeechEndpointing() {
+  if (endpointRafId) cancelAnimationFrame(endpointRafId);
+  endpointRafId = null;
+  endpointStopCallback = null;
+  try {
+    endpointSource?.disconnect();
+    endpointAnalyser?.disconnect();
+  } catch (_) {
+    // no-op
+  }
+  endpointSource = null;
+  endpointAnalyser = null;
+  if (endpointAudioContext) {
+    endpointAudioContext.close().catch(() => {});
+  }
+  endpointAudioContext = null;
+  endpointSilenceMs = 0;
+  endpointSpeechStarted = false;
+}
+
+async function fetchWakewordStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/api/wakeword/status`);
+    if (!res.ok) return;
+    const data = await res.json();
+    wakewordEnabled = Boolean(data.enabled);
+    wakewordReady = Boolean(data.ready);
+  } catch (_) {
+    wakewordEnabled = false;
+    wakewordReady = false;
+  }
+}
+
+async function pollWakewordTrigger() {
+  if (!wakewordEnabled) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/wakeword/consume`, { method: 'POST' });
+    if (!res.ok) return;
+    const data = await res.json();
+    wakewordEnabled = Boolean(data.enabled);
+    wakewordReady = Boolean(data.ready);
+    if (!wakewordReady) return;
+    if (!data.triggered) return;
+    if (Date.now() < wakewordCooldownUntil) return;
+    if (isRecording) return;
+    wakewordCooldownUntil = Date.now() + 3000;
+    subtitle.textContent = 'Wake word detectada. Te escucho...';
+    await toggleRecording();
+  } catch (_) {
+    // ignore transient wakeword polling errors
+  }
+}
+
+function startWakewordPolling() {
+  if (wakewordPollingId) return;
+  wakewordPollingId = setInterval(() => {
+    if (!wakewordEnabled) {
+      void fetchWakewordStatus();
+      return;
+    }
+    void pollWakewordTrigger();
+  }, 400);
 }
 
 async function transcribeAndSend(blob) {
@@ -266,6 +414,8 @@ async function transcribeAndSend(blob) {
     subtitle.textContent = 'No pude transcribir el audio.';
     setAvatarState('idle');
     console.error(error);
+  } finally {
+    isAssistantBusy = false;
   }
 }
 

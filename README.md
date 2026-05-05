@@ -125,6 +125,26 @@ GROQ_API_KEY=your_key
 
 STT currently uses Groq Whisper, so voice transcription needs `GROQ_API_KEY`.
 
+## Wake Word (OpenWakeWord)
+
+Fase 1 uses OpenWakeWord in the backend with a default pre-trained keyword available in your local runtime.
+
+Enable it in `.env`:
+
+```ini
+WAKEWORD_ENABLED=1
+WAKEWORD_THRESHOLD=0.55
+WAKEWORD_COOLDOWN_S=2.5
+```
+
+Optional (future custom keyword like Asuka):
+
+```ini
+WAKEWORD_MODEL_PATH=C:\path\to\custom_model.onnx
+```
+
+The chat renderer polls wakeword events and reuses the existing recording flow (same path as clicking the Mic button).
+
 ## Next Steps
 
 - Expand the VRM renderer with pointer reactions and higher quality animations from `asuka-lite`.
