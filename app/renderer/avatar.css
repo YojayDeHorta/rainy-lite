@@ -81,6 +81,15 @@ button {
   animation: wakeword-pulse 900ms ease-out infinite;
 }
 
+.wakeword-indicator.listening {
+  background: rgba(120, 220, 255, 0.95);
+}
+
+.wakeword-indicator.thinking {
+  background: rgba(170, 156, 255, 0.95);
+  animation-duration: 1200ms;
+}
+
 @keyframes wakeword-pulse {
   0% {
     box-shadow: 0 0 0 0 rgba(120, 220, 255, 0.0);

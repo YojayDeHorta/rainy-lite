@@ -589,6 +589,17 @@ ipcMain.handle('avatar:wakeword-triggered', () => {
   return true;
 });
 
+ipcMain.handle('avatar:speech-status', (_event, payload) => {
+  if (!chatWindow || chatWindow.isDestroyed()) return false;
+  const send = () => chatWindow?.webContents.send('rainy:avatar-speech-status', payload || {});
+  if (chatWindow.webContents.isLoading()) {
+    chatWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+  return true;
+});
+
 ipcMain.handle('avatar:update-settings', (_event, settings) => {
   updateAvatarSettings(settings);
 });

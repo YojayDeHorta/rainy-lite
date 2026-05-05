@@ -91,9 +91,11 @@ async def chat(req: ChatRequest):
 
     history = memory.get_chat_history()
     memory.add_chat_message("user", message)
-    response = await ai_core.generate_response(message, history)
+    generated = await ai_core.generate_response_with_metadata(message, history)
+    response = generated.get("response") or ai_core.LOCAL_FALLBACK_REPLY
+    conversation = generated.get("conversation") or {"continue": False, "reason": "uncertain"}
     memory.add_chat_message("assistant", response)
-    return {"response": response}
+    return {"response": response, "conversation": conversation}
 
 
 @app.get("/api/chat/history")

@@ -14,7 +14,7 @@ let spotifyPlaying = false;
 let requestedState = 'idle';
 let appliedState = 'idle';
 let wakewordIndicatorActive = false;
-let wakewordListeningSession = false;
+let wakewordBeepPending = false;
 
 function playWakewordBeep() {
   try {
@@ -43,10 +43,38 @@ function setWakewordIndicatorActive(active) {
   if (!wakewordIndicator) return;
   if (wakewordIndicatorActive) {
     wakewordIndicator.classList.add('active');
-    playWakewordBeep();
   } else {
     wakewordIndicator.classList.remove('active');
+    wakewordIndicator.classList.remove('listening', 'thinking');
   }
+}
+
+function setWakewordIndicatorMode(mode) {
+  if (!wakewordIndicator) return;
+  wakewordIndicator.classList.toggle('listening', mode === 'listening');
+  wakewordIndicator.classList.toggle('thinking', mode === 'thinking');
+}
+
+function syncWakewordIndicator() {
+  if (isSpeaking) {
+    wakewordBeepPending = false;
+    setWakewordIndicatorActive(false);
+    return;
+  }
+  if (requestedState === 'listening' || requestedState === 'thinking') {
+    if (!wakewordIndicatorActive) {
+      wakewordIndicator.classList.add('active');
+      wakewordIndicatorActive = true;
+    }
+    setWakewordIndicatorMode(requestedState === 'listening' ? 'listening' : 'thinking');
+    if (requestedState === 'listening' && wakewordBeepPending) {
+      playWakewordBeep();
+      wakewordBeepPending = false;
+    }
+    return;
+  }
+  wakewordBeepPending = false;
+  setWakewordIndicatorActive(false);
 }
 
 function resolveAvatarState() {
@@ -119,6 +147,8 @@ function playWithLipSync(url) {
   audio.onplaying = () => {
     isSpeaking = true;
     requestedState = 'idle';
+    window.rainyDesktop?.notifyAvatarSpeechStatus?.({ event: 'start' });
+    syncWakewordIndicator();
     resolveAvatarState();
   };
   audio.onended = () => {
@@ -127,10 +157,14 @@ function playWithLipSync(url) {
     setAvatarLipSync(0);
     setEmotion('neutral');
     isSpeaking = false;
+    window.rainyDesktop?.notifyAvatarSpeechStatus?.({ event: 'end' });
+    syncWakewordIndicator();
     resolveAvatarState();
   };
   audio.play().catch((error) => {
     isSpeaking = false;
+    window.rainyDesktop?.notifyAvatarSpeechStatus?.({ event: 'end' });
+    syncWakewordIndicator();
     resolveAvatarState();
     console.error(error);
   });
@@ -146,10 +180,7 @@ window.rainyDesktop.onAvatarSpeak((payload) => {
 window.rainyDesktop.onAvatarSettings((settings) => updateAvatarSettings(settings));
 window.rainyDesktop.onAvatarState((state) => {
   requestedState = String(state || 'idle').toLowerCase();
-  if (wakewordListeningSession && requestedState !== 'listening') {
-    wakewordListeningSession = false;
-    setWakewordIndicatorActive(false);
-  }
+  syncWakewordIndicator();
   resolveAvatarState();
 });
 window.rainyDesktop.onSpotifyPlayback((payload) => {
@@ -159,8 +190,7 @@ window.rainyDesktop.onSpotifyPlayback((payload) => {
 window.rainyDesktop.onGlobalCursor((payload) => updateGlobalCursor(payload));
 
 window.rainyDesktop.onAvatarWakewordTriggered(() => {
-  wakewordListeningSession = true;
-  setWakewordIndicatorActive(true);
+  wakewordBeepPending = true;
 });
 
 document.getElementById('close-button').addEventListener('click', () => window.rainyDesktop.close());

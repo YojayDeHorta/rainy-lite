@@ -46,6 +46,11 @@ let wakewordPollingId = null;
 let wakewordEnabled = false;
 let wakewordReady = false;
 let wakewordCooldownUntil = 0;
+let conversationSessionActive = false;
+let conversationAwaitingSpeechEnd = false;
+let conversationAutoListenTimer = null;
+let conversationLastActivityAt = 0;
+let conversationSource = 'manual';
 let endpointAudioContext = null;
 let endpointAnalyser = null;
 let endpointSource = null;
@@ -61,6 +66,49 @@ const ENDPOINT_SILENCE_MS = 1000;
 const ENDPOINT_GRACE_MS = 650;
 const ENDPOINT_MAX_MS = 15000;
 const ENDPOINT_TICK_MS = 50;
+const CONVERSATION_REOPEN_DELAY_MS = 550;
+const CONVERSATION_IDLE_TIMEOUT_MS = 30000;
+const GOODBYE_RE = /\b(adios|adiós|chao|hasta luego|nos vemos|bye|gracias(,)? eso es todo)\b/i;
+
+function updateConversationActivity() {
+  conversationLastActivityAt = Date.now();
+}
+
+function stopConversationSession() {
+  conversationSessionActive = false;
+  conversationAwaitingSpeechEnd = false;
+  conversationSource = 'manual';
+  if (conversationAutoListenTimer) {
+    clearTimeout(conversationAutoListenTimer);
+    conversationAutoListenTimer = null;
+  }
+}
+
+function scheduleConversationAutorecord() {
+  if (!conversationSessionActive || !conversationAwaitingSpeechEnd) return;
+  if (isRecording || isAssistantBusy) return;
+  if (Date.now() - conversationLastActivityAt > CONVERSATION_IDLE_TIMEOUT_MS) {
+    stopConversationSession();
+    return;
+  }
+  if (conversationAutoListenTimer) clearTimeout(conversationAutoListenTimer);
+  conversationAutoListenTimer = setTimeout(async () => {
+    conversationAutoListenTimer = null;
+    if (!conversationSessionActive || !conversationAwaitingSpeechEnd || isRecording || isAssistantBusy) return;
+    conversationAwaitingSpeechEnd = false;
+    subtitle.textContent = 'Sigo aqui, te escucho...';
+    await toggleRecording({ source: 'conversation' });
+  }, CONVERSATION_REOPEN_DELAY_MS);
+}
+
+function normalizeConversationMeta(data) {
+  const meta = data?.conversation || {};
+  const reason = String(meta.reason || 'uncertain').toLowerCase();
+  return {
+    continue: Boolean(meta.continue),
+    reason: ['followup', 'goodbye', 'one_shot', 'uncertain'].includes(reason) ? reason : 'uncertain',
+  };
+}
 
 function loadAvatarSettings() {
   try {
@@ -215,6 +263,7 @@ async function sendMessage(text) {
   subtitle.textContent = 'Asuka esta pensando...';
   setAvatarState('thinking');
   isAssistantBusy = true;
+  updateConversationActivity();
 
   try {
     const res = await fetch(`${API_BASE}/api/chat`, {
@@ -224,6 +273,7 @@ async function sendMessage(text) {
     });
     const data = await res.json();
     const reply = data.response || '[NEUTRAL] Me quede sin palabras por un segundo.';
+    const conversation = normalizeConversationMeta(data);
     const emotion = parseEmotion(reply);
     const action = parseAction(reply);
     const clean = stripTags(reply);
@@ -231,16 +281,24 @@ async function sendMessage(text) {
     addMessage('assistant', reply);
     if (action) await executeAction(action);
     await window.rainyDesktop.speakOnAvatar({ text: clean, emotion });
+    if (conversation.continue && conversation.reason === 'followup' && !action) {
+      conversationSessionActive = true;
+      conversationAwaitingSpeechEnd = true;
+    } else {
+      stopConversationSession();
+    }
   } catch (error) {
     subtitle.textContent = 'Algo fallo hablando con mi backend local.';
     setAvatarState('idle');
+    stopConversationSession();
     console.error(error);
   } finally {
     isAssistantBusy = false;
   }
 }
 
-async function toggleRecording() {
+async function toggleRecording(options = {}) {
+  const source = String(options?.source || 'manual');
   if (isRecording) {
     mediaRecorder?.stop();
     return;
@@ -274,10 +332,13 @@ async function toggleRecording() {
     voiceButton.classList.add('recording');
     subtitle.textContent = 'Te escucho... pulsa otra vez para terminar.';
     setAvatarState('listening');
+    conversationSource = source;
+    updateConversationActivity();
   } catch (error) {
     stopSpeechEndpointing();
     subtitle.textContent = 'No pude acceder al microfono.';
     setAvatarState('idle');
+    if (source === 'conversation') stopConversationSession();
     console.error(error);
   }
 }
@@ -376,13 +437,17 @@ async function pollWakewordTrigger() {
     if (Date.now() < wakewordCooldownUntil) return;
     if (isRecording) return;
     wakewordCooldownUntil = Date.now() + 3000;
+    conversationSessionActive = true;
+    conversationAwaitingSpeechEnd = false;
+    conversationSource = 'wakeword';
+    updateConversationActivity();
     try {
       window.rainyDesktop?.notifyWakewordTriggered?.();
     } catch (_) {
       // ignore
     }
     subtitle.textContent = 'Wake word detectada. Te escucho...';
-    await toggleRecording();
+    await toggleRecording({ source: 'wakeword' });
   } catch (_) {
     // ignore transient wakeword polling errors
   }
@@ -411,11 +476,24 @@ async function transcribeAndSend(blob) {
       return;
     }
     const data = await res.json();
-    if (data.text) await sendMessage(data.text);
-    else setAvatarState('idle');
+    const transcript = String(data.text || '').trim();
+    if (!transcript) {
+      setAvatarState('idle');
+      stopConversationSession();
+      return;
+    }
+    if (GOODBYE_RE.test(transcript)) {
+      subtitle.textContent = 'Entendido, cierro la conversacion por voz.';
+      setAvatarState('idle');
+      stopConversationSession();
+      return;
+    }
+    updateConversationActivity();
+    await sendMessage(transcript);
   } catch (error) {
     subtitle.textContent = 'No pude transcribir el audio.';
     setAvatarState('idle');
+    stopConversationSession();
     console.error(error);
   } finally {
     isAssistantBusy = false;
@@ -436,6 +514,17 @@ document.getElementById('pin-button').addEventListener('click', async () => {
 });
 
 window.rainyDesktop.onToggleVoice(() => toggleRecording());
+window.rainyDesktop.onAvatarSpeechStatus((payload) => {
+  const event = String(payload?.event || '').toLowerCase();
+  if (event === 'start') {
+    updateConversationActivity();
+    return;
+  }
+  if (event === 'end') {
+    updateConversationActivity();
+    scheduleConversationAutorecord();
+  }
+});
 
 initAvatarSettings();
 setAvatarState('idle');
