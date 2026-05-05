@@ -4,12 +4,50 @@ const API_BASE = 'http://127.0.0.1:8765';
 
 const avatarFace = document.getElementById('avatar-face');
 const mouth = document.getElementById('mouth');
+const wakewordIndicator = document.getElementById('wakeword-indicator');
+const chatToggleButton = document.getElementById('chat-toggle-button');
 
 let audioContext = null;
+let beepContext = null;
 let isSpeaking = false;
 let spotifyPlaying = false;
 let requestedState = 'idle';
 let appliedState = 'idle';
+let wakewordIndicatorActive = false;
+let wakewordListeningSession = false;
+
+function playWakewordBeep() {
+  try {
+    if (!beepContext) beepContext = new AudioContext();
+    if (beepContext.state === 'suspended') void beepContext.resume();
+    const osc = beepContext.createOscillator();
+    const gain = beepContext.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.value = 0.0001;
+    osc.connect(gain);
+    gain.connect(beepContext.destination);
+    const t = beepContext.currentTime;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.09, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+    osc.start(t);
+    osc.stop(t + 0.16);
+  } catch (_) {
+    // ignore
+  }
+}
+
+function setWakewordIndicatorActive(active) {
+  wakewordIndicatorActive = Boolean(active);
+  if (!wakewordIndicator) return;
+  if (wakewordIndicatorActive) {
+    wakewordIndicator.classList.add('active');
+    playWakewordBeep();
+  } else {
+    wakewordIndicator.classList.remove('active');
+  }
+}
 
 function resolveAvatarState() {
   let next = 'idle';
@@ -108,6 +146,10 @@ window.rainyDesktop.onAvatarSpeak((payload) => {
 window.rainyDesktop.onAvatarSettings((settings) => updateAvatarSettings(settings));
 window.rainyDesktop.onAvatarState((state) => {
   requestedState = String(state || 'idle').toLowerCase();
+  if (wakewordListeningSession && requestedState !== 'listening') {
+    wakewordListeningSession = false;
+    setWakewordIndicatorActive(false);
+  }
   resolveAvatarState();
 });
 window.rainyDesktop.onSpotifyPlayback((payload) => {
@@ -116,7 +158,16 @@ window.rainyDesktop.onSpotifyPlayback((payload) => {
 });
 window.rainyDesktop.onGlobalCursor((payload) => updateGlobalCursor(payload));
 
+window.rainyDesktop.onAvatarWakewordTriggered(() => {
+  wakewordListeningSession = true;
+  setWakewordIndicatorActive(true);
+});
+
 document.getElementById('close-button').addEventListener('click', () => window.rainyDesktop.close());
+chatToggleButton?.addEventListener('click', async () => {
+  const next = await window.rainyDesktop.toggleChat();
+  chatToggleButton.title = next ? 'Cerrar chat' : 'Abrir chat';
+});
 document.getElementById('pin-button').addEventListener('click', async () => {
   const active = await window.rainyDesktop.toggleAlwaysOnTop();
   document.getElementById('pin-button').textContent = active ? 'Pin' : 'Free';

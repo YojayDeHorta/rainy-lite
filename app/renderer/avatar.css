@@ -59,6 +59,40 @@ button {
   cursor: pointer;
 }
 
+.wakeword-indicator {
+  position: absolute;
+  top: 56px;
+  right: 26px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(120, 220, 255, 0.88);
+  box-shadow: 0 0 0 0 rgba(120, 220, 255, 0.0);
+  opacity: 0;
+  transform: scale(0.75);
+  transition: opacity 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.wakeword-indicator.active {
+  opacity: 1;
+  transform: scale(1);
+  animation: wakeword-pulse 900ms ease-out infinite;
+}
+
+@keyframes wakeword-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(120, 220, 255, 0.0);
+  }
+  35% {
+    box-shadow: 0 0 0 10px rgba(120, 220, 255, 0.16);
+  }
+  100% {
+    box-shadow: 0 0 0 18px rgba(120, 220, 255, 0.0);
+  }
+}
+
 .avatar-stage {
   -webkit-app-region: drag;
   width: 100%;

@@ -96,6 +96,7 @@ function createChatWindow() {
     minWidth: 420,
     minHeight: 520,
     transparent: false,
+    show: false,
     hasShadow: true,
     backgroundColor: '#070b13',
     alwaysOnTop: false,
@@ -534,8 +535,26 @@ ipcMain.handle('window:minimize', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize();
 });
 
+function sendToAvatarWakeword() {
+  if (!avatarWindow) createAvatarWindow();
+  const send = () => avatarWindow?.webContents.send('rainy:avatar-wakeword-triggered', { at: Date.now() });
+  if (avatarWindow.webContents.isLoading()) {
+    avatarWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+}
+
 ipcMain.handle('window:close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.hide();
+});
+
+ipcMain.handle('window:toggle-chat', () => {
+  if (!chatWindow) createChatWindow();
+  const next = !chatWindow.isVisible();
+  if (next) chatWindow.show();
+  else chatWindow.hide();
+  return next;
 });
 
 ipcMain.handle('window:toggle-always-on-top', (event) => {
@@ -563,6 +582,11 @@ ipcMain.handle('window:set-position', (event, position) => {
 
 ipcMain.handle('avatar:speak', (_event, payload) => {
   sendToAvatar(payload);
+});
+
+ipcMain.handle('avatar:wakeword-triggered', () => {
+  sendToAvatarWakeword();
+  return true;
 });
 
 ipcMain.handle('avatar:update-settings', (_event, settings) => {

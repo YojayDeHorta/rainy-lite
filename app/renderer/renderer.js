@@ -49,7 +49,7 @@ let wakewordCooldownUntil = 0;
 let endpointAudioContext = null;
 let endpointAnalyser = null;
 let endpointSource = null;
-let endpointRafId = null;
+let endpointIntervalId = null;
 let endpointSilenceMs = 0;
 let endpointLastTick = 0;
 let endpointStartedAt = 0;
@@ -60,6 +60,7 @@ const ENDPOINT_RMS_THRESHOLD = 0.028;
 const ENDPOINT_SILENCE_MS = 1000;
 const ENDPOINT_GRACE_MS = 650;
 const ENDPOINT_MAX_MS = 15000;
+const ENDPOINT_TICK_MS = 50;
 
 function loadAvatarSettings() {
   try {
@@ -323,18 +324,15 @@ function startSpeechEndpointing(stream, onEndSpeech) {
 
     if (endpointSpeechStarted && endpointSilenceMs >= ENDPOINT_SILENCE_MS) {
       endpointStopCallback?.();
-      return;
     }
-
-    endpointRafId = requestAnimationFrame(tick);
   };
 
-  endpointRafId = requestAnimationFrame(tick);
+  endpointIntervalId = setInterval(tick, ENDPOINT_TICK_MS);
 }
 
 function stopSpeechEndpointing() {
-  if (endpointRafId) cancelAnimationFrame(endpointRafId);
-  endpointRafId = null;
+  if (endpointIntervalId) clearInterval(endpointIntervalId);
+  endpointIntervalId = null;
   endpointStopCallback = null;
   try {
     endpointSource?.disconnect();
@@ -378,6 +376,11 @@ async function pollWakewordTrigger() {
     if (Date.now() < wakewordCooldownUntil) return;
     if (isRecording) return;
     wakewordCooldownUntil = Date.now() + 3000;
+    try {
+      window.rainyDesktop?.notifyWakewordTriggered?.();
+    } catch (_) {
+      // ignore
+    }
     subtitle.textContent = 'Wake word detectada. Te escucho...';
     await toggleRecording();
   } catch (_) {

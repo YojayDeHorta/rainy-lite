@@ -20,11 +20,13 @@
     <main class="avatar-shell">
       <header class="avatar-titlebar">
         <button id="pin-button" title="Siempre encima">Pin</button>
+        <button id="chat-toggle-button" title="Abrir/Cerrar chat">Chat</button>
         <button id="close-button" title="Ocultar avatar">x</button>
       </header>
 
       <section class="avatar-stage">
         <div id="avatar-root" class="avatar-root" aria-label="Asuka avatar">
+          <div id="wakeword-indicator" class="wakeword-indicator" aria-hidden="true"></div>
           <div id="vrm-layer" class="vrm-layer"></div>
           <div class="avatar-face" id="avatar-face">
             <div class="eyes">
