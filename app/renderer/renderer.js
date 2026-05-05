@@ -190,7 +190,7 @@ async function sendMessage(text) {
 
   addMessage('user', message);
   input.value = '';
-  subtitle.textContent = 'Rainy esta pensando...';
+  subtitle.textContent = 'Asuka esta pensando...';
   setAvatarState('thinking');
 
   try {

@@ -204,7 +204,7 @@ export async function initAvatar() {
     animate();
     return true;
   } catch (error) {
-    console.warn('Rainy VRM not loaded. Using CSS placeholder.', error);
+    console.warn('Asuka VRM not loaded. Using CSS placeholder.', error);
     container.remove();
     return false;
   }
