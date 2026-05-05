@@ -1,4 +1,4 @@
-import { initAvatar, setAvatarEmotion, setAvatarLipSync, updateAvatarSettings } from './avatar-vrm.js';
+import { initAvatar, setAvatarEmotion, setAvatarLipSync, setAvatarState, updateAvatarSettings } from './avatar-vrm.js';
 
 const API_BASE = 'http://127.0.0.1:8765';
 
@@ -63,13 +63,18 @@ function playWithLipSync(url) {
   }
 
   audio.onplay = tick;
+  audio.onplaying = () => setAvatarState('speaking');
   audio.onended = () => {
     mouth.style.transform = 'scaleY(1)';
     mouth.style.height = '8px';
     setAvatarLipSync(0);
     setEmotion('neutral');
+    setAvatarState('idle');
   };
-  audio.play().catch(console.error);
+  audio.play().catch((error) => {
+    setAvatarState('idle');
+    console.error(error);
+  });
 }
 
 window.rainyDesktop.onAvatarSpeak((payload) => {
@@ -80,6 +85,7 @@ window.rainyDesktop.onAvatarSpeak((payload) => {
 });
 
 window.rainyDesktop.onAvatarSettings((settings) => updateAvatarSettings(settings));
+window.rainyDesktop.onAvatarState((state) => setAvatarState(state));
 
 document.getElementById('close-button').addEventListener('click', () => window.rainyDesktop.close());
 document.getElementById('pin-button').addEventListener('click', async () => {

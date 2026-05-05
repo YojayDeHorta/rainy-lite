@@ -7,19 +7,32 @@ const MODEL_URL = '../../assets/rainy.vrm';
 let scene;
 let camera;
 let renderer;
+let ambientLight;
+let keyLight;
+let rimLight;
 let currentVrm = null;
 let animationFrame = null;
 let clock;
 let targetLip = 0;
 let currentLip = 0;
 let activeExpression = 'neutral';
+let avatarState = 'idle';
 let blinkUntil = 0;
 let nextBlinkAt = 0;
+let nextMicroExpressionAt = 0;
+let microExpressionUntil = 0;
+let reactionUntil = 0;
+let reactionKind = 'none';
+let pointer = { x: 0, y: 0, active: false };
+let look = { x: 0, y: 0 };
+let saccade = { x: 0, y: 0, nextAt: 0 };
 let avatarSettings = {
   x: 0,
   y: -0.45,
   scale: 1.0,
   cameraZ: 3.4,
+  light: 0.65,
+  motion: 1.0,
 };
 
 const expressionMap = {
@@ -44,16 +57,19 @@ export async function initAvatar() {
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   container.appendChild(renderer.domElement);
+  bindAvatarInteraction(renderer.domElement);
 
-  scene.add(new THREE.AmbientLight(0xbfdfff, 1.6));
+  ambientLight = new THREE.AmbientLight(0xbfdfff, 0.7);
+  scene.add(ambientLight);
 
-  const key = new THREE.DirectionalLight(0xd9f0ff, 2.0);
-  key.position.set(1.5, 2.6, 2.8);
-  scene.add(key);
+  keyLight = new THREE.DirectionalLight(0xd9f0ff, 0.85);
+  keyLight.position.set(1.5, 2.6, 2.8);
+  scene.add(keyLight);
 
-  const rim = new THREE.DirectionalLight(0x96b8ff, 1.2);
-  rim.position.set(-1.8, 1.6, -1.6);
-  scene.add(rim);
+  rimLight = new THREE.DirectionalLight(0x96b8ff, 0.35);
+  rimLight.position.set(-1.8, 1.6, -1.6);
+  scene.add(rimLight);
+  applyLightingSettings();
 
   const resize = () => resizeRenderer(container);
   resize();
@@ -64,6 +80,7 @@ export async function initAvatar() {
     root?.classList.add('vrm-loaded');
     clock = new THREE.Clock();
     scheduleBlink();
+    scheduleMicroExpression();
     animate();
     return true;
   } catch (error) {
@@ -78,6 +95,14 @@ export function setAvatarEmotion(emotion) {
   applyExpressions();
 }
 
+export function setAvatarState(state) {
+  const next = String(state || 'idle').toLowerCase();
+  avatarState = ['idle', 'listening', 'thinking', 'speaking'].includes(next) ? next : 'idle';
+  if (avatarState === 'listening') activeExpression = 'surprised';
+  if (avatarState === 'thinking') activeExpression = 'thinking';
+  applyExpressions();
+}
+
 export function setAvatarLipSync(value) {
   targetLip = Math.max(0, Math.min(1, Number(value) || 0));
 }
@@ -89,6 +114,7 @@ export function updateAvatarSettings(settings = {}) {
   };
   applyCameraSettings();
   applyModelSettings();
+  applyLightingSettings();
 }
 
 function normalizeSettings(settings) {
@@ -97,6 +123,8 @@ function normalizeSettings(settings) {
     y: clampNumber(settings.y, -2.0, 1.5, avatarSettings.y),
     scale: clampNumber(settings.scale, 0.4, 2.0, avatarSettings.scale),
     cameraZ: clampNumber(settings.cameraZ, 1.7, 6.0, avatarSettings.cameraZ),
+    light: clampNumber(settings.light, 0.15, 1.4, avatarSettings.light),
+    motion: clampNumber(settings.motion, 0, 2, avatarSettings.motion),
   };
 }
 
@@ -119,6 +147,13 @@ function applyModelSettings() {
   currentVrm.scene.scale.setScalar(avatarSettings.scale);
 }
 
+function applyLightingSettings() {
+  const light = avatarSettings.light;
+  if (ambientLight) ambientLight.intensity = 0.55 * light;
+  if (keyLight) keyLight.intensity = 0.75 * light;
+  if (rimLight) rimLight.intensity = 0.28 * light;
+}
+
 function resizeRenderer(container) {
   if (!renderer || !camera || !container) return;
   const width = Math.max(1, container.clientWidth);
@@ -127,6 +162,31 @@ function resizeRenderer(container) {
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+}
+
+function bindAvatarInteraction(canvas) {
+  canvas.addEventListener('pointermove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+    pointer.y = -(((event.clientY - rect.top) / rect.height - 0.5) * 2);
+    pointer.active = true;
+  }, { passive: true });
+
+  canvas.addEventListener('pointerleave', () => {
+    pointer.active = false;
+  }, { passive: true });
+
+  canvas.addEventListener('pointerdown', () => {
+    triggerReaction();
+  }, { passive: true });
+}
+
+function triggerReaction() {
+  if (!clock) return;
+  reactionUntil = clock.elapsedTime + 0.75;
+  reactionKind = Math.random() > 0.35 ? 'bounce' : 'shy';
+  activeExpression = reactionKind === 'shy' ? 'shy' : 'happy';
+  applyExpressions();
 }
 
 function loadVRM(url) {
@@ -162,6 +222,7 @@ function animate() {
   const elapsed = clock.elapsedTime;
 
   updateIdlePose(elapsed);
+  updateAutoExpression(elapsed);
   updateBlink(elapsed);
   updateLip(delta);
   currentVrm?.update(delta);
@@ -170,21 +231,69 @@ function animate() {
 
 function updateIdlePose(elapsed) {
   if (!currentVrm?.humanoid) return;
+  const stateMotion = avatarState === 'speaking' ? 1.35 : avatarState === 'listening' ? 1.15 : avatarState === 'thinking' ? 0.65 : 1;
+  const motion = avatarSettings.motion * stateMotion;
+  updateLookTarget(elapsed, motion);
+
   const head = getBone('head');
   const neck = getBone('neck');
   const spine = getBone('spine');
+  const chest = getBone('chest');
   const leftUpperArm = getBone('leftUpperArm');
   const rightUpperArm = getBone('rightUpperArm');
+  const leftLowerArm = getBone('leftLowerArm');
+  const rightLowerArm = getBone('rightLowerArm');
+  const hips = getBone('hips');
+
+  const reaction = Math.max(0, reactionUntil - elapsed);
+  const reactionPulse = reaction > 0 ? Math.sin((0.75 - reaction) * Math.PI * 3.2) * reaction : 0;
+  const speakingPulse = avatarState === 'speaking' ? currentLip : 0;
+  const listeningTilt = avatarState === 'listening' ? 0.035 : 0;
 
   if (head) {
-    head.rotation.y = Math.sin(elapsed * 0.62) * 0.035;
-    head.rotation.x = Math.sin(elapsed * 0.88) * 0.018;
-    head.rotation.z = Math.sin(elapsed * 0.48) * 0.025;
+    head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
+    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.05;
+    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionPulse * 0.08;
   }
-  if (neck) neck.rotation.x = Math.sin(elapsed * 0.76) * 0.012;
-  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018;
-  if (leftUpperArm) leftUpperArm.rotation.z = 1.15 + Math.sin(elapsed * 0.8) * 0.025;
-  if (rightUpperArm) rightUpperArm.rotation.z = -1.15 - Math.sin(elapsed * 0.8) * 0.025;
+  if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025;
+  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionPulse * 0.025;
+  if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018;
+  if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + Math.max(0, reactionPulse) * 0.04;
+  if (leftUpperArm) leftUpperArm.rotation.z = 1.15 + Math.sin(elapsed * 0.8) * 0.035 * motion + reactionPulse * 0.08;
+  if (rightUpperArm) rightUpperArm.rotation.z = -1.15 - Math.sin(elapsed * 0.8) * 0.035 * motion - reactionPulse * 0.08;
+  if (leftLowerArm) leftLowerArm.rotation.x = Math.sin(elapsed * 0.9 + 0.8) * 0.025 * motion;
+  if (rightLowerArm) rightLowerArm.rotation.x = Math.sin(elapsed * 0.9 + 2.2) * 0.025 * motion;
+}
+
+function updateLookTarget(elapsed, motion) {
+  if (elapsed > saccade.nextAt) {
+    saccade.x = (Math.random() - 0.5) * 0.16 * motion;
+    saccade.y = (Math.random() - 0.5) * 0.08 * motion;
+    saccade.nextAt = elapsed + 1.8 + Math.random() * 3.2;
+  }
+
+  const targetX = (pointer.active ? pointer.x * 0.32 : 0) + saccade.x;
+  const targetY = (pointer.active ? pointer.y * 0.22 : 0) + saccade.y;
+  look.x += (targetX - look.x) * 0.08;
+  look.y += (targetY - look.y) * 0.08;
+}
+
+function updateAutoExpression(elapsed) {
+  if (reactionUntil > elapsed || avatarState !== 'idle') return;
+
+  if (microExpressionUntil && elapsed > microExpressionUntil) {
+    microExpressionUntil = 0;
+    activeExpression = 'neutral';
+    applyExpressions();
+  }
+
+  if (!microExpressionUntil && elapsed > nextMicroExpressionAt) {
+    const expressions = ['happy', 'shy', 'thinking'];
+    activeExpression = expressions[Math.floor(Math.random() * expressions.length)];
+    microExpressionUntil = elapsed + 0.85 + Math.random() * 0.75;
+    scheduleMicroExpression(elapsed);
+    applyExpressions();
+  }
 }
 
 function updateLip(delta) {
@@ -202,7 +311,12 @@ function updateBlink(elapsed) {
 }
 
 function scheduleBlink(now = 0) {
-  nextBlinkAt = now + 2.2 + Math.random() * 3.5;
+  const base = avatarState === 'speaking' ? 1.8 : avatarState === 'listening' ? 1.6 : 2.2;
+  nextBlinkAt = now + base + Math.random() * 3.0;
+}
+
+function scheduleMicroExpression(now = 0) {
+  nextMicroExpressionAt = now + 5.0 + Math.random() * 7.0;
 }
 
 function applyExpressions() {
@@ -212,7 +326,10 @@ function applyExpressions() {
   }
 
   const expression = expressionMap[activeExpression] || 'neutral';
-  if (expression !== 'neutral') setExpressionValue(expression, expression === 'relaxed' ? 0.45 : 0.75);
+  if (expression !== 'neutral') {
+    const amount = expression === 'relaxed' ? 0.38 : avatarState === 'speaking' ? 0.55 : 0.72;
+    setExpressionValue(expression, amount);
+  }
 }
 
 function setExpressionValue(name, value) {

@@ -121,6 +121,17 @@ function updateAvatarSettings(settings) {
   }
 }
 
+function updateAvatarState(state) {
+  if (!avatarWindow) createAvatarWindow();
+
+  const send = () => avatarWindow?.webContents.send('rainy:avatar-state', state);
+  if (avatarWindow.webContents.isLoading()) {
+    avatarWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+}
+
 app.whenReady().then(() => {
   startBackend();
   createAvatarWindow();
@@ -170,4 +181,8 @@ ipcMain.handle('avatar:speak', (_event, payload) => {
 
 ipcMain.handle('avatar:update-settings', (_event, settings) => {
   updateAvatarSettings(settings);
+});
+
+ipcMain.handle('avatar:set-state', (_event, state) => {
+  updateAvatarState(state);
 });

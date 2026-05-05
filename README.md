@@ -60,8 +60,17 @@ Use the gear button in the chat window to tune the avatar in real time:
 - Vertical position.
 - Model scale.
 - Camera distance.
+- Light intensity.
+- Idle movement intensity.
 
 Those values are saved locally and restored on the next launch.
+
+The avatar also has lightweight live behavior inspired by Asuka Lite:
+
+- Cursor tracking with head/neck motion.
+- Random micro-expressions while idle.
+- Click reactions on the avatar window.
+- Different motion states for idle, listening, thinking and speaking.
 
 ## Avatar
 

@@ -16,6 +16,8 @@ const DEFAULT_AVATAR_SETTINGS = {
   y: -0.45,
   scale: 1.0,
   cameraZ: 3.4,
+  light: 0.65,
+  motion: 1.0,
 };
 
 const avatarControls = {
@@ -23,6 +25,8 @@ const avatarControls = {
   y: document.getElementById('avatar-y'),
   scale: document.getElementById('avatar-scale'),
   cameraZ: document.getElementById('avatar-camera'),
+  light: document.getElementById('avatar-light'),
+  motion: document.getElementById('avatar-motion'),
 };
 
 const avatarValueLabels = {
@@ -30,6 +34,8 @@ const avatarValueLabels = {
   y: document.getElementById('avatar-y-value'),
   scale: document.getElementById('avatar-scale-value'),
   cameraZ: document.getElementById('avatar-camera-value'),
+  light: document.getElementById('avatar-light-value'),
+  motion: document.getElementById('avatar-motion-value'),
 };
 
 let mediaRecorder = null;
@@ -62,6 +68,8 @@ function currentAvatarSettingsFromUI() {
     y: Number(avatarControls.y.value),
     scale: Number(avatarControls.scale.value),
     cameraZ: Number(avatarControls.cameraZ.value),
+    light: Number(avatarControls.light.value),
+    motion: Number(avatarControls.motion.value),
   };
 }
 
@@ -69,6 +77,10 @@ function applyAvatarSettings(settings) {
   syncAvatarSettingsUI(settings);
   saveAvatarSettings(settings);
   window.rainyDesktop.updateAvatarSettings(settings);
+}
+
+function setAvatarState(state) {
+  window.rainyDesktop.setAvatarState(state);
 }
 
 function initAvatarSettings() {
@@ -127,6 +139,7 @@ async function sendMessage(text) {
   addMessage('user', message);
   input.value = '';
   subtitle.textContent = 'Rainy esta pensando...';
+  setAvatarState('thinking');
 
   try {
     const res = await fetch(`${API_BASE}/api/chat`, {
@@ -143,6 +156,7 @@ async function sendMessage(text) {
     await window.rainyDesktop.speakOnAvatar({ text: clean, emotion });
   } catch (error) {
     subtitle.textContent = 'Algo fallo hablando con mi backend local.';
+    setAvatarState('idle');
     console.error(error);
   }
 }
@@ -164,6 +178,7 @@ async function toggleRecording() {
       voiceButton.classList.remove('recording');
       stream.getTracks().forEach((track) => track.stop());
       subtitle.textContent = 'Transcribiendo...';
+      setAvatarState('thinking');
       await transcribeAndSend(new Blob(chunks, { type: 'audio/webm' }));
     };
 
@@ -171,8 +186,10 @@ async function toggleRecording() {
     isRecording = true;
     voiceButton.classList.add('recording');
     subtitle.textContent = 'Te escucho... pulsa otra vez para terminar.';
+    setAvatarState('listening');
   } catch (error) {
     subtitle.textContent = 'No pude acceder al microfono.';
+    setAvatarState('idle');
     console.error(error);
   }
 }
@@ -185,12 +202,15 @@ async function transcribeAndSend(blob) {
     const res = await fetch(`${API_BASE}/api/stt`, { method: 'POST', body: formData });
     if (!res.ok) {
       subtitle.textContent = 'STT no esta configurado. Puedes escribir por ahora.';
+      setAvatarState('idle');
       return;
     }
     const data = await res.json();
     if (data.text) await sendMessage(data.text);
+    else setAvatarState('idle');
   } catch (error) {
     subtitle.textContent = 'No pude transcribir el audio.';
+    setAvatarState('idle');
     console.error(error);
   }
 }
@@ -211,4 +231,5 @@ document.getElementById('pin-button').addEventListener('click', async () => {
 window.rainyDesktop.onToggleVoice(() => toggleRecording());
 
 initAvatarSettings();
+setAvatarState('idle');
 waitForBackend();
