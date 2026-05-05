@@ -140,6 +140,21 @@ const reactionProfiles = [
     chestPitch: 0.015,
     frequency: 1.95,
   },
+  {
+    id: 'spin_360',
+    type: 'combo',
+    weight: 1.25,
+    duration: 0.62,
+    expression: 'surprised',
+    headPitch: 0.03,
+    headRoll: 0.12,
+    neckPitch: 0.02,
+    bodyLift: 0.02,
+    bodySway: 0.05,
+    chestPitch: 0.012,
+    frequency: 4.1,
+    spinTurns: 1,
+  },
 ];
 let reactionFx = {
   profile: null,
@@ -152,6 +167,7 @@ let reactionFx = {
   spineRoll: 0,
   chestPitch: 0,
   hipsLift: 0,
+  modelYaw: 0,
 };
 
 const expressionMap = {
@@ -605,6 +621,8 @@ function updateReaction(elapsed, delta) {
     reactionFx.spineRoll += (0 - reactionFx.spineRoll) * blendOut;
     reactionFx.chestPitch += (0 - reactionFx.chestPitch) * blendOut;
     reactionFx.hipsLift += (0 - reactionFx.hipsLift) * blendOut;
+    reactionFx.modelYaw += (0 - reactionFx.modelYaw) * blendOut;
+    if (currentVrm?.scene) currentVrm.scene.rotation.y = Math.PI + reactionFx.modelYaw;
     return;
   }
 
@@ -616,6 +634,7 @@ function updateReaction(elapsed, delta) {
   const bodyWave = Math.sin(phase + Math.PI * 0.5);
   const swayWave = Math.sin(phase * 0.7 + Math.PI * 0.25);
   const targetIntensity = envelope;
+  const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
 
   const headPitch = (profile.headPitch || 0) * Math.max(-0.5, headWave);
   const headRoll = (profile.headRoll || 0) * swayWave;
@@ -623,6 +642,8 @@ function updateReaction(elapsed, delta) {
   const spineRoll = (profile.bodySway || 0) * swayWave * 0.65;
   const chestPitch = (profile.chestPitch || 0) * bodyWave;
   const hipsLift = (profile.bodyLift || 0) * Math.max(0, bodyWave);
+  const spinTurns = Number(profile.spinTurns) || 0;
+  const targetYaw = spinTurns ? spinTurns * Math.PI * 2 * easedProgress : 0;
 
   reactionFx.intensity += (targetIntensity - reactionFx.intensity) * blendIn;
   reactionFx.headPitch += (headPitch * envelope - reactionFx.headPitch) * blendIn;
@@ -631,9 +652,13 @@ function updateReaction(elapsed, delta) {
   reactionFx.spineRoll += (spineRoll * envelope - reactionFx.spineRoll) * blendIn;
   reactionFx.chestPitch += (chestPitch * envelope - reactionFx.chestPitch) * blendIn;
   reactionFx.hipsLift += (hipsLift * envelope - reactionFx.hipsLift) * blendIn;
+  reactionFx.modelYaw += (targetYaw - reactionFx.modelYaw) * Math.min(1, delta * 22);
+  if (currentVrm?.scene) currentVrm.scene.rotation.y = Math.PI + reactionFx.modelYaw;
 
   if (elapsed >= reactionFx.endAt) {
     reactionFx.profile = null;
+    reactionFx.modelYaw = 0;
+    if (currentVrm?.scene) currentVrm.scene.rotation.y = Math.PI;
     if (avatarState === 'idle') {
       activeExpression = 'neutral';
       applyExpressions();
