@@ -73,6 +73,11 @@ def wakeword_status():
     }
 
 
+@app.get("/api/wakeword/diagnostics")
+def wakeword_diagnostics():
+    return wakeword.run_diagnostics()
+
+
 @app.post("/api/wakeword/consume")
 def wakeword_consume():
     status = wakeword_service.status()
