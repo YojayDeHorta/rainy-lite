@@ -13,4 +13,5 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   onAvatarSpeak: (callback) => ipcRenderer.on('rainy:avatar-speak', (_event, payload) => callback(payload)),
   onAvatarSettings: (callback) => ipcRenderer.on('rainy:avatar-settings', (_event, settings) => callback(settings)),
   onAvatarState: (callback) => ipcRenderer.on('rainy:avatar-state', (_event, state) => callback(state)),
+  onGlobalCursor: (callback) => ipcRenderer.on('rainy:global-cursor', (_event, payload) => callback(payload)),
 });

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 let chatWindow;
 let avatarWindow;
 let backendProcess;
+let cursorTrackingId;
 
 function getPythonCommand(rootDir) {
   const venvPython = process.platform === 'win32'
@@ -80,10 +81,13 @@ function createAvatarWindow() {
 
 function createChatWindow() {
   chatWindow = new BrowserWindow(baseWindowOptions({
-    width: 420,
-    height: 520,
-    minWidth: 330,
-    minHeight: 380,
+    width: 540,
+    height: 720,
+    minWidth: 420,
+    minHeight: 520,
+    transparent: false,
+    hasShadow: true,
+    backgroundColor: '#070b13',
     alwaysOnTop: false,
   }));
 
@@ -132,10 +136,24 @@ function updateAvatarState(state) {
   }
 }
 
+function startGlobalCursorTracking() {
+  if (cursorTrackingId) return;
+  cursorTrackingId = setInterval(() => {
+    if (!avatarWindow || avatarWindow.isDestroyed() || !avatarWindow.isVisible()) return;
+    if (avatarWindow.webContents.isLoading()) return;
+
+    avatarWindow.webContents.send('rainy:global-cursor', {
+      cursor: screen.getCursorScreenPoint(),
+      bounds: avatarWindow.getBounds(),
+    });
+  }, 33);
+}
+
 app.whenReady().then(() => {
   startBackend();
   createAvatarWindow();
   createChatWindow();
+  startGlobalCursorTracking();
 
   globalShortcut.register('CommandOrControl+Shift+R', () => {
     if (!chatWindow) return;
@@ -153,6 +171,10 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  if (cursorTrackingId) {
+    clearInterval(cursorTrackingId);
+    cursorTrackingId = null;
+  }
   if (backendProcess) {
     backendProcess.kill();
     backendProcess = null;

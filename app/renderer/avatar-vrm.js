@@ -125,6 +125,19 @@ export function updateAvatarSettings(settings = {}) {
   applyLightingSettings();
 }
 
+export function updateGlobalCursor(payload = {}) {
+  if (drag.pointerId !== null) return;
+  const cursor = payload.cursor;
+  const bounds = payload.bounds;
+  if (!cursor || !bounds || !bounds.width || !bounds.height) return;
+
+  const rawX = ((cursor.x - bounds.x) / bounds.width - 0.5) * 2;
+  const rawY = -(((cursor.y - bounds.y) / bounds.height - 0.5) * 2);
+  pointer.x = clampNumber(rawX, -1.6, 1.6, 0);
+  pointer.y = clampNumber(rawY, -1.4, 1.4, 0);
+  pointer.active = true;
+}
+
 function normalizeSettings(settings) {
   return {
     x: clampNumber(settings.x, -1.5, 1.5, avatarSettings.x),

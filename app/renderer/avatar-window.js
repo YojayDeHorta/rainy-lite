@@ -1,4 +1,4 @@
-import { initAvatar, setAvatarEmotion, setAvatarLipSync, setAvatarState, updateAvatarSettings } from './avatar-vrm.js';
+import { initAvatar, setAvatarEmotion, setAvatarLipSync, setAvatarState, updateAvatarSettings, updateGlobalCursor } from './avatar-vrm.js';
 
 const API_BASE = 'http://127.0.0.1:8765';
 
@@ -86,6 +86,7 @@ window.rainyDesktop.onAvatarSpeak((payload) => {
 
 window.rainyDesktop.onAvatarSettings((settings) => updateAvatarSettings(settings));
 window.rainyDesktop.onAvatarState((state) => setAvatarState(state));
+window.rainyDesktop.onGlobalCursor((payload) => updateGlobalCursor(payload));
 
 document.getElementById('close-button').addEventListener('click', () => window.rainyDesktop.close());
 document.getElementById('pin-button').addEventListener('click', async () => {

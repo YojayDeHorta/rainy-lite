@@ -1,9 +1,9 @@
 :root {
   color-scheme: dark;
-  --bg: rgba(8, 13, 24, 0.55);
-  --panel: rgba(11, 18, 32, 0.72);
-  --panel-strong: rgba(17, 28, 48, 0.88);
-  --line: rgba(178, 220, 255, 0.18);
+  --bg: #070b13;
+  --panel: #0b1220;
+  --panel-strong: #111c30;
+  --line: rgba(178, 220, 255, 0.22);
   --text: #edf7ff;
   --muted: #9fb8cc;
   --accent: #79c7ff;
@@ -20,7 +20,7 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: transparent;
+  background: var(--bg);
   font-family: Inter, Segoe UI, system-ui, sans-serif;
   color: var(--text);
 }
@@ -49,10 +49,10 @@ button {
   border: 1px solid var(--line);
   border-radius: 28px;
   background:
-    radial-gradient(circle at 20% 0%, rgba(121, 199, 255, 0.18), transparent 34%),
-    radial-gradient(circle at 90% 16%, rgba(184, 153, 255, 0.16), transparent 32%),
+    radial-gradient(circle at 20% 0%, rgba(121, 199, 255, 0.14), transparent 34%),
+    radial-gradient(circle at 90% 16%, rgba(184, 153, 255, 0.12), transparent 32%),
     var(--panel);
-  backdrop-filter: blur(22px);
+  backdrop-filter: none;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
 }
 
