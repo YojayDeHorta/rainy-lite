@@ -15,6 +15,12 @@ let currentLip = 0;
 let activeExpression = 'neutral';
 let blinkUntil = 0;
 let nextBlinkAt = 0;
+let avatarSettings = {
+  x: 0,
+  y: -0.45,
+  scale: 1.0,
+  cameraZ: 3.4,
+};
 
 const expressionMap = {
   neutral: 'neutral',
@@ -31,9 +37,8 @@ export async function initAvatar() {
   if (!container || renderer) return false;
 
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(22, 1, 0.1, 20);
-  camera.position.set(0, 1.2, 2.15);
-  camera.lookAt(0, 1.12, 0);
+  camera = new THREE.PerspectiveCamera(24, 1, 0.1, 20);
+  applyCameraSettings();
 
   renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);
@@ -77,6 +82,43 @@ export function setAvatarLipSync(value) {
   targetLip = Math.max(0, Math.min(1, Number(value) || 0));
 }
 
+export function updateAvatarSettings(settings = {}) {
+  avatarSettings = {
+    ...avatarSettings,
+    ...normalizeSettings(settings),
+  };
+  applyCameraSettings();
+  applyModelSettings();
+}
+
+function normalizeSettings(settings) {
+  return {
+    x: clampNumber(settings.x, -1.5, 1.5, avatarSettings.x),
+    y: clampNumber(settings.y, -2.0, 1.5, avatarSettings.y),
+    scale: clampNumber(settings.scale, 0.4, 2.0, avatarSettings.scale),
+    cameraZ: clampNumber(settings.cameraZ, 1.7, 6.0, avatarSettings.cameraZ),
+  };
+}
+
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, number));
+}
+
+function applyCameraSettings() {
+  if (!camera) return;
+  camera.position.set(0, 1.18, avatarSettings.cameraZ);
+  camera.lookAt(0, 1.05, 0);
+  camera.updateProjectionMatrix();
+}
+
+function applyModelSettings() {
+  if (!currentVrm?.scene) return;
+  currentVrm.scene.position.set(avatarSettings.x, avatarSettings.y, 0);
+  currentVrm.scene.scale.setScalar(avatarSettings.scale);
+}
+
 function resizeRenderer(container) {
   if (!renderer || !camera || !container) return;
   const width = Math.max(1, container.clientWidth);
@@ -101,8 +143,7 @@ function loadVRM(url) {
           currentVrm = gltf.userData.vrm;
           if (!currentVrm) throw new Error('File loaded, but no VRM data was found.');
           currentVrm.scene.rotation.y = Math.PI;
-          currentVrm.scene.position.set(0, 0.02, 0);
-          currentVrm.scene.scale.setScalar(1.25);
+          applyModelSettings();
           scene.add(currentVrm.scene);
           resolve(currentVrm);
         } catch (error) {

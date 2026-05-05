@@ -110,6 +110,17 @@ function sendToAvatar(payload) {
   }
 }
 
+function updateAvatarSettings(settings) {
+  if (!avatarWindow) createAvatarWindow();
+
+  const send = () => avatarWindow?.webContents.send('rainy:avatar-settings', settings);
+  if (avatarWindow.webContents.isLoading()) {
+    avatarWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+}
+
 app.whenReady().then(() => {
   startBackend();
   createAvatarWindow();
@@ -155,4 +166,8 @@ ipcMain.handle('window:toggle-always-on-top', (event) => {
 
 ipcMain.handle('avatar:speak', (_event, payload) => {
   sendToAvatar(payload);
+});
+
+ipcMain.handle('avatar:update-settings', (_event, settings) => {
+  updateAvatarSettings(settings);
 });

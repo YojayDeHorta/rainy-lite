@@ -30,6 +30,10 @@ input {
   font: inherit;
 }
 
+button {
+  user-select: none;
+}
+
 .shell {
   width: 100vw;
   height: 100vh;
@@ -101,6 +105,54 @@ input {
   min-width: 34px;
   height: 30px;
   padding: 0 10px;
+}
+
+.avatar-settings {
+  margin: 8px 16px 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(7, 12, 22, 0.36);
+}
+
+.avatar-settings.hidden {
+  display: none;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.settings-header button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  padding: 5px 10px;
+}
+
+.avatar-settings label {
+  display: block;
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.avatar-settings label span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.avatar-settings input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
 }
 
 .stage {

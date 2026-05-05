@@ -54,6 +54,15 @@ Rainy opens two windows:
 
 The avatar window is intentionally clean: it only shows the character. Text responses stay in the chat window.
 
+Use the gear button in the chat window to tune the avatar in real time:
+
+- Horizontal position.
+- Vertical position.
+- Model scale.
+- Camera distance.
+
+Those values are saved locally and restored on the next launch.
+
 ## Avatar
 
 Rainy looks for a VRM model at:
