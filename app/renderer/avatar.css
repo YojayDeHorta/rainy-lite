@@ -68,6 +68,7 @@ button {
 }
 
 .avatar-root {
+  -webkit-app-region: no-drag;
   position: relative;
   width: 100%;
   height: 100%;
@@ -75,18 +76,24 @@ button {
   place-items: center;
   overflow: visible;
   background: transparent;
+  pointer-events: auto;
 }
 
 .vrm-layer {
+  -webkit-app-region: no-drag;
   position: absolute;
   inset: 0;
   z-index: 2;
+  pointer-events: auto;
 }
 
 .vrm-layer canvas {
+  -webkit-app-region: no-drag;
   width: 100%;
   height: 100%;
   display: block;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .avatar-root.vrm-loaded .avatar-face {
@@ -94,6 +101,7 @@ button {
 }
 
 .avatar-face {
+  -webkit-app-region: no-drag;
   position: relative;
   z-index: 4;
   width: 160px;
@@ -102,6 +110,7 @@ button {
   background: linear-gradient(180deg, #eef8ff, #bedfff);
   box-shadow: 0 22px 45px rgba(27, 66, 108, 0.32);
   animation: breathe 3.2s ease-in-out infinite;
+  cursor: pointer;
 }
 
 .eyes {

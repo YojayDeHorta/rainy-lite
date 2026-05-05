@@ -57,7 +57,7 @@ export async function initAvatar() {
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   container.appendChild(renderer.domElement);
-  bindAvatarInteraction(renderer.domElement);
+  bindAvatarInteraction(container);
 
   ambientLight = new THREE.AmbientLight(0xbfdfff, 0.7);
   scene.add(ambientLight);
@@ -164,19 +164,19 @@ function resizeRenderer(container) {
   camera.updateProjectionMatrix();
 }
 
-function bindAvatarInteraction(canvas) {
-  canvas.addEventListener('pointermove', (event) => {
-    const rect = canvas.getBoundingClientRect();
+function bindAvatarInteraction(target) {
+  target.addEventListener('pointermove', (event) => {
+    const rect = target.getBoundingClientRect();
     pointer.x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
     pointer.y = -(((event.clientY - rect.top) / rect.height - 0.5) * 2);
     pointer.active = true;
   }, { passive: true });
 
-  canvas.addEventListener('pointerleave', () => {
+  target.addEventListener('pointerleave', () => {
     pointer.active = false;
   }, { passive: true });
 
-  canvas.addEventListener('pointerdown', () => {
+  target.addEventListener('pointerdown', () => {
     triggerReaction();
   }, { passive: true });
 }
