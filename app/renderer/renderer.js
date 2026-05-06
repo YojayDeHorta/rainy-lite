@@ -162,6 +162,19 @@ function initAvatarSettings() {
 
   settingsButton.addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
   avatarResetButton.addEventListener('click', () => applyAvatarSettings({ ...DEFAULT_AVATAR_SETTINGS }));
+
+  const themeToggle = document.getElementById('theme-toggle');
+  if (themeToggle) {
+    const isDark = localStorage.getItem('rainy-dark-theme') === 'true';
+    themeToggle.checked = isDark;
+    document.body.classList.toggle('dark-theme', isDark);
+
+    themeToggle.addEventListener('change', () => {
+      const dark = themeToggle.checked;
+      localStorage.setItem('rainy-dark-theme', dark);
+      document.body.classList.toggle('dark-theme', dark);
+    });
+  }
 }
 
 function addMessage(role, text) {
