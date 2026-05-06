@@ -1,192 +1,312 @@
 :root {
-  --bg: #f5f6f8;
-  --card: #ffffff;
-  --line: rgba(0, 0, 0, 0.12);
-  --text: #1a1b1e;
-  --muted: #6b7280;
+  --bg-color: #f5f6f8;
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.08);
+  --text-main: #1a1b1e;
+  --text-muted: #6b7280;
   --accent: #ff6b00;
-  --preview-bg: #0e1117;
-  --preview-border: rgba(255, 255, 255, 0.08);
+  --accent-hover: #e56000;
+  --input-bg: #ffffff;
+  --input-border: rgba(0, 0, 0, 0.15);
+  --input-focus: rgba(255, 107, 0, 0.15);
+  
+  --preview-glass: #f8f9fa;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.06);
+  --shadow-accent: 0 8px 20px -4px rgba(255, 107, 0, 0.25);
 }
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-html,
-body {
+html, body {
   width: 100%;
   height: 100%;
-  margin: 0;
-  font-family: Inter, Segoe UI, system-ui, sans-serif;
-  background: linear-gradient(180deg, #f1f2f5, #ffffff);
-  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text-main);
+  background-color: var(--bg-color);
+  overflow: hidden;
+  position: relative;
 }
 
+/* Background Animated Shapes Removed */
+.bg-shapes {
+  display: none;
+}
+
+/* Layout */
 .setup-shell {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  min-height: 100%;
-  padding: 20px;
+  height: 100%;
+  padding: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .setup-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(240px, 340px);
-  gap: 20px;
+  display: flex;
   width: 100%;
-  max-width: 920px;
-  align-items: stretch;
-}
-
-@media (max-width: 540px) {
-  .setup-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .setup-preview {
-    min-height: 320px;
-  }
-}
-
-.setup-card {
-  border: 1px solid var(--line);
+  max-width: 1000px;
+  height: 100%;
+  max-height: 620px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 20px;
-  background: var(--card);
-  padding: 24px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
 }
 
-.setup-form {
+/* Left Column: Form */
+.setup-form-container {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.setup-form-inner {
+  max-width: 400px;
+  margin: 0 auto;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
-h1 {
-  margin: 0 0 8px;
-  font-size: 1.5rem;
+
+.setup-header h1 {
+  font-size: 2.8rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  color: var(--text-main);
+  letter-spacing: -1px;
 }
 
-.subtitle {
-  margin: 0 0 18px;
-  color: var(--muted);
+.setup-header .subtitle {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  margin-bottom: 32px;
 }
 
-.field {
+.form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+.field-label {
   display: block;
-  margin-top: 12px;
-}
-
-.field span {
-  display: block;
-  margin-bottom: 6px;
   font-size: 0.9rem;
-  color: var(--muted);
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 8px;
 }
 
 .field-row {
   display: flex;
-  gap: 8px;
-  align-items: stretch;
+  gap: 12px;
+  align-items: center;
 }
 
-.field-row input {
+.input-wrapper {
   flex: 1;
-  min-width: 0;
+  position: relative;
+}
+
+input, select {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--text-main);
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+input:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--input-focus);
+}
+
+input::placeholder {
+  color: #9ca3af;
+}
+
+.select-wrapper {
+  position: relative;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: 40px;
+}
+
+.select-icon {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-muted);
 }
 
 .dice-button {
-  flex-shrink: 0;
   width: 44px;
-  border: 1px solid var(--line);
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 10px;
-  background: var(--card);
-  font-size: 1.25rem;
-  line-height: 1;
+  color: var(--text-main);
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .dice-button:hover {
+  background: #fff;
   border-color: var(--accent);
-  background: rgba(255, 107, 0, 0.08);
+  color: var(--accent);
+  transform: rotate(180deg) scale(1.05);
 }
 
 .dice-button:active {
-  transform: scale(0.96);
+  transform: rotate(180deg) scale(0.95);
 }
 
-.field input,
-.field select {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 0.95rem;
-  color: var(--text);
-  background: #fff;
+.form-footer {
+  margin-top: 32px;
 }
 
-.status {
-  min-height: 18px;
-  margin-top: 14px;
-  color: var(--muted);
-  font-size: 0.86rem;
+.status-message {
+  min-height: 20px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  text-align: center;
 }
 
 .continue-button {
-  margin-top: 12px;
   width: 100%;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  padding: 11px 16px;
-  font-weight: 600;
-  color: #fff;
   background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.continue-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: var(--accent-hover);
+  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.3);
+}
+
+.continue-button:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(255, 107, 0, 0.3);
 }
 
 .continue-button:disabled {
-  opacity: 0.55;
+  background: #cbd5e1;
+  box-shadow: none;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
-.setup-preview {
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: var(--preview-bg);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+/* Right Column: 3D Preview */
+.setup-preview-container {
+  width: 440px;
+  padding: 20px;
+  display: flex;
+}
+
+.preview-glass {
+  flex: 1;
+  background: var(--preview-glass);
+  border-radius: 16px;
+  border: 1px solid var(--card-border);
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  min-height: 420px;
 }
 
-.preview-header {
-  padding: 12px 16px;
-  font-size: 0.85rem;
+.preview-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  background: #ffffff;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.72);
-  border-bottom: 1px solid var(--preview-border);
-  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .vrm-preview {
   flex: 1;
-  min-height: 360px;
-  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .vrm-preview canvas {
-  display: block;
   width: 100% !important;
   height: 100% !important;
+  display: block;
 }
 
 .preview-status {
-  margin: 0;
-  padding: 8px 16px 12px;
-  font-size: 0.82rem;
-  color: #f97316;
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 106, 0, 0.1);
+  color: var(--accent);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid rgba(255, 106, 0, 0.2);
+  white-space: nowrap;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+  .setup-layout {
+    flex-direction: column;
+    max-height: none;
+    overflow-y: auto;
+  }
+  
+  .setup-preview-container {
+    width: 100%;
+    height: 400px;
+  }
 }

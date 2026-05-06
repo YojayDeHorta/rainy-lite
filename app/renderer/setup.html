@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Primer inicio</title>
+    <title>Configuración Inicial - Rainy Lite</title>
     <link rel="stylesheet" href="setup.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
     <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
     <script type="importmap">
       {
@@ -17,42 +18,80 @@
     </script>
   </head>
   <body>
+    <div class="bg-shapes">
+      <div class="shape shape-1"></div>
+      <div class="shape shape-2"></div>
+      <div class="shape shape-3"></div>
+    </div>
+
     <main class="setup-shell">
       <div class="setup-layout">
-        <section class="setup-card setup-form">
-          <h1>Bienvenida</h1>
-          <p class="subtitle">Configura a tu asistente para empezar.</p>
+        
+        <!-- Left Column: Form -->
+        <section class="setup-form-container">
+          <div class="setup-form-inner">
+            <header class="setup-header">
+              <h1>Bienvenido</h1>
+              <p class="subtitle">Personaliza a tu asistente virtual y dale vida a tu entorno.</p>
+            </header>
 
-          <label class="field">
-            <span>Nombre del bot</span>
-            <div class="field-row">
-              <input id="bot-name-input" type="text" maxlength="40" placeholder="Elige un nombre" />
-              <button type="button" id="bot-name-roll" class="dice-button" title="Nombre al azar" aria-label="Nombre al azar">
-                🎲
+            <div class="form-fields">
+              <label class="field">
+                <span class="field-label">Nombre del asistente</span>
+                <div class="field-row">
+                  <div class="input-wrapper">
+                    <input id="bot-name-input" type="text" maxlength="40" placeholder="Ej: Asuka" />
+                  </div>
+                  <button type="button" id="bot-name-roll" class="dice-button" title="Nombre al azar" aria-label="Nombre al azar">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.21l-5.45-5.45"/>
+                    </svg>
+                  </button>
+                </div>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Tu nombre</span>
+                <div class="input-wrapper">
+                  <input id="user-name-input" type="text" maxlength="40" placeholder="¿Cómo te llamas?" />
+                </div>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Modelo 3D (VRM)</span>
+                <div class="input-wrapper select-wrapper">
+                  <select id="model-select"></select>
+                  <div class="select-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <div class="form-footer">
+              <div id="status" class="status-message"></div>
+              <button id="continue-button" class="continue-button" disabled>
+                <span>Comenzar experiencia</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
               </button>
             </div>
-          </label>
-
-          <label class="field">
-            <span>Tu nombre</span>
-            <input id="user-name-input" type="text" maxlength="40" placeholder="Andres" />
-          </label>
-
-          <label class="field">
-            <span>Modelo del avatar</span>
-            <select id="model-select"></select>
-          </label>
-
-          <div id="status" class="status"></div>
-
-          <button id="continue-button" class="continue-button">Continuar</button>
+          </div>
         </section>
 
-        <aside class="setup-preview" aria-label="Vista previa del modelo">
-          <div class="preview-header">Vista previa</div>
-          <div id="vrm-preview" class="vrm-preview"></div>
-          <p id="preview-status" class="preview-status" hidden></p>
+        <!-- Right Column: 3D Preview -->
+        <aside class="setup-preview-container">
+          <div class="preview-glass">
+            <div class="preview-badge">Vista previa en tiempo real</div>
+            <div id="vrm-preview" class="vrm-preview"></div>
+            <div id="preview-status" class="preview-status" hidden></div>
+          </div>
         </aside>
+
       </div>
     </main>
     <script src="setup.js" type="module"></script>

@@ -72,8 +72,8 @@ function ensureScene(container) {
   containerEl = container;
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(24, 1, 0.1, 20);
-  camera.position.set(0, 1.18, 3.4);
-  camera.lookAt(0, 1.05, 0);
+  camera.position.set(0, 1.0, 4.4);
+  camera.lookAt(0, 0.85, 0);
 
   renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);
@@ -112,8 +112,22 @@ function loadVrm(url) {
           const vrm = gltf.userData.vrm;
           if (!vrm) throw new Error('No VRM');
           vrm.scene.rotation.y = Math.PI;
-          vrm.scene.position.set(0, 0.2, 0);
+          vrm.scene.position.set(0, 0.0, 0);
           vrm.scene.scale.setScalar(1);
+
+          if (vrm.humanoid) {
+            const leftArm = vrm.humanoid.getNormalizedBoneNode('leftUpperArm');
+            const rightArm = vrm.humanoid.getNormalizedBoneNode('rightUpperArm');
+            if (leftArm) {
+              leftArm.rotation.z = 1.2;
+              leftArm.rotation.x = 0.1;
+            }
+            if (rightArm) {
+              rightArm.rotation.z = -1.2;
+              rightArm.rotation.x = 0.1;
+            }
+          }
+
           resolve(vrm);
         } catch (e) {
           reject(e);
