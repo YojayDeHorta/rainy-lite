@@ -193,6 +193,28 @@ body.dark-theme .setting-item {
   font-weight: 500;
 }
 
+.model-select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--bg-color);
+  color: var(--text-color);
+}
+
+.model-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.model-status {
+  font-size: 0.82rem;
+  color: var(--accent);
+  min-height: 16px;
+}
+
 input[type="range"] {
   width: 100%;
   accent-color: var(--accent);

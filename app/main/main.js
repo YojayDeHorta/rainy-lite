@@ -11,6 +11,11 @@ let cursorTrackingId;
 let spotifyMonitorId;
 let spotifyCheckInFlight = false;
 let spotifyPlaying = false;
+let currentAvatarModel = null;
+
+const ROOT_DIR = path.resolve(__dirname, '..', '..');
+const AVATAR_MODEL_PREFS = path.join(app.getPath('userData'), 'avatar-model.json');
+const DEFAULT_AVATAR_MODEL = 'rainy.vrm';
 
 const AVATAR_BASE_WINDOW = {
   width: 380,
@@ -33,12 +38,11 @@ function getPythonCommand(rootDir) {
 }
 
 function startBackend() {
-  const rootDir = path.resolve(__dirname, '..', '..');
   backendProcess = spawn(
-    getPythonCommand(rootDir),
+    getPythonCommand(ROOT_DIR),
     ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8765'],
     {
-      cwd: rootDir,
+      cwd: ROOT_DIR,
       env: { ...process.env, PYTHONUNBUFFERED: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
@@ -56,6 +60,82 @@ function startBackend() {
     console.log(`[rainy-backend] exited with code ${code}`);
     backendProcess = null;
   });
+}
+
+function readAvatarModelPreference() {
+  try {
+    const raw = fs.readFileSync(AVATAR_MODEL_PREFS, 'utf8');
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.model === 'string' ? parsed.model : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeAvatarModelPreference(model) {
+  fs.writeFileSync(AVATAR_MODEL_PREFS, JSON.stringify({ model }), 'utf8');
+}
+
+function listAvatarModels() {
+  const buckets = [
+    { folder: path.join(ROOT_DIR, 'assets', 'models'), urlPrefix: '../../assets/models/' },
+    { folder: path.join(ROOT_DIR, 'assets'), urlPrefix: '../../assets/' },
+  ];
+  const items = [];
+  const seen = new Set();
+
+  for (const bucket of buckets) {
+    if (!fs.existsSync(bucket.folder)) continue;
+    const names = fs.readdirSync(bucket.folder, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.vrm'))
+      .map((entry) => entry.name);
+
+    for (const name of names) {
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push({
+        id: name,
+        name,
+        label: path.basename(name, path.extname(name)),
+        url: `${bucket.urlPrefix}${name}`,
+      });
+    }
+  }
+
+  return items.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function resolveAvatarModelSelection(name) {
+  const models = listAvatarModels();
+  if (models.length === 0) return null;
+  const requested = String(name || '').trim().toLowerCase();
+  const preferred = models.find((item) => item.name.toLowerCase() === requested);
+  if (preferred) return preferred;
+  const fallbackDefault = models.find((item) => item.name.toLowerCase() === DEFAULT_AVATAR_MODEL);
+  return fallbackDefault || models[0];
+}
+
+function getCurrentAvatarModel() {
+  if (currentAvatarModel) return currentAvatarModel;
+  const preferred = readAvatarModelPreference();
+  const selected = resolveAvatarModelSelection(preferred);
+  currentAvatarModel = selected?.name || null;
+  return currentAvatarModel;
+}
+
+function getCurrentAvatarModelEntry() {
+  return resolveAvatarModelSelection(getCurrentAvatarModel());
+}
+
+function broadcastAvatarModel(modelName) {
+  const model = resolveAvatarModelSelection(modelName);
+  if (!model) return;
+  if (!avatarWindow) createAvatarWindow();
+  const payload = { model: model.name, url: model.url };
+  const send = () => avatarWindow?.webContents.send('rainy:avatar-model', payload);
+  if (avatarWindow.webContents.isLoading()) avatarWindow.webContents.once('did-finish-load', send);
+  else send();
 }
 
 function baseWindowOptions(extra = {}) {
@@ -85,6 +165,10 @@ function createAvatarWindow() {
   }));
 
   avatarWindow.loadFile(path.join(__dirname, '..', 'renderer', 'avatar.html'));
+  avatarWindow.webContents.once('did-finish-load', () => {
+    const model = getCurrentAvatarModelEntry();
+    if (model) broadcastAvatarModel(model.name);
+  });
   avatarWindow.on('closed', () => {
     avatarWindow = null;
   });
@@ -644,6 +728,30 @@ ipcMain.handle('avatar:update-settings', (_event, settings) => {
 
 ipcMain.handle('avatar:set-state', (_event, state) => {
   updateAvatarState(state);
+});
+
+ipcMain.handle('avatar:list-models', () => {
+  const models = listAvatarModels();
+  const current = getCurrentAvatarModelEntry();
+  return { models, current: current?.name || null, currentUrl: current?.url || null };
+});
+
+ipcMain.handle('avatar:get-model', () => {
+  const current = getCurrentAvatarModelEntry();
+  return current ? { model: current.name, url: current.url } : null;
+});
+
+ipcMain.handle('avatar:set-model', (_event, modelName) => {
+  const selected = resolveAvatarModelSelection(modelName);
+  if (!selected) return { ok: false, message: 'No encontre modelos VRM en assets/models ni assets.' };
+  currentAvatarModel = selected.name;
+  try {
+    writeAvatarModelPreference(currentAvatarModel);
+  } catch (error) {
+    return { ok: false, message: error.message || 'No pude guardar el modelo seleccionado.' };
+  }
+  broadcastAvatarModel(currentAvatarModel);
+  return { ok: true, model: currentAvatarModel };
 });
 
 ipcMain.handle('system:execute-action', async (_event, action) => {

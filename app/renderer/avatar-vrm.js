@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
 const MODEL_URL = '../../assets/rainy.vrm';
+let activeModelUrl = MODEL_URL;
 
 let scene;
 let camera;
@@ -212,7 +213,9 @@ export async function initAvatar() {
   new ResizeObserver(resize).observe(container);
 
   try {
-    await loadVRM(MODEL_URL);
+    const preferredModel = await window.rainyDesktop?.getCurrentAvatarModel?.();
+    if (preferredModel?.url) activeModelUrl = preferredModel.url;
+    await loadVRM(activeModelUrl);
     root?.classList.add('vrm-loaded');
     clock = new THREE.Clock();
     scheduleBlink();
@@ -222,6 +225,32 @@ export async function initAvatar() {
   } catch (error) {
     console.warn('Asuka VRM not loaded. Using CSS placeholder.', error);
     container.remove();
+    return false;
+  }
+}
+
+export async function setAvatarModel(modelPayload) {
+  const nextUrl = String(modelPayload?.url || '').trim();
+  if (!nextUrl) return false;
+  if (nextUrl === activeModelUrl) return true;
+  const previousVrm = currentVrm;
+  const previousUrl = activeModelUrl;
+  activeModelUrl = nextUrl;
+  try {
+    const nextVrm = await loadVRM(activeModelUrl);
+    if (previousVrm?.scene) scene.remove(previousVrm.scene);
+    currentVrm = nextVrm;
+    scene.add(currentVrm.scene);
+    applyModelSettings();
+    applyExpressions();
+    return true;
+  } catch (error) {
+    activeModelUrl = previousUrl;
+    if (previousVrm && !scene.children.includes(previousVrm.scene)) {
+      scene.add(previousVrm.scene);
+      currentVrm = previousVrm;
+    }
+    console.warn('No pude cambiar el modelo VRM.', error);
     return false;
   }
 }
@@ -439,12 +468,17 @@ function loadVRM(url) {
           VRMUtils.removeUnnecessaryVertices(gltf.scene);
           VRMUtils.removeUnnecessaryJoints(gltf.scene);
 
-          currentVrm = gltf.userData.vrm;
-          if (!currentVrm) throw new Error('File loaded, but no VRM data was found.');
-          currentVrm.scene.rotation.y = Math.PI;
-          applyModelSettings();
-          scene.add(currentVrm.scene);
-          resolve(currentVrm);
+          const vrm = gltf.userData.vrm;
+          if (!vrm) throw new Error('File loaded, but no VRM data was found.');
+          vrm.scene.rotation.y = Math.PI;
+          if (!currentVrm) {
+            currentVrm = vrm;
+            applyModelSettings();
+            scene.add(vrm.scene);
+            resolve(currentVrm);
+            return;
+          }
+          resolve(vrm);
         } catch (error) {
           reject(error);
         }

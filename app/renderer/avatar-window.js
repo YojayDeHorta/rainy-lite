@@ -1,4 +1,4 @@
-import { initAvatar, setAvatarEmotion, setAvatarLipSync, setAvatarState, updateAvatarSettings, updateGlobalCursor } from './avatar-vrm.js';
+import { initAvatar, setAvatarEmotion, setAvatarLipSync, setAvatarModel, setAvatarState, updateAvatarSettings, updateGlobalCursor } from './avatar-vrm.js';
 
 const API_BASE = 'http://127.0.0.1:8765';
 
@@ -191,6 +191,9 @@ window.rainyDesktop.onGlobalCursor((payload) => updateGlobalCursor(payload));
 
 window.rainyDesktop.onAvatarWakewordTriggered(() => {
   wakewordBeepPending = true;
+});
+window.rainyDesktop.onAvatarModel(async (payload) => {
+  await setAvatarModel(payload);
 });
 
 document.getElementById('close-button').addEventListener('click', () => window.rainyDesktop.close());

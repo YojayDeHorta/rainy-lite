@@ -62,6 +62,10 @@ const avatarValueLabels = {
   light: document.getElementById('avatar-light-value'),
   motion: document.getElementById('avatar-motion-value'),
 };
+const avatarModelSelect = document.getElementById('avatar-model-select');
+const avatarModelApplyButton = document.getElementById('avatar-model-apply-button');
+const avatarModelStatus = document.getElementById('avatar-model-status');
+let loadedAvatarModel = '';
 
 function loadAvatarSettings() {
   try {
@@ -100,6 +104,40 @@ function applyAvatarSettings(settings) {
   window.rainyDesktop.updateAvatarSettings(settings);
 }
 
+function setModelStatus(text) {
+  avatarModelStatus.textContent = text || '';
+}
+
+function renderModelOptions(models, currentModel) {
+  avatarModelSelect.innerHTML = '';
+  for (const model of models) {
+    const option = document.createElement('option');
+    option.value = model.name;
+    option.textContent = model.label || model.name;
+    avatarModelSelect.appendChild(option);
+  }
+  if (currentModel) avatarModelSelect.value = currentModel;
+  loadedAvatarModel = avatarModelSelect.value || '';
+}
+
+async function initAvatarModelSelector() {
+  try {
+    const response = await window.rainyDesktop.listAvatarModels();
+    const models = response?.models || [];
+    const current = response?.current || '';
+    if (!models.length) {
+      avatarModelApplyButton.disabled = true;
+      setModelStatus('No se encontraron modelos .vrm en assets/models ni assets.');
+      return;
+    }
+    renderModelOptions(models, current);
+    setModelStatus('');
+  } catch (_) {
+    avatarModelApplyButton.disabled = true;
+    setModelStatus('No pude cargar los modelos.');
+  }
+}
+
 // Init Avatar Settings UI
 const initialSettings = loadAvatarSettings();
 syncAvatarSettingsUI(initialSettings);
@@ -111,3 +149,21 @@ for (const control of Object.values(avatarControls)) {
 document.getElementById('avatar-reset-button').addEventListener('click', () => {
   applyAvatarSettings({ ...DEFAULT_AVATAR_SETTINGS });
 });
+
+avatarModelApplyButton?.addEventListener('click', async () => {
+  const selected = avatarModelSelect?.value || '';
+  if (!selected || selected === loadedAvatarModel) {
+    setModelStatus('Sin cambios por aplicar.');
+    return;
+  }
+  setModelStatus('Aplicando modelo...');
+  const result = await window.rainyDesktop.setCurrentAvatarModel(selected);
+  if (result?.ok) {
+    loadedAvatarModel = result.model;
+    setModelStatus('Modelo aplicado.');
+  } else {
+    setModelStatus(result?.message || 'No se pudo aplicar el modelo.');
+  }
+});
+
+void initAvatarModelSelector();
