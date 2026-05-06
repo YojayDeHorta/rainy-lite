@@ -21,6 +21,100 @@ editProfileButton?.addEventListener('click', () => {
   window.rainyDesktop.close();
 });
 
+const micDeviceSelect = document.getElementById('mic-device-select');
+const micRefreshButton = document.getElementById('mic-refresh-button');
+const micPermitButton = document.getElementById('mic-permit-button');
+const micHint = document.getElementById('mic-hint');
+
+function micDisplayLabel(device) {
+  const label = String(device?.label || '').trim();
+  if (label) return label;
+  const id = String(device?.deviceId || '');
+  if (!id) return 'Microfono';
+  const tail = id.length > 12 ? `…${id.slice(-10)}` : id;
+  return `Microfono (${tail})`;
+}
+
+async function populateMicSelect() {
+  if (!micDeviceSelect) return;
+  let saved = '';
+  try {
+    const prefs = await window.rainyDesktop.getMicDevice();
+    saved = String(prefs?.deviceId || '').trim();
+  } catch (_) {
+  }
+
+  let devices = [];
+  try {
+    devices = await navigator.mediaDevices.enumerateDevices();
+  } catch (_) {
+    if (micHint) micHint.textContent = 'No pude listar microfonos.';
+    return;
+  }
+
+  const inputs = devices.filter((d) => d.kind === 'audioinput');
+  micDeviceSelect.innerHTML = '';
+
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = '';
+  defaultOpt.textContent = 'Predeterminado del sistema';
+  micDeviceSelect.appendChild(defaultOpt);
+
+  for (const d of inputs) {
+    const opt = document.createElement('option');
+    opt.value = d.deviceId;
+    opt.textContent = micDisplayLabel(d);
+    micDeviceSelect.appendChild(opt);
+  }
+
+  const match = saved && inputs.some((d) => d.deviceId === saved);
+  if (saved && !match) {
+    try {
+      await window.rainyDesktop.setMicDevice('');
+    } catch (_) {
+    }
+  }
+  micDeviceSelect.value = match ? saved : '';
+
+  if (!micHint) return;
+  if (!inputs.length) {
+    micHint.textContent = 'No se detectaron microfonos.';
+  } else {
+    const unnamed = inputs.some((d) => !String(d.label || '').trim());
+    micHint.textContent = unnamed
+      ? 'Si los nombres aparecen vacios, pulsa «Permitir y refrescar».'
+      : '';
+  }
+}
+
+micDeviceSelect?.addEventListener('change', async () => {
+  const value = micDeviceSelect.value || '';
+  await window.rainyDesktop.setMicDevice(value);
+});
+
+micRefreshButton?.addEventListener('click', () => {
+  void populateMicSelect();
+});
+
+micPermitButton?.addEventListener('click', async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+  } catch (_) {
+    if (micHint) micHint.textContent = 'Permiso denegado o sin microfono.';
+    return;
+  }
+  await populateMicSelect();
+});
+
+if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
+  navigator.mediaDevices.addEventListener('devicechange', () => {
+    void populateMicSelect();
+  });
+}
+
+void populateMicSelect();
+
 // Theme Logic
 const themeToggle = document.getElementById('theme-toggle');
 

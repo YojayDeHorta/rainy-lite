@@ -32,4 +32,6 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   updateTheme: (isDark) => ipcRenderer.invoke('settings:update-theme', isDark),
   onThemeUpdate: (callback) => ipcRenderer.on('rainy:theme-update', (_event, isDark) => callback(isDark)),
   onProfileUpdate: (callback) => ipcRenderer.on('rainy:profile-update', (_event, profile) => callback(profile)),
+  getMicDevice: () => ipcRenderer.invoke('audio:get-mic-device'),
+  setMicDevice: (deviceId) => ipcRenderer.invoke('audio:set-mic-device', deviceId),
 });

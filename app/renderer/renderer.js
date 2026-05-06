@@ -267,6 +267,33 @@ async function sendMessage(text, options = {}) {
   }
 }
 
+async function getMicMediaStream() {
+  let prefs = { deviceId: '' };
+  try {
+    prefs = await window.rainyDesktop.getMicDevice();
+  } catch (_) {
+  }
+  const trimmed = String(prefs?.deviceId || '').trim();
+  if (trimmed) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: trimmed } },
+      });
+    } catch (error) {
+      const name = error?.name || '';
+      if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        try {
+          await window.rainyDesktop.setMicDevice('');
+        } catch (_) {
+        }
+        return navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+      throw error;
+    }
+  }
+  return navigator.mediaDevices.getUserMedia({ audio: true });
+}
+
 async function toggleRecording(options = {}) {
   const source = String(options?.source || 'manual');
   if (isRecording) {
@@ -275,7 +302,7 @@ async function toggleRecording(options = {}) {
   }
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await getMicMediaStream();
     chunks = [];
     mediaRecorder = new MediaRecorder(stream);
 

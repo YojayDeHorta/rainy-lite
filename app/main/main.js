@@ -17,6 +17,7 @@ let currentAvatarModel = null;
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const AVATAR_MODEL_PREFS = path.join(app.getPath('userData'), 'avatar-model.json');
 const PROFILE_PREFS = path.join(app.getPath('userData'), 'profile.json');
+const MIC_PREFS = path.join(app.getPath('userData'), 'mic-preferences.json');
 const DEFAULT_AVATAR_MODEL = 'rainy.vrm';
 const DEFAULT_PROFILE = {
   botName: 'Asuka',
@@ -113,6 +114,23 @@ function isSetupCompleted() {
 
 function writeAvatarModelPreference(model) {
   fs.writeFileSync(AVATAR_MODEL_PREFS, JSON.stringify({ model }), 'utf8');
+}
+
+function readMicPreference() {
+  try {
+    const raw = fs.readFileSync(MIC_PREFS, 'utf8');
+    const parsed = JSON.parse(raw);
+    const deviceId = typeof parsed?.deviceId === 'string' ? parsed.deviceId.trim() : '';
+    return { deviceId };
+  } catch (_) {
+    return { deviceId: '' };
+  }
+}
+
+function writeMicPreference(deviceId) {
+  const clean = String(deviceId || '').trim();
+  fs.writeFileSync(MIC_PREFS, JSON.stringify({ deviceId: clean }), 'utf8');
+  return { deviceId: clean };
 }
 
 function listAvatarModels() {
@@ -785,6 +803,10 @@ ipcMain.handle('settings:update-theme', (_event, isDark) => {
     chatWindow.webContents.send('rainy:theme-update', isDark);
   }
 });
+
+ipcMain.handle('audio:get-mic-device', () => readMicPreference());
+
+ipcMain.handle('audio:set-mic-device', (_event, deviceId) => writeMicPreference(deviceId));
 
 ipcMain.handle('window:toggle-chat', () => {
   if (!chatWindow) createChatWindow();
