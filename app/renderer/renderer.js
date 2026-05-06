@@ -6,9 +6,7 @@ const sendButton = document.getElementById('send-button');
 const voiceButton = document.getElementById('voice-button');
 const subtitle = document.getElementById('subtitle');
 const statusDot = document.getElementById('status-dot');
-const settingsPanel = document.getElementById('avatar-settings');
 const settingsButton = document.getElementById('settings-button');
-const avatarResetButton = document.getElementById('avatar-reset-button');
 
 const AVATAR_SETTINGS_KEY = 'rainy-avatar-settings-v1';
 const DEFAULT_AVATAR_SETTINGS = {
@@ -18,24 +16,6 @@ const DEFAULT_AVATAR_SETTINGS = {
   cameraZ: 3.4,
   light: 0.75,
   motion: 1.0,
-};
-
-const avatarControls = {
-  x: document.getElementById('avatar-x'),
-  y: document.getElementById('avatar-y'),
-  scale: document.getElementById('avatar-scale'),
-  cameraZ: document.getElementById('avatar-camera'),
-  light: document.getElementById('avatar-light'),
-  motion: document.getElementById('avatar-motion'),
-};
-
-const avatarValueLabels = {
-  x: document.getElementById('avatar-x-value'),
-  y: document.getElementById('avatar-y-value'),
-  scale: document.getElementById('avatar-scale-value'),
-  cameraZ: document.getElementById('avatar-camera-value'),
-  light: document.getElementById('avatar-light-value'),
-  motion: document.getElementById('avatar-motion-value'),
 };
 
 let mediaRecorder = null;
@@ -123,58 +103,24 @@ function saveAvatarSettings(settings) {
   localStorage.setItem(AVATAR_SETTINGS_KEY, JSON.stringify(settings));
 }
 
-function syncAvatarSettingsUI(settings) {
-  for (const [key, control] of Object.entries(avatarControls)) {
-    control.value = String(settings[key]);
-    avatarValueLabels[key].textContent = Number(settings[key]).toFixed(2);
-  }
-}
-
-function currentAvatarSettingsFromUI() {
-  return {
-    x: Number(avatarControls.x.value),
-    y: Number(avatarControls.y.value),
-    scale: Number(avatarControls.scale.value),
-    cameraZ: Number(avatarControls.cameraZ.value),
-    light: Number(avatarControls.light.value),
-    motion: Number(avatarControls.motion.value),
-  };
-}
-
-function applyAvatarSettings(settings) {
-  syncAvatarSettingsUI(settings);
-  saveAvatarSettings(settings);
-  window.rainyDesktop.updateAvatarSettings(settings);
-}
-
 function setAvatarState(state) {
   window.rainyDesktop.setAvatarState(state);
 }
 
 function initAvatarSettings() {
   const settings = loadAvatarSettings();
-  syncAvatarSettingsUI(settings);
   window.rainyDesktop.updateAvatarSettings(settings);
 
-  for (const control of Object.values(avatarControls)) {
-    control.addEventListener('input', () => applyAvatarSettings(currentAvatarSettingsFromUI()));
-  }
+  settingsButton.addEventListener('click', () => {
+    window.rainyDesktop.openSettingsWindow();
+  });
 
-  settingsButton.addEventListener('click', () => settingsPanel.classList.toggle('hidden'));
-  avatarResetButton.addEventListener('click', () => applyAvatarSettings({ ...DEFAULT_AVATAR_SETTINGS }));
+  const isDark = localStorage.getItem('rainy-dark-theme') === 'true';
+  document.body.classList.toggle('dark-theme', isDark);
 
-  const themeToggle = document.getElementById('theme-toggle');
-  if (themeToggle) {
-    const isDark = localStorage.getItem('rainy-dark-theme') === 'true';
-    themeToggle.checked = isDark;
-    document.body.classList.toggle('dark-theme', isDark);
-
-    themeToggle.addEventListener('change', () => {
-      const dark = themeToggle.checked;
-      localStorage.setItem('rainy-dark-theme', dark);
-      document.body.classList.toggle('dark-theme', dark);
-    });
-  }
+  window.rainyDesktop.onThemeUpdate((dark) => {
+    document.body.classList.toggle('dark-theme', dark);
+  });
 }
 
 function addMessage(role, text) {

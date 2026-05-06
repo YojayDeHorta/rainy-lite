@@ -21,4 +21,7 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   onAvatarSpeechStatus: (callback) => ipcRenderer.on('rainy:avatar-speech-status', (_event, payload) => callback(payload)),
   onSpotifyPlayback: (callback) => ipcRenderer.on('rainy:spotify-playback', (_event, payload) => callback(payload)),
   onGlobalCursor: (callback) => ipcRenderer.on('rainy:global-cursor', (_event, payload) => callback(payload)),
+  openSettingsWindow: () => ipcRenderer.invoke('window:open-settings'),
+  updateTheme: (isDark) => ipcRenderer.invoke('settings:update-theme', isDark),
+  onThemeUpdate: (callback) => ipcRenderer.on('rainy:theme-update', (_event, isDark) => callback(isDark)),
 });

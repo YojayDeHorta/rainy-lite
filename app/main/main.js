@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 
 let chatWindow;
 let avatarWindow;
+let settingsWindow;
 let backendProcess;
 let cursorTrackingId;
 let spotifyMonitorId;
@@ -105,6 +106,28 @@ function createChatWindow() {
   chatWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   chatWindow.on('closed', () => {
     chatWindow = null;
+  });
+}
+
+function createSettingsWindow() {
+  if (settingsWindow) {
+    settingsWindow.show();
+    return;
+  }
+  settingsWindow = new BrowserWindow(baseWindowOptions({
+    width: 500,
+    height: 650,
+    minWidth: 350,
+    minHeight: 500,
+    transparent: false,
+    show: true,
+    hasShadow: true,
+    backgroundColor: '#ffffff',
+    alwaysOnTop: false,
+  }));
+  settingsWindow.loadFile(path.join(__dirname, '..', 'renderer', 'settings.html'));
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
   });
 }
 
@@ -546,7 +569,22 @@ function sendToAvatarWakeword() {
 }
 
 ipcMain.handle('window:close', (event) => {
-  BrowserWindow.fromWebContents(event.sender)?.hide();
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win === settingsWindow) {
+    win.close();
+  } else {
+    win?.hide();
+  }
+});
+
+ipcMain.handle('window:open-settings', () => {
+  createSettingsWindow();
+});
+
+ipcMain.handle('settings:update-theme', (_event, isDark) => {
+  if (chatWindow && !chatWindow.isDestroyed()) {
+    chatWindow.webContents.send('rainy:theme-update', isDark);
+  }
 });
 
 ipcMain.handle('window:toggle-chat', () => {
