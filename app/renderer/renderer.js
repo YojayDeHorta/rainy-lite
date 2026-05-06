@@ -223,7 +223,8 @@ async function waitForBackend() {
   return false;
 }
 
-async function sendMessage(text) {
+async function sendMessage(text, options = {}) {
+  const fromVoice = Boolean(options.fromVoice);
   const message = text.trim();
   if (!message) return;
 
@@ -250,7 +251,7 @@ async function sendMessage(text) {
     addMessage('assistant', reply);
     if (action) await executeAction(action);
     await window.rainyDesktop.speakOnAvatar({ text: clean, emotion });
-    if (conversation.continue && conversation.reason === 'followup' && !action) {
+    if (fromVoice && conversation.continue && conversation.reason === 'followup' && !action) {
       conversationSessionActive = true;
       conversationAwaitingSpeechEnd = true;
     } else {
@@ -458,7 +459,7 @@ async function transcribeAndSend(blob) {
       return;
     }
     updateConversationActivity();
-    await sendMessage(transcript);
+    await sendMessage(transcript, { fromVoice: true });
   } catch (error) {
     subtitle.textContent = 'No pude transcribir el audio.';
     setAvatarState('idle');
