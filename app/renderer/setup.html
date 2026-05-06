@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Primer inicio</title>
+    <link rel="stylesheet" href="setup.css" />
+    <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.154.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.154.0/examples/jsm/",
+          "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@2.0.0/lib/three-vrm.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="setup-shell">
+      <div class="setup-layout">
+        <section class="setup-card setup-form">
+          <h1>Bienvenida</h1>
+          <p class="subtitle">Configura a tu asistente para empezar.</p>
+
+          <label class="field">
+            <span>Nombre del bot</span>
+            <div class="field-row">
+              <input id="bot-name-input" type="text" maxlength="40" placeholder="Elige un nombre" />
+              <button type="button" id="bot-name-roll" class="dice-button" title="Nombre al azar" aria-label="Nombre al azar">
+                🎲
+              </button>
+            </div>
+          </label>
+
+          <label class="field">
+            <span>Tu nombre</span>
+            <input id="user-name-input" type="text" maxlength="40" placeholder="Andres" />
+          </label>
+
+          <label class="field">
+            <span>Modelo del avatar</span>
+            <select id="model-select"></select>
+          </label>
+
+          <div id="status" class="status"></div>
+
+          <button id="continue-button" class="continue-button">Continuar</button>
+        </section>
+
+        <aside class="setup-preview" aria-label="Vista previa del modelo">
+          <div class="preview-header">Vista previa</div>
+          <div id="vrm-preview" class="vrm-preview"></div>
+          <p id="preview-status" class="preview-status" hidden></p>
+        </aside>
+      </div>
+    </main>
+    <script src="setup.js" type="module"></script>
+  </body>
+</html>

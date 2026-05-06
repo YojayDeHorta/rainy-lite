@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 let chatWindow;
 let avatarWindow;
 let settingsWindow;
+let setupWindow;
 let backendProcess;
 let cursorTrackingId;
 let spotifyMonitorId;
@@ -15,7 +16,14 @@ let currentAvatarModel = null;
 
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const AVATAR_MODEL_PREFS = path.join(app.getPath('userData'), 'avatar-model.json');
+const PROFILE_PREFS = path.join(app.getPath('userData'), 'profile.json');
 const DEFAULT_AVATAR_MODEL = 'rainy.vrm';
+const DEFAULT_PROFILE = {
+  botName: 'Asuka',
+  userName: 'Usuario',
+  model: DEFAULT_AVATAR_MODEL,
+  setupCompleted: false,
+};
 
 const AVATAR_BASE_WINDOW = {
   width: 380,
@@ -72,6 +80,37 @@ function readAvatarModelPreference() {
   }
 }
 
+function readProfilePreference() {
+  try {
+    const raw = fs.readFileSync(PROFILE_PREFS, 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      botName: String(parsed?.botName || DEFAULT_PROFILE.botName).trim() || DEFAULT_PROFILE.botName,
+      userName: String(parsed?.userName || DEFAULT_PROFILE.userName).trim() || DEFAULT_PROFILE.userName,
+      model: String(parsed?.model || DEFAULT_PROFILE.model).trim() || DEFAULT_PROFILE.model,
+      setupCompleted: Boolean(parsed?.setupCompleted),
+    };
+  } catch (_) {
+    return { ...DEFAULT_PROFILE };
+  }
+}
+
+function writeProfilePreference(profile) {
+  const clean = {
+    botName: String(profile?.botName || DEFAULT_PROFILE.botName).trim() || DEFAULT_PROFILE.botName,
+    userName: String(profile?.userName || DEFAULT_PROFILE.userName).trim() || DEFAULT_PROFILE.userName,
+    model: String(profile?.model || DEFAULT_PROFILE.model).trim() || DEFAULT_PROFILE.model,
+    setupCompleted: Boolean(profile?.setupCompleted),
+  };
+  fs.writeFileSync(PROFILE_PREFS, JSON.stringify(clean), 'utf8');
+  return clean;
+}
+
+function isSetupCompleted() {
+  const profile = readProfilePreference();
+  return Boolean(profile.setupCompleted && profile.botName && profile.userName);
+}
+
 function writeAvatarModelPreference(model) {
   fs.writeFileSync(AVATAR_MODEL_PREFS, JSON.stringify({ model }), 'utf8');
 }
@@ -118,7 +157,8 @@ function resolveAvatarModelSelection(name) {
 
 function getCurrentAvatarModel() {
   if (currentAvatarModel) return currentAvatarModel;
-  const preferred = readAvatarModelPreference();
+  const profilePreferred = readProfilePreference().model;
+  const preferred = profilePreferred || readAvatarModelPreference();
   const selected = resolveAvatarModelSelection(preferred);
   currentAvatarModel = selected?.name || null;
   return currentAvatarModel;
@@ -188,6 +228,9 @@ function createChatWindow() {
   }));
 
   chatWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  chatWindow.webContents.once('did-finish-load', () => {
+    chatWindow?.webContents.send('rainy:profile-update', readProfilePreference());
+  });
   chatWindow.on('closed', () => {
     chatWindow = null;
   });
@@ -212,6 +255,28 @@ function createSettingsWindow() {
   settingsWindow.loadFile(path.join(__dirname, '..', 'renderer', 'settings.html'));
   settingsWindow.on('closed', () => {
     settingsWindow = null;
+  });
+}
+
+function createSetupWindow() {
+  if (setupWindow) {
+    setupWindow.show();
+    return;
+  }
+  setupWindow = new BrowserWindow(baseWindowOptions({
+    width: 900,
+    height: 680,
+    minWidth: 560,
+    minHeight: 580,
+    transparent: false,
+    show: true,
+    hasShadow: true,
+    backgroundColor: '#ffffff',
+    alwaysOnTop: false,
+  }));
+  setupWindow.loadFile(path.join(__dirname, '..', 'renderer', 'setup.html'));
+  setupWindow.on('closed', () => {
+    setupWindow = null;
   });
 }
 
@@ -604,12 +669,17 @@ function spawnAndWait(command, args, options = {}) {
   });
 }
 
-app.whenReady().then(() => {
-  startBackend();
+function startNormalUi() {
   createAvatarWindow();
   createChatWindow();
   startGlobalCursorTracking();
   startSpotifyMonitor();
+}
+
+app.whenReady().then(() => {
+  startBackend();
+  if (isSetupCompleted()) startNormalUi();
+  else createSetupWindow();
 
   globalShortcut.register('CommandOrControl+Shift+R', () => {
     if (!chatWindow) return;
@@ -654,6 +724,10 @@ function sendToAvatarWakeword() {
 
 ipcMain.handle('window:close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
+  if (win === setupWindow) {
+    app.quit();
+    return;
+  }
   if (win === settingsWindow) {
     win.close();
   } else {
@@ -663,6 +737,47 @@ ipcMain.handle('window:close', (event) => {
 
 ipcMain.handle('window:open-settings', () => {
   createSettingsWindow();
+});
+
+ipcMain.handle('window:open-setup', () => {
+  createSetupWindow();
+});
+
+ipcMain.handle('profile:get', () => {
+  const profile = readProfilePreference();
+  return {
+    ...profile,
+    model: getCurrentAvatarModel(),
+  };
+});
+
+ipcMain.handle('profile:save', (_event, payload) => {
+  const selected = resolveAvatarModelSelection(payload?.model);
+  if (!selected) {
+    return { ok: false, message: 'No se encontro un modelo VRM valido.' };
+  }
+  currentAvatarModel = selected.name;
+  const next = writeProfilePreference({
+    botName: payload?.botName,
+    userName: payload?.userName,
+    model: selected.name,
+    setupCompleted: true,
+  });
+  try {
+    writeAvatarModelPreference(selected.name);
+  } catch (_) {
+  }
+  broadcastAvatarModel(selected.name);
+  if (setupWindow && !setupWindow.isDestroyed()) {
+    setupWindow.close();
+  }
+  if (!avatarWindow || !chatWindow) {
+    startNormalUi();
+  }
+  if (chatWindow && !chatWindow.isDestroyed()) {
+    chatWindow.webContents.send('rainy:profile-update', next);
+  }
+  return { ok: true, profile: next };
 });
 
 ipcMain.handle('settings:update-theme', (_event, isDark) => {
@@ -747,6 +862,8 @@ ipcMain.handle('avatar:set-model', (_event, modelName) => {
   currentAvatarModel = selected.name;
   try {
     writeAvatarModelPreference(currentAvatarModel);
+    const profile = readProfilePreference();
+    writeProfilePreference({ ...profile, model: currentAvatarModel });
   } catch (error) {
     return { ok: false, message: error.message || 'No pude guardar el modelo seleccionado.' };
   }

@@ -5,7 +5,7 @@ import requests
 
 from . import config
 from .memory import get_memories
-from .prompts import LOCAL_FALLBACK_REPLY, RAINY_SYSTEM_PROMPT
+from .prompts import LOCAL_FALLBACK_REPLY, build_system_prompt
 
 CONVERSATION_CONTROL_RE = re.compile(
     r"\[CONVERSATION:\s*(CONTINUE|STOP)(?:\s+\"(followup|goodbye|one_shot|uncertain)\")?\s*\]",
@@ -49,13 +49,13 @@ def clean_response(text: str) -> str:
     return text
 
 
-def _messages_for_chat(message: str, history: list[dict]):
+def _messages_for_chat(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
     memories = get_memories()
     memory_block = ""
     if memories:
         memory_block = "\nMemorias del usuario:\n" + "\n".join(f"- {item}" for item in memories)
 
-    messages = [{"role": "system", "content": RAINY_SYSTEM_PROMPT + memory_block}]
+    messages = [{"role": "system", "content": build_system_prompt(bot_name, user_name) + memory_block}]
     for item in history[-20:]:
         role = "assistant" if item["role"] == "assistant" else "user"
         messages.append({"role": role, "content": item["content"]})
@@ -63,30 +63,30 @@ def _messages_for_chat(message: str, history: list[dict]):
     return messages
 
 
-async def generate_response(message: str, history: list[dict]):
+async def generate_response(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
     provider = config.AI_PROVIDER
     if provider == "gemini" and config.GEMINI_KEY:
-        return clean_response(await _generate_gemini(message, history))
+        return clean_response(await _generate_gemini(message, history, bot_name, user_name))
     if provider == "groq" and config.GROQ_API_KEY:
-        return clean_response(await _generate_groq(message, history))
+        return clean_response(await _generate_groq(message, history, bot_name, user_name))
     if provider == "openai" and config.OPENAI_API_KEY:
-        return clean_response(await _generate_openai(message, history))
+        return clean_response(await _generate_openai(message, history, bot_name, user_name))
     if provider == "ollama":
-        return clean_response(await _generate_ollama(message, history))
+        return clean_response(await _generate_ollama(message, history, bot_name, user_name))
     return LOCAL_FALLBACK_REPLY
 
 
-async def generate_response_with_metadata(message: str, history: list[dict]):
+async def generate_response_with_metadata(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
     provider = config.AI_PROVIDER
     raw_response = ""
     if provider == "gemini" and config.GEMINI_KEY:
-        raw_response = await _generate_gemini(message, history)
+        raw_response = await _generate_gemini(message, history, bot_name, user_name)
     elif provider == "groq" and config.GROQ_API_KEY:
-        raw_response = await _generate_groq(message, history)
+        raw_response = await _generate_groq(message, history, bot_name, user_name)
     elif provider == "openai" and config.OPENAI_API_KEY:
-        raw_response = await _generate_openai(message, history)
+        raw_response = await _generate_openai(message, history, bot_name, user_name)
     elif provider == "ollama":
-        raw_response = await _generate_ollama(message, history)
+        raw_response = await _generate_ollama(message, history, bot_name, user_name)
 
     if not raw_response:
         return {
@@ -103,12 +103,12 @@ async def generate_response_with_metadata(message: str, history: list[dict]):
     }
 
 
-async def _generate_gemini(message: str, history: list[dict]):
+async def _generate_gemini(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
     import google.generativeai as genai
 
     def run():
         genai.configure(api_key=config.GEMINI_KEY)
-        model = genai.GenerativeModel(config.AI_MODEL, system_instruction=RAINY_SYSTEM_PROMPT)
+        model = genai.GenerativeModel(config.AI_MODEL, system_instruction=build_system_prompt(bot_name, user_name))
         gemini_history = []
         for item in history[-20:]:
             role = "model" if item["role"] == "assistant" else "user"
@@ -120,14 +120,14 @@ async def _generate_gemini(message: str, history: list[dict]):
     return await asyncio.to_thread(run)
 
 
-async def _generate_groq(message: str, history: list[dict]):
+async def _generate_groq(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
     from groq import Groq
 
     def run():
         client = Groq(api_key=config.GROQ_API_KEY)
         completion = client.chat.completions.create(
             model=config.GROQ_MODEL,
-            messages=_messages_for_chat(message, history),
+            messages=_messages_for_chat(message, history, bot_name, user_name),
             temperature=config.AI_TEMPERATURE,
             max_completion_tokens=800,
         )
@@ -136,14 +136,14 @@ async def _generate_groq(message: str, history: list[dict]):
     return await asyncio.to_thread(run)
 
 
-async def _generate_openai(message: str, history: list[dict]):
+async def _generate_openai(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
     from openai import OpenAI
 
     def run():
         client = OpenAI(base_url=config.OPENAI_BASE_URL, api_key=config.OPENAI_API_KEY)
         completion = client.chat.completions.create(
             model=config.OPENAI_MODEL,
-            messages=_messages_for_chat(message, history),
+            messages=_messages_for_chat(message, history, bot_name, user_name),
             temperature=config.AI_TEMPERATURE,
         )
         return completion.choices[0].message.content
@@ -151,13 +151,13 @@ async def _generate_openai(message: str, history: list[dict]):
     return await asyncio.to_thread(run)
 
 
-async def _generate_ollama(message: str, history: list[dict]):
+async def _generate_ollama(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
     def run():
         response = requests.post(
             f"{config.OLLAMA_URL}/api/chat",
             json={
                 "model": config.OLLAMA_MODEL,
-                "messages": _messages_for_chat(message, history),
+                "messages": _messages_for_chat(message, history, bot_name, user_name),
                 "stream": False,
                 "options": {"temperature": config.AI_TEMPERATURE},
             },

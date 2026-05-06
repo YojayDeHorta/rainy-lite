@@ -12,7 +12,12 @@ tabs.forEach(tab => {
 });
 
 const closeButton = document.getElementById('settings-close-button');
+const editProfileButton = document.getElementById('edit-profile-button');
 closeButton?.addEventListener('click', () => {
+  window.rainyDesktop.close();
+});
+editProfileButton?.addEventListener('click', () => {
+  window.rainyDesktop.openSetupWindow();
   window.rainyDesktop.close();
 });
 

@@ -11,6 +11,8 @@ from . import ai_core, config, memory, spotify, stt, tts, wakeword
 
 class ChatRequest(BaseModel):
     message: str
+    bot_name: str | None = None
+    user_name: str | None = None
 
 
 class TTSRequest(BaseModel):
@@ -96,7 +98,12 @@ async def chat(req: ChatRequest):
 
     history = memory.get_chat_history()
     memory.add_chat_message("user", message)
-    generated = await ai_core.generate_response_with_metadata(message, history)
+    generated = await ai_core.generate_response_with_metadata(
+        message,
+        history,
+        bot_name=req.bot_name,
+        user_name=req.user_name,
+    )
     response = generated.get("response") or ai_core.LOCAL_FALLBACK_REPLY
     conversation = generated.get("conversation") or {"continue": False, "reason": "uncertain"}
     memory.add_chat_message("assistant", response)

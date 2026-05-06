@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   onSpotifyPlayback: (callback) => ipcRenderer.on('rainy:spotify-playback', (_event, payload) => callback(payload)),
   onGlobalCursor: (callback) => ipcRenderer.on('rainy:global-cursor', (_event, payload) => callback(payload)),
   openSettingsWindow: () => ipcRenderer.invoke('window:open-settings'),
+  openSetupWindow: () => ipcRenderer.invoke('window:open-setup'),
+  getProfile: () => ipcRenderer.invoke('profile:get'),
+  saveProfile: (profile) => ipcRenderer.invoke('profile:save', profile),
   updateTheme: (isDark) => ipcRenderer.invoke('settings:update-theme', isDark),
   onThemeUpdate: (callback) => ipcRenderer.on('rainy:theme-update', (_event, isDark) => callback(isDark)),
+  onProfileUpdate: (callback) => ipcRenderer.on('rainy:profile-update', (_event, profile) => callback(profile)),
 });

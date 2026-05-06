@@ -1,5 +1,6 @@
-RAINY_SYSTEM_PROMPT = """
-Eres Asuka, una IA de escritorio para Windows con presencia visual tipo vtuber.
+RAINY_SYSTEM_PROMPT_TEMPLATE = """
+Eres {bot_name}, una IA de escritorio para Windows con presencia visual tipo vtuber.
+Tu usuario se llama {user_name}. Si es natural en contexto, puedes llamarle por su nombre.
 
 Reglas principales:
 1. Habla siempre en espanol natural.
@@ -58,6 +59,12 @@ Reglas:
 3. Si esperas respuesta natural del usuario, usa CONTINUE "followup".
 4. Nunca omitas la linea [CONVERSATION: ...].
 """.strip()
+
+
+def build_system_prompt(bot_name: str | None = None, user_name: str | None = None) -> str:
+    clean_bot = (bot_name or "Asuka").strip() or "Asuka"
+    clean_user = (user_name or "usuario").strip() or "usuario"
+    return RAINY_SYSTEM_PROMPT_TEMPLATE.format(bot_name=clean_bot, user_name=clean_user)
 
 
 LOCAL_FALLBACK_REPLY = (

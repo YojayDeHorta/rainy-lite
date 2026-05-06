@@ -7,6 +7,7 @@ const voiceButton = document.getElementById('voice-button');
 const subtitle = document.getElementById('subtitle');
 const statusDot = document.getElementById('status-dot');
 const settingsButton = document.getElementById('settings-button');
+const titleLabel = document.querySelector('.brand span:last-child');
 
 const AVATAR_SETTINGS_KEY = 'rainy-avatar-settings-v1';
 const DEFAULT_AVATAR_SETTINGS = {
@@ -49,6 +50,10 @@ const ENDPOINT_TICK_MS = 50;
 const CONVERSATION_REOPEN_DELAY_MS = 550;
 const CONVERSATION_IDLE_TIMEOUT_MS = 30000;
 const GOODBYE_RE = /\b(adios|adiós|chao|hasta luego|nos vemos|bye|gracias(,)? eso es todo)\b/i;
+let profile = {
+  botName: 'Asuka',
+  userName: 'Usuario',
+};
 
 function updateConversationActivity() {
   conversationLastActivityAt = Date.now();
@@ -97,6 +102,11 @@ function loadAvatarSettings() {
   } catch (_) {
     return { ...DEFAULT_AVATAR_SETTINGS };
   }
+}
+
+function applyProfileToUi() {
+  if (titleLabel) titleLabel.textContent = profile.botName || 'Chat';
+  input.placeholder = `Dile algo a ${profile.botName || 'Asuka'}...`;
 }
 
 function saveAvatarSettings(settings) {
@@ -219,7 +229,7 @@ async function sendMessage(text) {
 
   addMessage('user', message);
   input.value = '';
-  subtitle.textContent = 'Asuka esta pensando...';
+  subtitle.textContent = `${profile.botName || 'Asuka'} esta pensando...`;
   setAvatarState('thinking');
   isAssistantBusy = true;
   updateConversationActivity();
@@ -228,7 +238,7 @@ async function sendMessage(text) {
     const res = await fetch(`${API_BASE}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, bot_name: profile.botName, user_name: profile.userName }),
     });
     const data = await res.json();
     const reply = data.response || '[NEUTRAL] Me quede sin palabras por un segundo.';
@@ -459,6 +469,19 @@ async function transcribeAndSend(blob) {
   }
 }
 
+async function initProfile() {
+  try {
+    const next = await window.rainyDesktop.getProfile();
+    profile = {
+      botName: String(next?.botName || 'Asuka'),
+      userName: String(next?.userName || 'Usuario'),
+    };
+  } catch (_) {
+    profile = { botName: 'Asuka', userName: 'Usuario' };
+  }
+  applyProfileToUi();
+}
+
 sendButton.addEventListener('click', () => sendMessage(input.value));
 input.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') sendMessage(input.value);
@@ -473,6 +496,13 @@ document.getElementById('pin-button').addEventListener('click', async () => {
 });
 
 window.rainyDesktop.onToggleVoice(() => toggleRecording());
+window.rainyDesktop.onProfileUpdate((next) => {
+  profile = {
+    botName: String(next?.botName || profile.botName || 'Asuka'),
+    userName: String(next?.userName || profile.userName || 'Usuario'),
+  };
+  applyProfileToUi();
+});
 window.rainyDesktop.onAvatarSpeechStatus((payload) => {
   const event = String(payload?.event || '').toLowerCase();
   if (event === 'start') {
@@ -486,5 +516,6 @@ window.rainyDesktop.onAvatarSpeechStatus((payload) => {
 });
 
 initAvatarSettings();
+void initProfile();
 setAvatarState('idle');
 waitForBackend();
