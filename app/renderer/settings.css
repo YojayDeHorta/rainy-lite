@@ -310,3 +310,38 @@ input:checked + .slider {
 input:checked + .slider:before {
   transform: translateX(20px);
 }
+
+.personality-hint {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin: -8px 0 16px;
+  line-height: 1.45;
+}
+
+.personality-textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: var(--bg-color);
+  color: var(--text-color);
+  box-sizing: border-box;
+}
+
+.personality-char-count-settings {
+  font-size: 0.75rem;
+  opacity: 0.75;
+  text-align: right;
+  margin-top: 6px;
+}
+
+.personality-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}

@@ -58,6 +58,26 @@
               </label>
 
               <label class="field">
+                <span class="field-label">Personalidad del asistente</span>
+                <div class="input-wrapper select-wrapper">
+                  <select id="personality-preset"></select>
+                  <div class="select-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                  </div>
+                </div>
+              </label>
+
+              <div id="personality-custom-field" class="field personality-custom-field" hidden>
+                <label class="field-label" for="personality-custom">Descripcion de tu tono</label>
+                <div class="input-wrapper">
+                  <textarea id="personality-custom" maxlength="600" rows="4" placeholder="Ej.: sarcástica pero cariñosa, usa diminutivos..."></textarea>
+                </div>
+                <div id="personality-custom-count" class="personality-char-count">0/600</div>
+              </div>
+
+              <label class="field">
                 <span class="field-label">Modelo 3D (VRM)</span>
                 <div class="input-wrapper select-wrapper">
                   <select id="model-select"></select>

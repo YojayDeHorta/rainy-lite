@@ -49,13 +49,26 @@ def clean_response(text: str) -> str:
     return text
 
 
-def _messages_for_chat(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
+def _messages_for_chat(
+    message: str,
+    history: list[dict],
+    bot_name: str | None = None,
+    user_name: str | None = None,
+    personality_preset: str | None = None,
+    personality_custom: str | None = None,
+):
     memories = get_memories()
     memory_block = ""
     if memories:
         memory_block = "\nMemorias del usuario:\n" + "\n".join(f"- {item}" for item in memories)
 
-    messages = [{"role": "system", "content": build_system_prompt(bot_name, user_name) + memory_block}]
+    system_text = build_system_prompt(
+        bot_name,
+        user_name,
+        personality_preset=personality_preset,
+        personality_custom=personality_custom,
+    )
+    messages = [{"role": "system", "content": system_text + memory_block}]
     for item in history[-20:]:
         role = "assistant" if item["role"] == "assistant" else "user"
         messages.append({"role": role, "content": item["content"]})
@@ -63,30 +76,108 @@ def _messages_for_chat(message: str, history: list[dict], bot_name: str | None =
     return messages
 
 
-async def generate_response(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
+async def generate_response(
+    message: str,
+    history: list[dict],
+    bot_name: str | None = None,
+    user_name: str | None = None,
+    personality_preset: str | None = None,
+    personality_custom: str | None = None,
+):
     provider = config.AI_PROVIDER
     if provider == "gemini" and config.GEMINI_KEY:
-        return clean_response(await _generate_gemini(message, history, bot_name, user_name))
+        return clean_response(
+            await _generate_gemini(
+                message,
+                history,
+                bot_name,
+                user_name,
+                personality_preset=personality_preset,
+                personality_custom=personality_custom,
+            )
+        )
     if provider == "groq" and config.GROQ_API_KEY:
-        return clean_response(await _generate_groq(message, history, bot_name, user_name))
+        return clean_response(
+            await _generate_groq(
+                message,
+                history,
+                bot_name,
+                user_name,
+                personality_preset=personality_preset,
+                personality_custom=personality_custom,
+            )
+        )
     if provider == "openai" and config.OPENAI_API_KEY:
-        return clean_response(await _generate_openai(message, history, bot_name, user_name))
+        return clean_response(
+            await _generate_openai(
+                message,
+                history,
+                bot_name,
+                user_name,
+                personality_preset=personality_preset,
+                personality_custom=personality_custom,
+            )
+        )
     if provider == "ollama":
-        return clean_response(await _generate_ollama(message, history, bot_name, user_name))
+        return clean_response(
+            await _generate_ollama(
+                message,
+                history,
+                bot_name,
+                user_name,
+                personality_preset=personality_preset,
+                personality_custom=personality_custom,
+            )
+        )
     return LOCAL_FALLBACK_REPLY
 
 
-async def generate_response_with_metadata(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
+async def generate_response_with_metadata(
+    message: str,
+    history: list[dict],
+    bot_name: str | None = None,
+    user_name: str | None = None,
+    personality_preset: str | None = None,
+    personality_custom: str | None = None,
+):
     provider = config.AI_PROVIDER
     raw_response = ""
     if provider == "gemini" and config.GEMINI_KEY:
-        raw_response = await _generate_gemini(message, history, bot_name, user_name)
+        raw_response = await _generate_gemini(
+            message,
+            history,
+            bot_name,
+            user_name,
+            personality_preset=personality_preset,
+            personality_custom=personality_custom,
+        )
     elif provider == "groq" and config.GROQ_API_KEY:
-        raw_response = await _generate_groq(message, history, bot_name, user_name)
+        raw_response = await _generate_groq(
+            message,
+            history,
+            bot_name,
+            user_name,
+            personality_preset=personality_preset,
+            personality_custom=personality_custom,
+        )
     elif provider == "openai" and config.OPENAI_API_KEY:
-        raw_response = await _generate_openai(message, history, bot_name, user_name)
+        raw_response = await _generate_openai(
+            message,
+            history,
+            bot_name,
+            user_name,
+            personality_preset=personality_preset,
+            personality_custom=personality_custom,
+        )
     elif provider == "ollama":
-        raw_response = await _generate_ollama(message, history, bot_name, user_name)
+        raw_response = await _generate_ollama(
+            message,
+            history,
+            bot_name,
+            user_name,
+            personality_preset=personality_preset,
+            personality_custom=personality_custom,
+        )
 
     if not raw_response:
         return {
@@ -103,12 +194,27 @@ async def generate_response_with_metadata(message: str, history: list[dict], bot
     }
 
 
-async def _generate_gemini(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
+async def _generate_gemini(
+    message: str,
+    history: list[dict],
+    bot_name: str | None = None,
+    user_name: str | None = None,
+    personality_preset: str | None = None,
+    personality_custom: str | None = None,
+):
     import google.generativeai as genai
 
     def run():
         genai.configure(api_key=config.GEMINI_KEY)
-        model = genai.GenerativeModel(config.AI_MODEL, system_instruction=build_system_prompt(bot_name, user_name))
+        model = genai.GenerativeModel(
+            config.AI_MODEL,
+            system_instruction=build_system_prompt(
+                bot_name,
+                user_name,
+                personality_preset=personality_preset,
+                personality_custom=personality_custom,
+            ),
+        )
         gemini_history = []
         for item in history[-20:]:
             role = "model" if item["role"] == "assistant" else "user"
@@ -120,14 +226,28 @@ async def _generate_gemini(message: str, history: list[dict], bot_name: str | No
     return await asyncio.to_thread(run)
 
 
-async def _generate_groq(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
+async def _generate_groq(
+    message: str,
+    history: list[dict],
+    bot_name: str | None = None,
+    user_name: str | None = None,
+    personality_preset: str | None = None,
+    personality_custom: str | None = None,
+):
     from groq import Groq
 
     def run():
         client = Groq(api_key=config.GROQ_API_KEY)
         completion = client.chat.completions.create(
             model=config.GROQ_MODEL,
-            messages=_messages_for_chat(message, history, bot_name, user_name),
+            messages=_messages_for_chat(
+                message,
+                history,
+                bot_name,
+                user_name,
+                personality_preset=personality_preset,
+                personality_custom=personality_custom,
+            ),
             temperature=config.AI_TEMPERATURE,
             max_completion_tokens=800,
         )
@@ -136,14 +256,28 @@ async def _generate_groq(message: str, history: list[dict], bot_name: str | None
     return await asyncio.to_thread(run)
 
 
-async def _generate_openai(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
+async def _generate_openai(
+    message: str,
+    history: list[dict],
+    bot_name: str | None = None,
+    user_name: str | None = None,
+    personality_preset: str | None = None,
+    personality_custom: str | None = None,
+):
     from openai import OpenAI
 
     def run():
         client = OpenAI(base_url=config.OPENAI_BASE_URL, api_key=config.OPENAI_API_KEY)
         completion = client.chat.completions.create(
             model=config.OPENAI_MODEL,
-            messages=_messages_for_chat(message, history, bot_name, user_name),
+            messages=_messages_for_chat(
+                message,
+                history,
+                bot_name,
+                user_name,
+                personality_preset=personality_preset,
+                personality_custom=personality_custom,
+            ),
             temperature=config.AI_TEMPERATURE,
         )
         return completion.choices[0].message.content
@@ -151,13 +285,27 @@ async def _generate_openai(message: str, history: list[dict], bot_name: str | No
     return await asyncio.to_thread(run)
 
 
-async def _generate_ollama(message: str, history: list[dict], bot_name: str | None = None, user_name: str | None = None):
+async def _generate_ollama(
+    message: str,
+    history: list[dict],
+    bot_name: str | None = None,
+    user_name: str | None = None,
+    personality_preset: str | None = None,
+    personality_custom: str | None = None,
+):
     def run():
         response = requests.post(
             f"{config.OLLAMA_URL}/api/chat",
             json={
                 "model": config.OLLAMA_MODEL,
-                "messages": _messages_for_chat(message, history, bot_name, user_name),
+                "messages": _messages_for_chat(
+                    message,
+                    history,
+                    bot_name,
+                    user_name,
+                    personality_preset=personality_preset,
+                    personality_custom=personality_custom,
+                ),
                 "stream": False,
                 "options": {"temperature": config.AI_TEMPERATURE},
             },

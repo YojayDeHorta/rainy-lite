@@ -54,6 +54,8 @@ const GOODBYE_RE = /\b(adios|adiós|chao|hasta luego|nos vemos|bye|gracias(,)? e
 let profile = {
   botName: 'Asuka',
   userName: 'Usuario',
+  personalityPreset: 'calida_nocturna',
+  personalityCustom: '',
 };
 
 function updateConversationActivity() {
@@ -240,7 +242,13 @@ async function sendMessage(text, options = {}) {
     const res = await fetch(`${API_BASE}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, bot_name: profile.botName, user_name: profile.userName }),
+      body: JSON.stringify({
+        message,
+        bot_name: profile.botName,
+        user_name: profile.userName,
+        personality_preset: profile.personalityPreset || 'calida_nocturna',
+        personality_custom: profile.personalityCustom || '',
+      }),
     });
     const data = await res.json();
     const reply = data.response || '[NEUTRAL] Me quede sin palabras por un segundo.';
@@ -515,9 +523,16 @@ async function initProfile() {
     profile = {
       botName: String(next?.botName || 'Asuka'),
       userName: String(next?.userName || 'Usuario'),
+      personalityPreset: String(next?.personalityPreset || 'calida_nocturna').trim().toLowerCase() || 'calida_nocturna',
+      personalityCustom: String(next?.personalityCustom || ''),
     };
   } catch (_) {
-    profile = { botName: 'Asuka', userName: 'Usuario' };
+    profile = {
+      botName: 'Asuka',
+      userName: 'Usuario',
+      personalityPreset: 'calida_nocturna',
+      personalityCustom: '',
+    };
   }
   applyProfileToUi();
 }
@@ -540,6 +555,10 @@ window.rainyDesktop.onProfileUpdate((next) => {
   profile = {
     botName: String(next?.botName || profile.botName || 'Asuka'),
     userName: String(next?.userName || profile.userName || 'Usuario'),
+    personalityPreset: String(next?.personalityPreset || profile.personalityPreset || 'calida_nocturna')
+      .trim()
+      .toLowerCase() || 'calida_nocturna',
+    personalityCustom: String(next?.personalityCustom ?? profile.personalityCustom ?? ''),
   };
   applyProfileToUi();
 });

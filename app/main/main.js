@@ -20,12 +20,32 @@ const PROFILE_PREFS = path.join(app.getPath('userData'), 'profile.json');
 const MIC_PREFS = path.join(app.getPath('userData'), 'mic-preferences.json');
 const TTS_PREFS = path.join(app.getPath('userData'), 'tts-preferences.json');
 const DEFAULT_AVATAR_MODEL = 'rainy.vrm';
+const PERSONALITY_CUSTOM_MAX = 600;
+
 const DEFAULT_PROFILE = {
   botName: 'Asuka',
   userName: 'Usuario',
   model: DEFAULT_AVATAR_MODEL,
   setupCompleted: false,
+  personalityPreset: 'calida_nocturna',
+  personalityCustom: '',
 };
+
+function normalizePersonalityForSave(candidate, existing = {}) {
+  const preset = String(
+    candidate.personalityPreset ?? existing.personalityPreset ?? DEFAULT_PROFILE.personalityPreset,
+  )
+    .trim()
+    .toLowerCase() || DEFAULT_PROFILE.personalityPreset;
+  const custom = String(candidate.personalityCustom ?? existing.personalityCustom ?? '').slice(
+    0,
+    PERSONALITY_CUSTOM_MAX,
+  );
+  if (preset === 'custom' && !custom.trim()) {
+    return { ok: false, message: 'En modo personalizada describe tu tono.' };
+  }
+  return { ok: true, personalityPreset: preset, personalityCustom: custom };
+}
 
 const AVATAR_BASE_WINDOW = {
   width: 380,
@@ -86,11 +106,26 @@ function readProfilePreference() {
   try {
     const raw = fs.readFileSync(PROFILE_PREFS, 'utf8');
     const parsed = JSON.parse(raw);
+    let personalityPreset = String(
+      parsed?.personalityPreset ?? DEFAULT_PROFILE.personalityPreset,
+    )
+      .trim()
+      .toLowerCase() || DEFAULT_PROFILE.personalityPreset;
+    let personalityCustom = String(parsed?.personalityCustom ?? DEFAULT_PROFILE.personalityCustom).slice(
+      0,
+      PERSONALITY_CUSTOM_MAX,
+    );
+    if (personalityPreset === 'custom' && !personalityCustom.trim()) {
+      personalityPreset = DEFAULT_PROFILE.personalityPreset;
+      personalityCustom = '';
+    }
     return {
       botName: String(parsed?.botName || DEFAULT_PROFILE.botName).trim() || DEFAULT_PROFILE.botName,
       userName: String(parsed?.userName || DEFAULT_PROFILE.userName).trim() || DEFAULT_PROFILE.userName,
       model: String(parsed?.model || DEFAULT_PROFILE.model).trim() || DEFAULT_PROFILE.model,
       setupCompleted: Boolean(parsed?.setupCompleted),
+      personalityPreset,
+      personalityCustom,
     };
   } catch (_) {
     return { ...DEFAULT_PROFILE };
@@ -98,11 +133,26 @@ function readProfilePreference() {
 }
 
 function writeProfilePreference(profile) {
+  let personalityPreset = String(
+    profile?.personalityPreset ?? DEFAULT_PROFILE.personalityPreset,
+  )
+    .trim()
+    .toLowerCase() || DEFAULT_PROFILE.personalityPreset;
+  let personalityCustom = String(profile?.personalityCustom ?? DEFAULT_PROFILE.personalityCustom).slice(
+    0,
+    PERSONALITY_CUSTOM_MAX,
+  );
+  if (personalityPreset === 'custom' && !personalityCustom.trim()) {
+    personalityPreset = DEFAULT_PROFILE.personalityPreset;
+    personalityCustom = '';
+  }
   const clean = {
     botName: String(profile?.botName || DEFAULT_PROFILE.botName).trim() || DEFAULT_PROFILE.botName,
     userName: String(profile?.userName || DEFAULT_PROFILE.userName).trim() || DEFAULT_PROFILE.userName,
     model: String(profile?.model || DEFAULT_PROFILE.model).trim() || DEFAULT_PROFILE.model,
     setupCompleted: Boolean(profile?.setupCompleted),
+    personalityPreset,
+    personalityCustom,
   };
   fs.writeFileSync(PROFILE_PREFS, JSON.stringify(clean), 'utf8');
   return clean;
@@ -283,10 +333,10 @@ function createSetupWindow() {
     return;
   }
   setupWindow = new BrowserWindow(baseWindowOptions({
-    width: 900,
-    height: 680,
+    width: 920,
+    height: 780,
     minWidth: 560,
-    minHeight: 580,
+    minHeight: 620,
     transparent: false,
     show: true,
     hasShadow: true,
@@ -776,11 +826,22 @@ ipcMain.handle('profile:save', (_event, payload) => {
     return { ok: false, message: 'No se encontro un modelo VRM valido.' };
   }
   currentAvatarModel = selected.name;
+  const existing = readProfilePreference();
+  const personalityCandidate = {
+    personalityPreset: payload?.personalityPreset ?? existing.personalityPreset,
+    personalityCustom: payload?.personalityCustom ?? existing.personalityCustom,
+  };
+  const personalityNorm = normalizePersonalityForSave(personalityCandidate, existing);
+  if (!personalityNorm.ok) {
+    return personalityNorm;
+  }
   const next = writeProfilePreference({
     botName: payload?.botName,
     userName: payload?.userName,
     model: selected.name,
     setupCompleted: true,
+    personalityPreset: personalityNorm.personalityPreset,
+    personalityCustom: personalityNorm.personalityCustom,
   });
   try {
     writeAvatarModelPreference(selected.name);
@@ -793,6 +854,37 @@ ipcMain.handle('profile:save', (_event, payload) => {
   if (!avatarWindow || !chatWindow) {
     startNormalUi();
   }
+  if (chatWindow && !chatWindow.isDestroyed()) {
+    chatWindow.webContents.send('rainy:profile-update', next);
+  }
+  return { ok: true, profile: next };
+});
+
+ipcMain.handle('profile:patch', (_event, patch) => {
+  const existing = readProfilePreference();
+  const merged = {
+    botName: existing.botName,
+    userName: existing.userName,
+    model: existing.model,
+    setupCompleted: existing.setupCompleted,
+    personalityPreset:
+      patch && patch.personalityPreset !== undefined && patch.personalityPreset !== null
+        ? patch.personalityPreset
+        : existing.personalityPreset,
+    personalityCustom:
+      patch && patch.personalityCustom !== undefined && patch.personalityCustom !== null
+        ? patch.personalityCustom
+        : existing.personalityCustom,
+  };
+  const personalityNorm = normalizePersonalityForSave(merged, existing);
+  if (!personalityNorm.ok) {
+    return personalityNorm;
+  }
+  const next = writeProfilePreference({
+    ...merged,
+    personalityPreset: personalityNorm.personalityPreset,
+    personalityCustom: personalityNorm.personalityCustom,
+  });
   if (chatWindow && !chatWindow.isDestroyed()) {
     chatWindow.webContents.send('rainy:profile-update', next);
   }

@@ -43,32 +43,41 @@ html, body {
   z-index: 1;
   width: 100%;
   height: 100%;
-  padding: 30px;
+  padding: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 .setup-layout {
   display: flex;
+  align-items: stretch;
   width: 100%;
   max-width: 1000px;
   height: 100%;
-  max-height: 620px;
+  max-height: min(880px, calc(100vh - 48px));
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 20px;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  min-height: 0;
 }
 
 /* Left Column: Form */
 .setup-form-container {
   flex: 1;
-  padding: 40px;
+  min-width: 0;
+  min-height: 0;
+  padding: 28px 36px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .setup-form-inner {
@@ -77,7 +86,7 @@ html, body {
   width: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 0 0 auto;
 }
 
 
@@ -101,7 +110,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  flex: 1;
+  flex: 0 1 auto;
 }
 
 .field-label {
@@ -136,13 +145,39 @@ input, select {
   outline: none;
 }
 
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 4px var(--input-focus);
 }
 
 input::placeholder {
   color: #9ca3af;
+}
+
+textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--text-main);
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+textarea::placeholder {
+  color: #9ca3af;
+}
+
+.personality-char-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  text-align: right;
 }
 
 .select-wrapper {
@@ -191,7 +226,9 @@ select {
 }
 
 .form-footer {
-  margin-top: 32px;
+  flex-shrink: 0;
+  margin-top: 28px;
+  padding-bottom: 8px;
 }
 
 .status-message {
@@ -240,6 +277,8 @@ select {
 /* Right Column: 3D Preview */
 .setup-preview-container {
   width: 440px;
+  min-width: 280px;
+  min-height: 0;
   padding: 20px;
   display: flex;
 }

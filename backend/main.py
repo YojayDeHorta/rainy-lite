@@ -9,13 +9,15 @@ from pydantic import BaseModel
 
 import edge_tts
 
-from . import ai_core, config, memory, spotify, stt, temp_cleanup, tts, wakeword
+from . import ai_core, config, memory, prompts, spotify, stt, temp_cleanup, tts, wakeword
 
 
 class ChatRequest(BaseModel):
     message: str
     bot_name: str | None = None
     user_name: str | None = None
+    personality_preset: str | None = None
+    personality_custom: str | None = None
 
 
 class TTSRequest(BaseModel):
@@ -123,11 +125,18 @@ async def chat(req: ChatRequest):
         history,
         bot_name=req.bot_name,
         user_name=req.user_name,
+        personality_preset=req.personality_preset,
+        personality_custom=req.personality_custom,
     )
     response = generated.get("response") or ai_core.LOCAL_FALLBACK_REPLY
     conversation = generated.get("conversation") or {"continue": False, "reason": "uncertain"}
     memory.add_chat_message("assistant", response)
     return {"response": response, "conversation": conversation}
+
+
+@app.get("/api/personality/presets")
+def personality_presets():
+    return {"presets": prompts.list_personality_presets_public()}
 
 
 @app.get("/api/chat/history")

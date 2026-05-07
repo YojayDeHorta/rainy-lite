@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   openSetupWindow: () => ipcRenderer.invoke('window:open-setup'),
   getProfile: () => ipcRenderer.invoke('profile:get'),
   saveProfile: (profile) => ipcRenderer.invoke('profile:save', profile),
+  patchProfile: (patch) => ipcRenderer.invoke('profile:patch', patch),
   updateTheme: (isDark) => ipcRenderer.invoke('settings:update-theme', isDark),
   onThemeUpdate: (callback) => ipcRenderer.on('rainy:theme-update', (_event, isDark) => callback(isDark)),
   onProfileUpdate: (callback) => ipcRenderer.on('rainy:profile-update', (_event, profile) => callback(profile)),

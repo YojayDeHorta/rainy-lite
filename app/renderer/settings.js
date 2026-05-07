@@ -467,4 +467,121 @@ async function initVoiceTab() {
 
 void initVoiceTab();
 
+const PERSONALITY_CUSTOM_MAX = 600;
+
+const settingsPersonalityPreset = document.getElementById('settings-personality-preset');
+const settingsPersonalityCustomField = document.getElementById('settings-personality-custom-field');
+const settingsPersonalityCustom = document.getElementById('settings-personality-custom');
+const settingsPersonalityCustomCount = document.getElementById('settings-personality-custom-count');
+const settingsPersonalitySave = document.getElementById('settings-personality-save');
+const settingsPersonalityStatus = document.getElementById('settings-personality-status');
+
+function fallbackPersonalityPresetsSettings() {
+  return [
+    { id: 'calida_nocturna', label: 'Calida nocturna (por defecto)' },
+    { id: 'energica', label: 'Energetica y positiva' },
+    { id: 'serena', label: 'Serena y pausada' },
+    { id: 'formal', label: 'Formal y cordial' },
+    { id: 'juguetona', label: 'Juguetona con humor suave' },
+    { id: 'custom', label: 'Personalizada (escribe abajo)' },
+  ];
+}
+
+async function fetchPersonalityPresetsSettings() {
+  try {
+    const res = await fetch(`${API_BASE_TTS}/api/personality/presets`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data?.presets) ? data.presets : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function populateSettingsPersonalitySelect(presets) {
+  if (!settingsPersonalityPreset) return;
+  settingsPersonalityPreset.innerHTML = '';
+  for (const item of presets) {
+    const opt = document.createElement('option');
+    opt.value = item.id;
+    opt.textContent = item.label || item.id;
+    settingsPersonalityPreset.appendChild(opt);
+  }
+}
+
+function syncSettingsPersonalityCustomVisibility() {
+  if (!settingsPersonalityCustomField || !settingsPersonalityPreset || !settingsPersonalityCustom) return;
+  const isCustom = settingsPersonalityPreset.value === 'custom';
+  settingsPersonalityCustomField.hidden = !isCustom;
+}
+
+function updateSettingsPersonalityCharCount() {
+  if (!settingsPersonalityCustom || !settingsPersonalityCustomCount) return;
+  settingsPersonalityCustomCount.textContent = `${settingsPersonalityCustom.value.length}/${PERSONALITY_CUSTOM_MAX}`;
+}
+
+function setPersonalitySettingsStatus(text) {
+  if (settingsPersonalityStatus) settingsPersonalityStatus.textContent = text || '';
+}
+
+async function initPersonalityTab() {
+  if (!settingsPersonalityPreset) return;
+
+  const apiPresets = await fetchPersonalityPresetsSettings();
+  const presets = apiPresets.length ? apiPresets : fallbackPersonalityPresetsSettings();
+  populateSettingsPersonalitySelect(presets);
+
+  let profile = {};
+  try {
+    profile = await window.rainyDesktop.getProfile();
+  } catch (_) {
+  }
+
+  const presetId = String(profile?.personalityPreset || 'calida_nocturna').trim().toLowerCase();
+  if ([...settingsPersonalityPreset.options].some((o) => o.value === presetId)) {
+    settingsPersonalityPreset.value = presetId;
+  }
+  settingsPersonalityCustom.value = String(profile?.personalityCustom || '').slice(0, PERSONALITY_CUSTOM_MAX);
+  syncSettingsPersonalityCustomVisibility();
+  updateSettingsPersonalityCharCount();
+
+  settingsPersonalityPreset.addEventListener('change', () => {
+    syncSettingsPersonalityCustomVisibility();
+    setPersonalitySettingsStatus('');
+  });
+
+  settingsPersonalityCustom?.addEventListener('input', () => {
+    if (settingsPersonalityCustom.value.length > PERSONALITY_CUSTOM_MAX) {
+      settingsPersonalityCustom.value = settingsPersonalityCustom.value.slice(0, PERSONALITY_CUSTOM_MAX);
+    }
+    updateSettingsPersonalityCharCount();
+    setPersonalitySettingsStatus('');
+  });
+
+  settingsPersonalitySave?.addEventListener('click', async () => {
+    const preset = settingsPersonalityPreset.value || 'calida_nocturna';
+    const custom = settingsPersonalityCustom?.value.trim() || '';
+    if (preset === 'custom' && !custom) {
+      setPersonalitySettingsStatus('Escribe como debe sonar tu asistente.');
+      return;
+    }
+    setPersonalitySettingsStatus('Guardando...');
+    try {
+      const result = await window.rainyDesktop.patchProfile({
+        personalityPreset: preset,
+        personalityCustom: custom,
+      });
+      if (result?.ok) {
+        setPersonalitySettingsStatus('Guardado.');
+      } else {
+        setPersonalitySettingsStatus(result?.message || 'No se pudo guardar.');
+      }
+    } catch (_) {
+      setPersonalitySettingsStatus('No se pudo guardar.');
+    }
+  });
+}
+
+void initPersonalityTab();
+
 void initAvatarModelSelector();

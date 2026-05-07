@@ -1,3 +1,74 @@
+import re
+
+DEFAULT_PERSONALITY_ID = "calida_nocturna"
+CUSTOM_PERSONALITY_ID = "custom"
+MAX_PERSONALITY_CUSTOM_CHARS = 600
+
+PERSONALITY_PRESETS: dict[str, str] = {
+    "calida_nocturna": (
+        "Tu tono es calido, curioso, un poco misterioso y tranquilo, con energia de lluvia nocturna."
+    ),
+    "energica": (
+        "Tu tono es alegre, espontanea y con buena energia; animas al usuario sin ser cansina."
+    ),
+    "serena": (
+        "Tu tono es muy tranquilo, pausado y receptivo; priorizas escuchar y responder con calma."
+    ),
+    "formal": (
+        "Tu tono es cortes y algo formal; vocabulario claro y respetuoso, sin ser fria."
+    ),
+    "juguetona": (
+        "Tu tono es ligero y con humor suave; puedes usar ironia amable pero sin faltar al respeto."
+    ),
+}
+
+PERSONALITY_PRESET_ORDER = [
+    "calida_nocturna",
+    "energica",
+    "serena",
+    "formal",
+    "juguetona",
+    CUSTOM_PERSONALITY_ID,
+]
+
+PERSONALITY_PRESET_LABELS_ES: dict[str, str] = {
+    "calida_nocturna": "Calida nocturna (por defecto)",
+    "energica": "Energetica y positiva",
+    "serena": "Serena y pausada",
+    "formal": "Formal y cordial",
+    "juguetona": "Juguetona con humor suave",
+    CUSTOM_PERSONALITY_ID: "Personalizada (escribe abajo)",
+}
+
+
+def list_personality_presets_public() -> list[dict]:
+    return [{"id": pid, "label": PERSONALITY_PRESET_LABELS_ES[pid]} for pid in PERSONALITY_PRESET_ORDER]
+
+
+def sanitize_personality_custom(text: str | None) -> str:
+    raw = (text or "").strip()
+    raw = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw)
+    return raw[:MAX_PERSONALITY_CUSTOM_CHARS]
+
+
+def resolve_personality_block(preset: str | None, custom: str | None) -> str:
+    pid = (preset or "").strip().lower() or DEFAULT_PERSONALITY_ID
+    if pid == CUSTOM_PERSONALITY_ID:
+        cleaned = sanitize_personality_custom(custom)
+        if not cleaned:
+            return PERSONALITY_PRESETS[DEFAULT_PERSONALITY_ID]
+        return (
+            f"El usuario definio esta personalidad para ti: {cleaned}\n\n"
+            "Cumple ese estilo sin ignorar el formato obligatorio: empieza siempre con una etiqueta de "
+            "emocion permitida, usa acciones solo cuando el usuario lo pida de forma clara, y termina "
+            "siempre con exactamente una linea [CONVERSATION: ...]."
+        )
+    block = PERSONALITY_PRESETS.get(pid)
+    if not block:
+        return PERSONALITY_PRESETS[DEFAULT_PERSONALITY_ID]
+    return block
+
+
 RAINY_SYSTEM_PROMPT_TEMPLATE = """
 Eres {bot_name}, una IA de escritorio para Windows con presencia visual tipo vtuber.
 Tu usuario se llama {user_name}. Si es natural en contexto, puedes llamarle por su nombre.
@@ -6,7 +77,8 @@ Reglas principales:
 1. Habla siempre en espanol natural.
 2. Responde como si estuvieras acompanando al usuario en su escritorio.
 3. Mantente breve: 1 a 3 oraciones salvo que el usuario pida detalle.
-4. Tu tono es calido, curioso, un poco misterioso y tranquilo, con energia de lluvia nocturna.
+4. Personalidad y tono (prioriza este apartado):
+{personality_block}
 5. No finjas haber abierto apps o controlado Windows si el sistema no ejecuto una accion.
 6. Si el usuario pide controlar el sistema, responde con intencion y usa una accion permitida solo si aplica.
 
@@ -61,10 +133,21 @@ Reglas:
 """.strip()
 
 
-def build_system_prompt(bot_name: str | None = None, user_name: str | None = None) -> str:
+def build_system_prompt(
+    bot_name: str | None = None,
+    user_name: str | None = None,
+    personality_preset: str | None = None,
+    personality_custom: str | None = None,
+) -> str:
     clean_bot = (bot_name or "Asuka").strip() or "Asuka"
     clean_user = (user_name or "usuario").strip() or "usuario"
-    return RAINY_SYSTEM_PROMPT_TEMPLATE.format(bot_name=clean_bot, user_name=clean_user)
+    personality_block = resolve_personality_block(personality_preset, personality_custom)
+    safe_personality = personality_block.replace("{", "{{").replace("}", "}}")
+    return RAINY_SYSTEM_PROMPT_TEMPLATE.format(
+        bot_name=clean_bot,
+        user_name=clean_user,
+        personality_block=safe_personality,
+    )
 
 
 LOCAL_FALLBACK_REPLY = (
