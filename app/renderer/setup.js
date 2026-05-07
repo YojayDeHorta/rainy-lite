@@ -138,14 +138,22 @@ function getModelUrl(name) {
 async function refreshPreview() {
   previewStatusEl.hidden = true;
   previewStatusEl.textContent = '';
+  const spinner = document.getElementById('preview-spinner');
+  
   const url = getModelUrl(modelSelect.value);
   if (!url || !previewEl) return;
+  
+  if (spinner) spinner.hidden = false;
+  
   updatePreviewSettings({
     ...SETUP_PREVIEW_SETTINGS,
     ...loadSavedAvatarPose(),
   });
   setPreviewSpin(true);
   const ok = await setVrmPreviewUrl(previewEl, url);
+  
+  if (spinner) spinner.hidden = true;
+  
   if (!ok) {
     previewStatusEl.textContent = 'No se pudo cargar la vista previa.';
     previewStatusEl.hidden = false;

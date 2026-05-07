@@ -262,14 +262,18 @@ function renderModelOptions(models, currentModel) {
 async function updateSettingsPreview() {
   const container = document.getElementById('vrm-settings-preview');
   const status = document.getElementById('settings-preview-status');
+  const spinner = document.getElementById('settings-preview-spinner');
+  
   if (!container) return;
   const selected = avatarModelsCache.find((m) => m.name === avatarModelSelect.value);
   if (selected && selected.url) {
-    if (status) {
-      status.textContent = 'Cargando modelo...';
-      status.hidden = false;
-    }
+    if (status) status.hidden = true;
+    if (spinner) spinner.hidden = false;
+    
     const ok = await setVrmPreviewUrl(container, selected.url);
+    
+    if (spinner) spinner.hidden = true;
+    
     if (status) {
       if (ok) {
         status.hidden = true;
@@ -283,6 +287,7 @@ async function updateSettingsPreview() {
   } else {
     disposeVrmPreview();
     if (status) status.hidden = true;
+    if (spinner) spinner.hidden = true;
   }
 }
 

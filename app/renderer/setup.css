@@ -321,6 +321,36 @@ select {
   display: block;
 }
 
+.vrm-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--preview-glass);
+  opacity: 0.85;
+  z-index: 5;
+  backdrop-filter: blur(3px);
+  border-radius: 16px;
+}
+
+.vrm-loading-overlay[hidden] {
+  display: none !important;
+}
+
+.vrm-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 107, 0, 0.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: vrm-spin 1s linear infinite;
+}
+
+@keyframes vrm-spin {
+  to { transform: rotate(360deg); }
+}
+
 .preview-status {
   position: absolute;
   bottom: 20px;

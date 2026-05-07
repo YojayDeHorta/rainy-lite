@@ -439,6 +439,39 @@ body.dark-theme .preview-glass {
   white-space: nowrap;
 }
 
+.vrm-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sidebar-bg);
+  opacity: 0.85;
+  z-index: 5;
+  backdrop-filter: blur(3px);
+  border-radius: 16px;
+}
+
+.vrm-loading-overlay[hidden] {
+  display: none !important;
+}
+body.dark-theme .vrm-loading-overlay {
+  background: rgba(30, 30, 30, 0.7);
+}
+
+.vrm-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 107, 0, 0.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: vrm-spin 1s linear infinite;
+}
+
+@keyframes vrm-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Grouped Controls */
 .setting-group {
   background: rgba(0,0,0,0.02);
