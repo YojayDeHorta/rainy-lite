@@ -20,6 +20,7 @@ const DEFAULT_AVATAR_SETTINGS = {
   modelYawDeg: 0,
   modelPitchDeg: 0,
   armHangDeg: 0,
+  armAbductionDeg: 0,
 };
 
 function migrateAvatarSettingsRawRenderer(parsed) {

@@ -145,6 +145,7 @@ const DEFAULT_AVATAR_SETTINGS = {
   modelYawDeg: 0,
   modelPitchDeg: 0,
   armHangDeg: 0,
+  armAbductionDeg: 0,
 };
 
 function migrateAvatarSettingsRaw(parsed) {
@@ -159,6 +160,7 @@ const avatarControls = {
   modelYawDeg: document.getElementById('avatar-model-yaw'),
   modelPitchDeg: document.getElementById('avatar-model-pitch'),
   armHangDeg: document.getElementById('avatar-arm-hang'),
+  armAbductionDeg: document.getElementById('avatar-arm-abduction'),
   x: document.getElementById('avatar-x'),
   y: document.getElementById('avatar-y'),
   scale: document.getElementById('avatar-scale'),
@@ -171,6 +173,7 @@ const avatarValueLabels = {
   modelYawDeg: document.getElementById('avatar-model-yaw-value'),
   modelPitchDeg: document.getElementById('avatar-model-pitch-value'),
   armHangDeg: document.getElementById('avatar-arm-hang-value'),
+  armAbductionDeg: document.getElementById('avatar-arm-abduction-value'),
   x: document.getElementById('avatar-x-value'),
   y: document.getElementById('avatar-y-value'),
   scale: document.getElementById('avatar-scale-value'),
@@ -197,7 +200,7 @@ function saveAvatarSettings(settings) {
 }
 
 function formatAvatarValueLabel(key, value) {
-  if (key === 'modelYawDeg' || key === 'modelPitchDeg' || key === 'armHangDeg') {
+  if (key === 'modelYawDeg' || key === 'modelPitchDeg' || key === 'armHangDeg' || key === 'armAbductionDeg') {
     return `${Math.round(Number(value))}°`;
   }
   return Number(value).toFixed(2);
@@ -216,6 +219,7 @@ function currentAvatarSettingsFromUI() {
     modelYawDeg: Number(avatarControls.modelYawDeg.value),
     modelPitchDeg: Number(avatarControls.modelPitchDeg.value),
     armHangDeg: Number(avatarControls.armHangDeg.value),
+    armAbductionDeg: Number(avatarControls.armAbductionDeg.value),
     x: Number(avatarControls.x.value),
     y: Number(avatarControls.y.value),
     scale: Number(avatarControls.scale.value),

@@ -59,6 +59,7 @@ let avatarSettings = {
   modelYawDeg: 0,
   modelPitchDeg: 0,
   armHangDeg: 0,
+  armAbductionDeg: 0,
 };
 const reactionProfiles = [
   {
@@ -396,6 +397,7 @@ function normalizeSettings(settings) {
     modelYawDeg: clampNumber(settings.modelYawDeg, -180, 180, avatarSettings.modelYawDeg),
     modelPitchDeg: clampNumber(settings.modelPitchDeg, -35, 35, avatarSettings.modelPitchDeg),
     armHangDeg: resolveArmHangDeg(settings),
+    armAbductionDeg: clampNumber(settings.armAbductionDeg, -35, 140, avatarSettings.armAbductionDeg),
   };
 }
 
@@ -655,6 +657,7 @@ function updateIdlePose(elapsed) {
   const dragTiltX = dragFx.tiltX;
   const dragTiltZ = dragFx.tiltZ;
   const armHangRad = THREE.MathUtils.degToRad(avatarSettings.armHangDeg || 0);
+  const armAbRad = THREE.MathUtils.degToRad(avatarSettings.armAbductionDeg || 0);
 
   if (head) {
     head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
@@ -667,12 +670,12 @@ function updateIdlePose(elapsed) {
   if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + reactionHipsLift;
   if (leftUpperArm) {
     leftUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64) * 0.012 * motion;
-    leftUpperArm.rotation.z = 1.22 + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045 + danceArmSwing;
+    leftUpperArm.rotation.z = 1.22 - armAbRad + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045 + danceArmSwing;
     leftUpperArm.rotation.y = -0.02 + Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion;
   }
   if (rightUpperArm) {
     rightUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion;
-    rightUpperArm.rotation.z = -1.22 - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing;
+    rightUpperArm.rotation.z = -1.22 + armAbRad - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing;
     rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion;
   }
   if (leftLowerArm) {
