@@ -12,6 +12,7 @@ let rafId = null;
 let clock;
 let loadToken = 0;
 let previewActive = false;
+let enableSpin = false;
 let ambientLight;
 let keyLight;
 let rimLight;
@@ -34,6 +35,7 @@ function animate() {
   if (!previewActive || !renderer || !clock) return;
   rafId = requestAnimationFrame(animate);
   const delta = clock.getDelta();
+  if (pivot && enableSpin) pivot.rotation.y += delta * 0.35;
   currentVrm?.update(delta);
   renderer.render(scene, camera);
 }
@@ -67,6 +69,11 @@ export function disposeVrmPreview() {
   camera = null;
   containerEl = null;
   clock = null;
+}
+
+export function setPreviewSpin(active) {
+  enableSpin = !!active;
+  if (!active && pivot) pivot.rotation.y = 0;
 }
 
 function ensureScene(container) {

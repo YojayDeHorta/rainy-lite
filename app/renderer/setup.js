@@ -1,4 +1,4 @@
-import { disposeVrmPreview, setVrmPreviewUrl, updatePreviewSettings } from './setup-vrm-preview.js';
+import { disposeVrmPreview, setVrmPreviewUrl, updatePreviewSettings, setPreviewSpin } from './setup-vrm-preview.js';
 
 const API_BASE = 'http://127.0.0.1:8765';
 const PERSONALITY_CUSTOM_MAX = 600;
@@ -144,6 +144,7 @@ async function refreshPreview() {
     ...SETUP_PREVIEW_SETTINGS,
     ...loadSavedAvatarPose(),
   });
+  setPreviewSpin(true);
   const ok = await setVrmPreviewUrl(previewEl, url);
   if (!ok) {
     previewStatusEl.textContent = 'No se pudo cargar la vista previa.';
