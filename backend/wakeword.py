@@ -9,6 +9,48 @@ from urllib.request import urlretrieve
 from . import config
 
 
+def resolve_sounddevice_input_index(spec: str) -> tuple[int | None, str]:
+    spec = (spec or "").strip()
+    if not spec:
+        return None, ""
+    try:
+        import sounddevice as sd
+    except Exception as exc:
+        return None, str(exc)
+    devices = sd.query_devices()
+    try:
+        idx = int(spec)
+        if not (0 <= idx < len(devices)):
+            return None, f"indice de dispositivo fuera de rango: {idx}"
+        if int(devices[idx].get("max_input_channels", 0) or 0) < 1:
+            return None, f"el dispositivo {idx} no es entrada de audio"
+        return idx, ""
+    except ValueError:
+        needle = spec.lower()
+        for i, d in enumerate(devices):
+            if int(d.get("max_input_channels", 0) or 0) < 1:
+                continue
+            name = (d.get("name") or "").lower()
+            if needle in name:
+                return i, ""
+        return None, f"no hay microfono que coincida con '{spec}'"
+
+
+def list_input_audio_devices() -> dict:
+    try:
+        import sounddevice as sd
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "devices": [], "default_input_id": None}
+    out = []
+    for i, d in enumerate(sd.query_devices()):
+        nic = int(d.get("max_input_channels", 0) or 0)
+        if nic < 1:
+            continue
+        out.append({"id": i, "name": d.get("name", ""), "channels": nic})
+    default_in, _ = sd.default.device
+    return {"ok": True, "devices": out, "default_input_id": default_in}
+
+
 @dataclass
 class WakewordStatus:
     enabled: bool
@@ -18,15 +60,28 @@ class WakewordStatus:
     error: str
     last_score: float
     peak_score: float
+    capture_device_spec: str = ""
+    capture_device_index: int | None = None
+    capture_device_name: str | None = None
 
 
 class WakewordService:
-    def __init__(self, *, enabled: bool, threshold: float, cooldown_s: float, keyword_name: str, keyword_model: str):
+    def __init__(
+        self,
+        *,
+        enabled: bool,
+        threshold: float,
+        cooldown_s: float,
+        keyword_name: str,
+        keyword_model: str,
+        sound_device_spec: str = "",
+    ):
         self._enabled = bool(enabled)
         self._threshold = float(threshold)
         self._cooldown_s = float(cooldown_s)
         self._keyword_name = (keyword_name or "").strip().lower()
         self._keyword_model = (keyword_model or "").strip()
+        self._sound_device_spec = (sound_device_spec or "").strip()
         self._ready = False
         self._error = ""
         self._keyword = ""
@@ -34,6 +89,8 @@ class WakewordService:
         self._last_score = 0.0
         self._peak_score = 0.0
         self._score_key_fixed = False
+        self._capture_device_index: int | None = None
+        self._capture_device_name: str | None = None
 
         self._events: "queue.Queue[float]" = queue.Queue()
         self._stop = threading.Event()
@@ -97,6 +154,9 @@ class WakewordService:
             error=self._error,
             last_score=self._last_score,
             peak_score=self._peak_score,
+            capture_device_spec=self._sound_device_spec,
+            capture_device_index=self._capture_device_index,
+            capture_device_name=self._capture_device_name,
         )
 
     def consume(self) -> bool:
@@ -141,6 +201,29 @@ class WakewordService:
             self._error = f"openwakeword deps not available: {exc}"
             self._backend = "unavailable"
             return
+
+        capture_idx, dev_err = resolve_sounddevice_input_index(self._sound_device_spec)
+        if dev_err:
+            self._ready = False
+            self._error = dev_err
+            self._backend = "device_resolve_failed"
+            return
+
+        self._capture_device_index = capture_idx
+        self._capture_device_name = None
+        if capture_idx is not None:
+            try:
+                self._capture_device_name = sd.query_devices(capture_idx).get("name")
+            except Exception:
+                self._capture_device_name = ""
+        else:
+            try:
+                din, _ = sd.default.device
+                if din is not None and din >= 0:
+                    self._capture_device_index = int(din)
+                    self._capture_device_name = sd.query_devices(int(din)).get("name")
+            except Exception:
+                pass
 
         try:
             onnx_src = self._resolve_wakeword_onnx_source()
@@ -191,14 +274,18 @@ class WakewordService:
             except Exception:
                 return
 
+        stream_kw = dict(
+            channels=1,
+            samplerate=sample_rate,
+            blocksize=blocksize,
+            dtype="float32",
+            callback=on_audio,
+        )
+        if capture_idx is not None:
+            stream_kw["device"] = capture_idx
+
         try:
-            with sd.InputStream(
-                channels=1,
-                samplerate=sample_rate,
-                blocksize=blocksize,
-                dtype="float32",
-                callback=on_audio,
-            ):
+            with sd.InputStream(**stream_kw):
                 while not self._stop.is_set():
                     time.sleep(0.1)
         except Exception as exc:
@@ -260,6 +347,7 @@ def run_diagnostics() -> dict:
         cooldown_s=config.WAKEWORD_COOLDOWN_S,
         keyword_name=config.WAKEWORD_NAME,
         keyword_model=config.WAKEWORD_MODEL_PATH,
+        sound_device_spec=config.WAKEWORD_SOUND_DEVICE,
     )
     out: dict = {
         "ok": True,

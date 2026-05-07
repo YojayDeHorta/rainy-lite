@@ -43,5 +43,6 @@ WAKEWORD_THRESHOLD = float(os.getenv("WAKEWORD_THRESHOLD", "0.55"))
 WAKEWORD_COOLDOWN_S = float(os.getenv("WAKEWORD_COOLDOWN_S", "2.5"))
 WAKEWORD_NAME = os.getenv("WAKEWORD_NAME", "alexa").strip().lower()
 WAKEWORD_MODEL_PATH = os.getenv("WAKEWORD_MODEL_PATH", "").strip()
+WAKEWORD_SOUND_DEVICE = os.getenv("WAKEWORD_SOUND_DEVICE", "").strip()
 
 SQLITE_PATH = DATA_DIR / "rainy.sqlite"

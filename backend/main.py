@@ -42,6 +42,7 @@ wakeword_service = wakeword.WakewordService(
     cooldown_s=config.WAKEWORD_COOLDOWN_S,
     keyword_name=config.WAKEWORD_NAME,
     keyword_model=config.WAKEWORD_MODEL_PATH,
+    sound_device_spec=config.WAKEWORD_SOUND_DEVICE,
 )
 
 
@@ -72,7 +73,15 @@ def wakeword_status():
         "error": status.error,
         "last_score": status.last_score,
         "peak_score": status.peak_score,
+        "capture_device_spec": status.capture_device_spec,
+        "capture_device_index": status.capture_device_index,
+        "capture_device_name": status.capture_device_name,
     }
+
+
+@app.get("/api/wakeword/input-devices")
+def wakeword_input_devices():
+    return wakeword.list_input_audio_devices()
 
 
 @app.get("/api/wakeword/diagnostics")
