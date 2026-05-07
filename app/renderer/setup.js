@@ -1,7 +1,19 @@
-import { disposeVrmPreview, setVrmPreviewUrl } from './setup-vrm-preview.js';
+import { disposeVrmPreview, setVrmPreviewUrl, updatePreviewSettings } from './setup-vrm-preview.js';
 
 const API_BASE = 'http://127.0.0.1:8765';
 const PERSONALITY_CUSTOM_MAX = 600;
+const AVATAR_SETTINGS_KEY = 'rainy-avatar-settings-v1';
+const SETUP_PREVIEW_SETTINGS = {
+  x: 0,
+  y: 1.03,
+  scale: 0.85,
+  cameraZ: 3.4,
+  light: 0.75,
+  modelYawDeg: 0,
+  modelPitchDeg: 0,
+  armHangDeg: 0,
+  armAbductionDeg: 0,
+};
 
 const botNameInput = document.getElementById('bot-name-input');
 const userNameInput = document.getElementById('user-name-input');
@@ -24,6 +36,25 @@ const BOT_NAME_POOL = [
 ];
 
 let modelsList = [];
+
+function loadSavedAvatarPose() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(AVATAR_SETTINGS_KEY) || '{}');
+    return {
+      modelYawDeg: Number.isFinite(Number(parsed?.modelYawDeg)) ? Number(parsed.modelYawDeg) : SETUP_PREVIEW_SETTINGS.modelYawDeg,
+      modelPitchDeg: Number.isFinite(Number(parsed?.modelPitchDeg)) ? Number(parsed.modelPitchDeg) : SETUP_PREVIEW_SETTINGS.modelPitchDeg,
+      armHangDeg: Number.isFinite(Number(parsed?.armHangDeg)) ? Number(parsed.armHangDeg) : SETUP_PREVIEW_SETTINGS.armHangDeg,
+      armAbductionDeg: Number.isFinite(Number(parsed?.armAbductionDeg)) ? Number(parsed.armAbductionDeg) : SETUP_PREVIEW_SETTINGS.armAbductionDeg,
+    };
+  } catch (_) {
+    return {
+      modelYawDeg: SETUP_PREVIEW_SETTINGS.modelYawDeg,
+      modelPitchDeg: SETUP_PREVIEW_SETTINGS.modelPitchDeg,
+      armHangDeg: SETUP_PREVIEW_SETTINGS.armHangDeg,
+      armAbductionDeg: SETUP_PREVIEW_SETTINGS.armAbductionDeg,
+    };
+  }
+}
 
 function fallbackPersonalityPresets() {
   return [
@@ -109,6 +140,10 @@ async function refreshPreview() {
   previewStatusEl.textContent = '';
   const url = getModelUrl(modelSelect.value);
   if (!url || !previewEl) return;
+  updatePreviewSettings({
+    ...SETUP_PREVIEW_SETTINGS,
+    ...loadSavedAvatarPose(),
+  });
   const ok = await setVrmPreviewUrl(previewEl, url);
   if (!ok) {
     previewStatusEl.textContent = 'No se pudo cargar la vista previa.';

@@ -15,9 +15,9 @@ let previewActive = false;
 let ambientLight;
 let keyLight;
 let rimLight;
-const PREVIEW_MODEL_Y_OFFSET = -0.7;
+const PREVIEW_Y_OFFSET = -0.65;
 let currentSettings = {
-  x: 0, y: -0.45, scale: 1, cameraZ: 3.4, light: 0.65, modelYawDeg: 0, modelPitchDeg: 0, armHangDeg: 0, armAbductionDeg: 0
+  x: 0, y: 1.03, scale: 0.85, cameraZ: 3.4, light: 0.75, modelYawDeg: 0, modelPitchDeg: 0, armHangDeg: 0, armAbductionDeg: 0
 };
 
 function resize() {
@@ -142,6 +142,7 @@ export async function setVrmPreviewUrl(container, url) {
     }
     currentVrm = vrm;
     pivot.add(vrm.scene);
+    updatePreviewSettings(currentSettings);
     return true;
   } catch (_) {
     if (token === loadToken) teardownVrm();
@@ -164,7 +165,7 @@ export function updatePreviewSettings(settings) {
   if (pivot) {
     pivot.position.set(
       currentSettings.x || 0,
-      (currentSettings.y || 0) + PREVIEW_MODEL_Y_OFFSET,
+      (currentSettings.y || 0) + PREVIEW_Y_OFFSET,
       0,
     );
     pivot.scale.setScalar(currentSettings.scale || 1);
