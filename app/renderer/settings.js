@@ -265,4 +265,206 @@ avatarModelApplyButton?.addEventListener('click', async () => {
   }
 });
 
+const API_BASE_TTS = 'http://127.0.0.1:8765';
+let ttsEnvDefaults = null;
+let ttsVoicesCache = [];
+
+const ttsVoiceSelect = document.getElementById('tts-voice-select');
+const ttsFilterEs = document.getElementById('tts-filter-es');
+const ttsRate = document.getElementById('tts-rate');
+const ttsPitch = document.getElementById('tts-pitch');
+const ttsVolume = document.getElementById('tts-volume');
+const ttsRateValue = document.getElementById('tts-rate-value');
+const ttsPitchValue = document.getElementById('tts-pitch-value');
+const ttsVolumeValue = document.getElementById('tts-volume-value');
+const ttsStatus = document.getElementById('tts-status');
+const ttsResetButton = document.getElementById('tts-reset-button');
+
+function parsePercent(str) {
+  const m = String(str || '').trim().match(/^([+-]?\d+(?:\.\d+)?)%$/);
+  if (!m) return 0;
+  return Math.round(Number(m[1]));
+}
+
+function formatPercent(n) {
+  const v = Math.max(-50, Math.min(100, Number(n) || 0));
+  return `${v >= 0 ? '+' : ''}${v}%`;
+}
+
+function parseHz(str) {
+  const m = String(str || '').trim().match(/^([+-]?\d+(?:\.\d+)?)\s*Hz$/i);
+  if (!m) return 0;
+  return Math.round(Number(m[1]));
+}
+
+function formatHz(n) {
+  const v = Math.max(-50, Math.min(50, Number(n) || 0));
+  return `${v >= 0 ? '+' : ''}${v}Hz`;
+}
+
+function setTtsStatus(msg) {
+  if (ttsStatus) ttsStatus.textContent = msg || '';
+}
+
+async function waitBackendTts() {
+  for (let i = 0; i < 40; i += 1) {
+    try {
+      const res = await fetch(`${API_BASE_TTS}/api/health`);
+      if (res.ok) return true;
+    } catch (_) {}
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  return false;
+}
+
+function filteredVoices() {
+  const all = ttsVoicesCache || [];
+  if (!ttsFilterEs?.checked) return all;
+  return all.filter((v) => String(v.locale || '').toLowerCase().startsWith('es'));
+}
+
+function renderTtsVoiceOptions(selectedShortName) {
+  if (!ttsVoiceSelect) return;
+  const list = filteredVoices();
+  const want = selectedShortName || '';
+  ttsVoiceSelect.innerHTML = '';
+  for (const v of list) {
+    const opt = document.createElement('option');
+    opt.value = v.short_name;
+    const label = v.friendly_name || v.short_name;
+    opt.textContent = `${label} (${v.locale})`;
+    ttsVoiceSelect.appendChild(opt);
+  }
+  if (want && !list.some((x) => x.short_name === want)) {
+    const opt = document.createElement('option');
+    opt.value = want;
+    opt.textContent = want;
+    ttsVoiceSelect.appendChild(opt);
+  }
+  if (want && [...ttsVoiceSelect.options].some((o) => o.value === want)) {
+    ttsVoiceSelect.value = want;
+  } else if (list[0]) {
+    ttsVoiceSelect.value = list[0].short_name;
+  }
+}
+
+function applyTtsSliders(rateStr, pitchStr, volumeStr) {
+  const rv = parsePercent(rateStr);
+  const pv = parseHz(pitchStr);
+  const vv = parsePercent(volumeStr);
+  if (ttsRate) ttsRate.value = String(rv);
+  if (ttsPitch) ttsPitch.value = String(pv);
+  if (ttsVolume) ttsVolume.value = String(vv);
+  if (ttsRateValue) ttsRateValue.textContent = formatPercent(rv);
+  if (ttsPitchValue) ttsPitchValue.textContent = formatHz(pv);
+  if (ttsVolumeValue) ttsVolumeValue.textContent = formatPercent(vv);
+}
+
+function readTtsControlsPayload() {
+  return {
+    voice: ttsVoiceSelect?.value || '',
+    rate: formatPercent(ttsRate?.value || 0),
+    pitch: formatHz(ttsPitch?.value || 0),
+    volume: formatPercent(ttsVolume?.value || 0),
+  };
+}
+
+async function persistTtsFromControls() {
+  const p = readTtsControlsPayload();
+  await window.rainyDesktop.setTtsPreferences({
+    voice: p.voice,
+    rate: p.rate,
+    pitch: p.pitch,
+    volume: p.volume,
+  });
+  setTtsStatus('Guardado.');
+}
+
+function mergeTtsEffective(saved, baseline) {
+  return {
+    voice: (saved?.voice && String(saved.voice).trim()) ? saved.voice : baseline.voice,
+    rate: (saved?.rate && String(saved.rate).trim()) ? saved.rate : baseline.rate,
+    pitch: (saved?.pitch && String(saved.pitch).trim()) ? saved.pitch : baseline.pitch,
+    volume: (saved?.volume && String(saved.volume).trim()) ? saved.volume : baseline.volume,
+  };
+}
+
+async function initVoiceTab() {
+  if (!ttsVoiceSelect) return;
+  setTtsStatus('Cargando...');
+  const backendOk = await waitBackendTts();
+  if (!backendOk) {
+    setTtsStatus('Backend no disponible.');
+    return;
+  }
+  try {
+    const [defRes, voRes] = await Promise.all([
+      fetch(`${API_BASE_TTS}/api/tts/defaults`),
+      fetch(`${API_BASE_TTS}/api/tts/voices`),
+    ]);
+    if (!defRes.ok || !voRes.ok) throw new Error('fetch');
+    ttsEnvDefaults = await defRes.json();
+    const voJson = await voRes.json();
+    ttsVoicesCache = voJson.voices || [];
+  } catch (_) {
+    setTtsStatus('No pude cargar voces ni valores por defecto.');
+    return;
+  }
+
+  let saved = {};
+  try {
+    saved = await window.rainyDesktop.getTtsPreferences();
+  } catch (_) {}
+  const effective = mergeTtsEffective(saved, ttsEnvDefaults);
+  renderTtsVoiceOptions(effective.voice);
+  applyTtsSliders(effective.rate, effective.pitch, effective.volume);
+  setTtsStatus('');
+
+  ttsFilterEs?.addEventListener('change', () => {
+    const cur = ttsVoiceSelect?.value || '';
+    renderTtsVoiceOptions(cur);
+    void persistTtsFromControls();
+  });
+
+  ttsVoiceSelect.addEventListener('change', () => {
+    void persistTtsFromControls();
+  });
+
+  ttsRate?.addEventListener('input', () => {
+    if (ttsRateValue) ttsRateValue.textContent = formatPercent(ttsRate.value);
+  });
+  ttsRate?.addEventListener('change', () => void persistTtsFromControls());
+
+  ttsPitch?.addEventListener('input', () => {
+    if (ttsPitchValue) ttsPitchValue.textContent = formatHz(ttsPitch.value);
+  });
+  ttsPitch?.addEventListener('change', () => void persistTtsFromControls());
+
+  ttsVolume?.addEventListener('input', () => {
+    if (ttsVolumeValue) ttsVolumeValue.textContent = formatPercent(ttsVolume.value);
+  });
+  ttsVolume?.addEventListener('change', () => void persistTtsFromControls());
+
+  ttsResetButton?.addEventListener('click', async () => {
+    try {
+      const res = await fetch(`${API_BASE_TTS}/api/tts/defaults`);
+      if (!res.ok) throw new Error('defaults');
+      ttsEnvDefaults = await res.json();
+      await window.rainyDesktop.setTtsPreferences({
+        voice: ttsEnvDefaults.voice,
+        rate: ttsEnvDefaults.rate,
+        pitch: ttsEnvDefaults.pitch,
+        volume: ttsEnvDefaults.volume,
+      });
+      renderTtsVoiceOptions(ttsEnvDefaults.voice);
+      applyTtsSliders(ttsEnvDefaults.rate, ttsEnvDefaults.pitch, ttsEnvDefaults.volume);
+      setTtsStatus('Reseteado correctamente.');
+    } catch (_) {
+      setTtsStatus('No pude aplicar reset.');
+    }
+  });
+}
+
+void initVoiceTab();
+
 void initAvatarModelSelector();

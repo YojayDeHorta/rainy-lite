@@ -18,6 +18,7 @@ const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const AVATAR_MODEL_PREFS = path.join(app.getPath('userData'), 'avatar-model.json');
 const PROFILE_PREFS = path.join(app.getPath('userData'), 'profile.json');
 const MIC_PREFS = path.join(app.getPath('userData'), 'mic-preferences.json');
+const TTS_PREFS = path.join(app.getPath('userData'), 'tts-preferences.json');
 const DEFAULT_AVATAR_MODEL = 'rainy.vrm';
 const DEFAULT_PROFILE = {
   botName: 'Asuka',
@@ -260,10 +261,10 @@ function createSettingsWindow() {
     return;
   }
   settingsWindow = new BrowserWindow(baseWindowOptions({
-    width: 500,
-    height: 650,
-    minWidth: 350,
-    minHeight: 500,
+    width: 720,
+    height: 700,
+    minWidth: 520,
+    minHeight: 520,
     transparent: false,
     show: true,
     hasShadow: true,
@@ -807,6 +808,40 @@ ipcMain.handle('settings:update-theme', (_event, isDark) => {
 ipcMain.handle('audio:get-mic-device', () => readMicPreference());
 
 ipcMain.handle('audio:set-mic-device', (_event, deviceId) => writeMicPreference(deviceId));
+
+function readTtsPreference() {
+  try {
+    const raw = fs.readFileSync(TTS_PREFS, 'utf8');
+    const p = JSON.parse(raw);
+    return {
+      voice: typeof p.voice === 'string' ? p.voice : '',
+      rate: typeof p.rate === 'string' ? p.rate : '',
+      pitch: typeof p.pitch === 'string' ? p.pitch : '',
+      volume: typeof p.volume === 'string' ? p.volume : '',
+    };
+  } catch (_) {
+    return { voice: '', rate: '', pitch: '', volume: '' };
+  }
+}
+
+function writeTtsPreference(patch) {
+  const prev = readTtsPreference();
+  const next = {
+    voice: patch?.voice !== undefined ? String(patch.voice ?? '').trim() : prev.voice,
+    rate: patch?.rate !== undefined ? String(patch.rate ?? '').trim() : prev.rate,
+    pitch: patch?.pitch !== undefined ? String(patch.pitch ?? '').trim() : prev.pitch,
+    volume: patch?.volume !== undefined ? String(patch.volume ?? '').trim() : prev.volume,
+  };
+  fs.writeFileSync(TTS_PREFS, JSON.stringify(next), 'utf8');
+  return next;
+}
+
+ipcMain.handle('tts:get-preferences', () => readTtsPreference());
+
+ipcMain.handle('tts:set-preferences', (_event, patch) => ({
+  ok: true,
+  preferences: writeTtsPreference(patch || {}),
+}));
 
 ipcMain.handle('window:toggle-chat', () => {
   if (!chatWindow) createChatWindow();

@@ -41,6 +41,7 @@ let endpointLastTick = 0;
 let endpointStartedAt = 0;
 let endpointSpeechStarted = false;
 let endpointStopCallback = null;
+let discardRecordingOnStop = false;
 
 const ENDPOINT_RMS_THRESHOLD = 0.028;
 const ENDPOINT_SILENCE_MS = 1000;
@@ -297,11 +298,13 @@ async function getMicMediaStream() {
 async function toggleRecording(options = {}) {
   const source = String(options?.source || 'manual');
   if (isRecording) {
+    discardRecordingOnStop = true;
     mediaRecorder?.stop();
     return;
   }
 
   try {
+    discardRecordingOnStop = false;
     const stream = await getMicMediaStream();
     chunks = [];
     mediaRecorder = new MediaRecorder(stream);
@@ -310,9 +313,18 @@ async function toggleRecording(options = {}) {
     mediaRecorder.onstop = async () => {
       stopSpeechEndpointing();
       isRecording = false;
-      isAssistantBusy = true;
       voiceButton.classList.remove('recording');
       stream.getTracks().forEach((track) => track.stop());
+      const cancelled = discardRecordingOnStop;
+      discardRecordingOnStop = false;
+      if (cancelled) {
+        isAssistantBusy = false;
+        subtitle.textContent = 'Grabacion cancelada.';
+        setAvatarState('idle');
+        stopConversationSession();
+        return;
+      }
+      isAssistantBusy = true;
       subtitle.textContent = 'Transcribiendo...';
       setAvatarState('thinking');
       await transcribeAndSend(new Blob(chunks, { type: 'audio/webm' }));
@@ -327,7 +339,7 @@ async function toggleRecording(options = {}) {
     });
     isRecording = true;
     voiceButton.classList.add('recording');
-    subtitle.textContent = 'Te escucho... pulsa otra vez para terminar.';
+    subtitle.textContent = 'Te escucho... al callar envio el audio. Pulsa Mic para cancelar.';
     setAvatarState('listening');
     conversationSource = source;
     updateConversationActivity();

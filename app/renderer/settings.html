@@ -12,6 +12,7 @@
       <div class="brand">Configuración</div>
       <button class="tab-button active" data-tab="general">General</button>
       <button class="tab-button" data-tab="avatar">Avatar</button>
+      <button class="tab-button" data-tab="voice">Voz</button>
     </aside>
     <main class="content">
       
@@ -82,6 +83,34 @@
           <div class="setting-label">Movimiento <b id="avatar-motion-value">1.00</b></div>
           <input id="avatar-motion" type="range" min="0" max="2" step="0.01" />
         </div>
+      </section>
+
+      <section id="tab-voice" class="tab-content">
+        <div class="settings-header">
+          <h2>Voz (Edge TTS)</h2>
+          <button type="button" id="tts-reset-button" class="btn-secondary">Reset</button>
+        </div>
+        <div class="setting-item">
+          <label class="tts-filter-label">
+            <input type="checkbox" id="tts-filter-es" checked />
+            <span>Solo voces en español (locale es-*)</span>
+          </label>
+          <div class="setting-label">Voz</div>
+          <select id="tts-voice-select" class="model-select"></select>
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">Velocidad <b id="tts-rate-value">+8%</b></div>
+          <input id="tts-rate" type="range" min="-50" max="100" step="1" />
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">Tono <b id="tts-pitch-value">+20Hz</b></div>
+          <input id="tts-pitch" type="range" min="-50" max="50" step="1" />
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">Volumen <b id="tts-volume-value">+0%</b></div>
+          <input id="tts-volume" type="range" min="-50" max="100" step="1" />
+        </div>
+        <span id="tts-status" class="model-status"></span>
       </section>
     </main>
   </div>

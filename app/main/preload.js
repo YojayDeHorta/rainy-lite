@@ -34,4 +34,6 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   onProfileUpdate: (callback) => ipcRenderer.on('rainy:profile-update', (_event, profile) => callback(profile)),
   getMicDevice: () => ipcRenderer.invoke('audio:get-mic-device'),
   setMicDevice: (deviceId) => ipcRenderer.invoke('audio:set-mic-device', deviceId),
+  getTtsPreferences: () => ipcRenderer.invoke('tts:get-preferences'),
+  setTtsPreferences: (prefs) => ipcRenderer.invoke('tts:set-preferences', prefs),
 });

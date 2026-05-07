@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from uuid import uuid4
 
@@ -6,7 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ai_core, config, memory, spotify, stt, tts, wakeword
+import edge_tts
+
+from . import ai_core, config, memory, spotify, stt, temp_cleanup, tts, wakeword
 
 
 class ChatRequest(BaseModel):
@@ -17,6 +20,10 @@ class ChatRequest(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str
+    voice: str | None = None
+    rate: str | None = None
+    pitch: str | None = None
+    volume: str | None = None
 
 
 class MemoryRequest(BaseModel):
@@ -47,9 +54,13 @@ wakeword_service = wakeword.WakewordService(
 
 
 @app.on_event("startup")
-def startup():
+async def startup():
     memory.init_db()
     wakeword_service.start()
+    max_age_s = config.TEMP_FILE_MAX_AGE_MINUTES * 60
+    temp_cleanup.sweep_temp_dir(max_age_s)
+    interval_s = config.TEMP_CLEANUP_INTERVAL_MINUTES * 60
+    asyncio.create_task(temp_cleanup.cleanup_loop(interval_s, max_age_s))
 
 
 @app.on_event("shutdown")
@@ -152,10 +163,48 @@ async def spotify_search(q: str = "", limit: int = 5):
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+@app.get("/api/tts/defaults")
+def tts_defaults():
+    return {
+        "voice": config.TTS_VOICE,
+        "rate": config.TTS_RATE,
+        "pitch": config.TTS_PITCH,
+        "volume": config.TTS_VOLUME,
+    }
+
+
+@app.get("/api/tts/voices")
+async def tts_voices():
+    try:
+        raw = await edge_tts.list_voices()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    items = []
+    for vo in raw:
+        friendly = vo.get("FriendlyName") or vo.get("LocalName") or vo.get("ShortName") or ""
+        items.append(
+            {
+                "short_name": vo.get("ShortName") or "",
+                "friendly_name": friendly,
+                "locale": vo.get("Locale") or "",
+                "gender": vo.get("Gender") or "",
+            }
+        )
+    items.sort(key=lambda x: (x["locale"].lower(), x["short_name"].lower()))
+    return {"voices": items}
+
+
 @app.post("/api/tts")
 async def synthesize(req: TTSRequest):
     try:
-        audio_path = await tts.synthesize(req.text)
+        audio_path = await tts.synthesize(
+            req.text,
+            voice=req.voice,
+            rate=req.rate,
+            pitch=req.pitch,
+            volume=req.volume,
+        )
+        temp_cleanup.sweep_temp_dir(config.TEMP_FILE_MAX_AGE_MINUTES * 60)
         return {"url": f"/temp/{audio_path.name}"}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

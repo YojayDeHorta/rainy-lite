@@ -104,10 +104,20 @@ function setEmotion(emotion) {
 async function speak(text) {
   if (!text) return;
   try {
+    let prefs = {};
+    try {
+      prefs = await window.rainyDesktop.getTtsPreferences();
+    } catch (_) {
+    }
+    const payload = { text };
+    if (prefs?.voice) payload.voice = prefs.voice;
+    if (prefs?.rate) payload.rate = prefs.rate;
+    if (prefs?.pitch) payload.pitch = prefs.pitch;
+    if (prefs?.volume) payload.volume = prefs.volume;
     const res = await fetch(`${API_BASE}/api/tts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (data.url) playWithLipSync(`${API_BASE}${data.url}`);
