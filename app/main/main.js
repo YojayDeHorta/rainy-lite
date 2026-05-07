@@ -1,6 +1,7 @@
-const { app, BrowserWindow, clipboard, globalShortcut, ipcMain, net, screen, shell } = require('electron');
+const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, net, screen, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 const { spawn } = require('child_process');
 
 let chatWindow;
@@ -21,6 +22,7 @@ const MIC_PREFS = path.join(app.getPath('userData'), 'mic-preferences.json');
 const TTS_PREFS = path.join(app.getPath('userData'), 'tts-preferences.json');
 const DEFAULT_AVATAR_MODEL = 'rainy.vrm';
 const PERSONALITY_CUSTOM_MAX = 600;
+const MAX_CUSTOM_VRM_SIZE_BYTES = 120 * 1024 * 1024;
 
 const DEFAULT_PROFILE = {
   botName: 'Asuka',
@@ -185,9 +187,11 @@ function writeMicPreference(deviceId) {
 }
 
 function listAvatarModels() {
+  const userModelsDir = path.join(app.getPath('userData'), 'models');
   const buckets = [
-    { folder: path.join(ROOT_DIR, 'assets', 'models'), urlPrefix: '../../assets/models/' },
-    { folder: path.join(ROOT_DIR, 'assets'), urlPrefix: '../../assets/' },
+    { folder: userModelsDir, urlPrefix: 'file://user-models/', source: 'user' },
+    { folder: path.join(ROOT_DIR, 'assets', 'models'), urlPrefix: '../../assets/models/', source: 'assets-models' },
+    { folder: path.join(ROOT_DIR, 'assets'), urlPrefix: '../../assets/', source: 'assets-root' },
   ];
   const items = [];
   const seen = new Set();
@@ -202,11 +206,17 @@ function listAvatarModels() {
       const key = name.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
+      const absPath = path.join(bucket.folder, name);
+      const url = bucket.urlPrefix === 'file://user-models/'
+        ? pathToFileURL(absPath).href
+        : `${bucket.urlPrefix}${name}`;
       items.push({
         id: name,
         name,
         label: path.basename(name, path.extname(name)),
-        url: `${bucket.urlPrefix}${name}`,
+        url,
+        source: bucket.source,
+        isCustom: bucket.source === 'user',
       });
     }
   }
@@ -222,6 +232,61 @@ function resolveAvatarModelSelection(name) {
   if (preferred) return preferred;
   const fallbackDefault = models.find((item) => item.name.toLowerCase() === DEFAULT_AVATAR_MODEL);
   return fallbackDefault || models[0];
+}
+
+function ensureUserModelsDir() {
+  const target = path.join(app.getPath('userData'), 'models');
+  fs.mkdirSync(target, { recursive: true });
+  return target;
+}
+
+function sanitizeVrmBasename(inputName) {
+  const raw = String(inputName || '').trim();
+  const ext = path.extname(raw).toLowerCase();
+  const base = path.basename(raw, ext);
+  const safeBase = base
+    .normalize('NFKD')
+    .replace(/[^\w.-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 64) || 'custom_model';
+  return `${safeBase}.vrm`;
+}
+
+function copyVrmToUserModels(sourcePath) {
+  const source = String(sourcePath || '');
+  const ext = path.extname(source).toLowerCase();
+  if (ext !== '.vrm') throw new Error('Solo puedes subir archivos .vrm');
+  const stat = fs.statSync(source);
+  if (!stat.isFile()) throw new Error('El archivo seleccionado no es valido.');
+  if (stat.size > MAX_CUSTOM_VRM_SIZE_BYTES) throw new Error('El modelo supera 120 MB.');
+
+  const modelsDir = ensureUserModelsDir();
+  const safeName = sanitizeVrmBasename(path.basename(source));
+  const parsed = path.parse(safeName);
+  let finalName = `${parsed.name}${parsed.ext}`;
+  let finalPath = path.join(modelsDir, finalName);
+  let i = 1;
+  while (fs.existsSync(finalPath)) {
+    finalName = `${parsed.name}_${i}${parsed.ext}`;
+    finalPath = path.join(modelsDir, finalName);
+    i += 1;
+  }
+  fs.copyFileSync(source, finalPath);
+  return { name: finalName, path: finalPath };
+}
+
+function deleteUserVrmModel(modelName) {
+  const clean = String(modelName || '').trim();
+  if (!clean || !clean.toLowerCase().endsWith('.vrm')) {
+    throw new Error('Modelo invalido.');
+  }
+  const modelsDir = ensureUserModelsDir();
+  const fullPath = path.join(modelsDir, path.basename(clean));
+  if (!fs.existsSync(fullPath)) {
+    throw new Error('Ese modelo custom no existe.');
+  }
+  fs.unlinkSync(fullPath);
+  return { name: path.basename(clean) };
 }
 
 function getCurrentAvatarModel() {
@@ -1018,6 +1083,48 @@ ipcMain.handle('avatar:set-model', (_event, modelName) => {
   }
   broadcastAvatarModel(currentAvatarModel);
   return { ok: true, model: currentAvatarModel };
+});
+
+ipcMain.handle('avatar:upload-model', async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'Selecciona un modelo VRM',
+    properties: ['openFile'],
+    filters: [{ name: 'VRM', extensions: ['vrm'] }],
+  });
+  if (result.canceled || !result.filePaths.length) {
+    return { ok: false, cancelled: true, message: 'Carga cancelada.' };
+  }
+  try {
+    const copied = copyVrmToUserModels(result.filePaths[0]);
+    return { ok: true, model: copied.name, message: `Modelo subido: ${copied.name}` };
+  } catch (error) {
+    return { ok: false, message: error.message || 'No se pudo subir el modelo.' };
+  }
+});
+
+ipcMain.handle('avatar:delete-model', (_event, modelName) => {
+  try {
+    const deleted = deleteUserVrmModel(modelName);
+    const activeName = getCurrentAvatarModel();
+    if (deleted.name.toLowerCase() === String(activeName || '').toLowerCase()) {
+      const fallback = resolveAvatarModelSelection(DEFAULT_AVATAR_MODEL);
+      if (fallback) {
+        currentAvatarModel = fallback.name;
+        writeAvatarModelPreference(fallback.name);
+        const profile = readProfilePreference();
+        const nextProfile = writeProfilePreference({ ...profile, model: fallback.name });
+        broadcastAvatarModel(fallback.name);
+        if (chatWindow && !chatWindow.isDestroyed()) {
+          chatWindow.webContents.send('rainy:profile-update', nextProfile);
+        }
+      } else {
+        currentAvatarModel = null;
+      }
+    }
+    return { ok: true, deleted: deleted.name, currentModel: getCurrentAvatarModel() };
+  } catch (error) {
+    return { ok: false, message: error.message || 'No se pudo eliminar el modelo.' };
+  }
 });
 
 ipcMain.handle('system:execute-action', async (_event, action) => {

@@ -183,8 +183,11 @@ const avatarValueLabels = {
 };
 const avatarModelSelect = document.getElementById('avatar-model-select');
 const avatarModelApplyButton = document.getElementById('avatar-model-apply-button');
+const avatarModelUploadButton = document.getElementById('avatar-model-upload-button');
+const avatarModelDeleteButton = document.getElementById('avatar-model-delete-button');
 const avatarModelStatus = document.getElementById('avatar-model-status');
 let loadedAvatarModel = '';
+let avatarModelsCache = [];
 
 function loadAvatarSettings() {
   try {
@@ -240,15 +243,19 @@ function setModelStatus(text) {
 }
 
 function renderModelOptions(models, currentModel) {
+  avatarModelsCache = Array.isArray(models) ? models : [];
   avatarModelSelect.innerHTML = '';
-  for (const model of models) {
+  for (const model of avatarModelsCache) {
     const option = document.createElement('option');
     option.value = model.name;
-    option.textContent = model.label || model.name;
+    const baseLabel = model.label || model.name;
+    option.textContent = model.isCustom ? `${baseLabel} [Custom]` : baseLabel;
     avatarModelSelect.appendChild(option);
   }
   if (currentModel) avatarModelSelect.value = currentModel;
   loadedAvatarModel = avatarModelSelect.value || '';
+  const selected = avatarModelsCache.find((m) => m.name === avatarModelSelect.value);
+  avatarModelDeleteButton.disabled = !selected?.isCustom;
 }
 
 async function initAvatarModelSelector() {
@@ -258,6 +265,7 @@ async function initAvatarModelSelector() {
     const current = response?.current || '';
     if (!models.length) {
       avatarModelApplyButton.disabled = true;
+      avatarModelDeleteButton.disabled = true;
       setModelStatus('No se encontraron modelos .vrm en assets/models ni assets.');
       return;
     }
@@ -265,7 +273,18 @@ async function initAvatarModelSelector() {
     setModelStatus('');
   } catch (_) {
     avatarModelApplyButton.disabled = true;
+    avatarModelDeleteButton.disabled = true;
     setModelStatus('No pude cargar los modelos.');
+  }
+}
+
+async function refreshAndSelectAvatarModel(nameToSelect = '') {
+  const response = await window.rainyDesktop.listAvatarModels();
+  const models = response?.models || [];
+  const current = response?.current || '';
+  renderModelOptions(models, current);
+  if (nameToSelect && models.some((m) => m.name === nameToSelect)) {
+    avatarModelSelect.value = nameToSelect;
   }
 }
 
@@ -294,6 +313,63 @@ avatarModelApplyButton?.addEventListener('click', async () => {
     setModelStatus('Modelo aplicado.');
   } else {
     setModelStatus(result?.message || 'No se pudo aplicar el modelo.');
+  }
+});
+
+avatarModelUploadButton?.addEventListener('click', async () => {
+  setModelStatus('Selecciona un .vrm para subir...');
+  avatarModelUploadButton.disabled = true;
+  try {
+    const upload = await window.rainyDesktop.uploadAvatarModel();
+    if (!upload?.ok) {
+      if (!upload?.cancelled) setModelStatus(upload?.message || 'No se pudo subir el modelo.');
+      else setModelStatus('');
+      return;
+    }
+    await refreshAndSelectAvatarModel(upload.model);
+    setModelStatus('Modelo subido. Pulsa "Aplicar modelo" para usarlo.');
+  } catch (_) {
+    setModelStatus('No se pudo subir el modelo.');
+  } finally {
+    avatarModelUploadButton.disabled = false;
+  }
+});
+
+avatarModelSelect?.addEventListener('change', () => {
+  const selected = avatarModelsCache.find((m) => m.name === avatarModelSelect.value);
+  avatarModelDeleteButton.disabled = !selected?.isCustom;
+});
+
+avatarModelDeleteButton?.addEventListener('click', async () => {
+  const selectedName = avatarModelSelect?.value || '';
+  if (!selectedName) {
+    setModelStatus('Selecciona un modelo para eliminar.');
+    return;
+  }
+  const selected = avatarModelsCache.find((m) => m.name === selectedName);
+  if (!selected?.isCustom) {
+    setModelStatus('Solo se pueden eliminar modelos custom.');
+    return;
+  }
+  const ok = window.confirm(`Eliminar modelo custom "${selected.label || selected.name}"?`);
+  if (!ok) return;
+
+  avatarModelDeleteButton.disabled = true;
+  setModelStatus('Eliminando modelo custom...');
+  try {
+    const result = await window.rainyDesktop.deleteAvatarModel(selectedName);
+    if (!result?.ok) {
+      setModelStatus(result?.message || 'No se pudo eliminar el modelo.');
+      return;
+    }
+    await refreshAndSelectAvatarModel(result.currentModel || '');
+    loadedAvatarModel = result.currentModel || loadedAvatarModel;
+    setModelStatus('Modelo custom eliminado.');
+  } catch (_) {
+    setModelStatus('No se pudo eliminar el modelo.');
+  } finally {
+    const currentSel = avatarModelsCache.find((m) => m.name === (avatarModelSelect?.value || ''));
+    avatarModelDeleteButton.disabled = !currentSel?.isCustom;
   }
 });
 

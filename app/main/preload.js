@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   updateAvatarSettings: (settings) => ipcRenderer.invoke('avatar:update-settings', settings),
   setAvatarState: (state) => ipcRenderer.invoke('avatar:set-state', state),
   listAvatarModels: () => ipcRenderer.invoke('avatar:list-models'),
+  uploadAvatarModel: () => ipcRenderer.invoke('avatar:upload-model'),
+  deleteAvatarModel: (model) => ipcRenderer.invoke('avatar:delete-model', model),
   getCurrentAvatarModel: () => ipcRenderer.invoke('avatar:get-model'),
   setCurrentAvatarModel: (model) => ipcRenderer.invoke('avatar:set-model', model),
   notifyWakewordTriggered: () => ipcRenderer.invoke('avatar:wakeword-triggered'),
