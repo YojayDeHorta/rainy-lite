@@ -391,6 +391,9 @@ function baseWindowOptions(extra = {}) {
 }
 
 function createAvatarWindow() {
+  if (avatarWindow && !avatarWindow.isDestroyed()) {
+    return avatarWindow;
+  }
   avatarWindow = new BrowserWindow(baseWindowOptions({
     width: AVATAR_BASE_WINDOW.width,
     height: AVATAR_BASE_WINDOW.height,
@@ -408,9 +411,13 @@ function createAvatarWindow() {
   avatarWindow.on('closed', () => {
     avatarWindow = null;
   });
+  return avatarWindow;
 }
 
 function createChatWindow() {
+  if (chatWindow && !chatWindow.isDestroyed()) {
+    return chatWindow;
+  }
   chatWindow = new BrowserWindow(baseWindowOptions({
     width: 540,
     height: 720,
@@ -430,6 +437,7 @@ function createChatWindow() {
   chatWindow.on('closed', () => {
     chatWindow = null;
   });
+  return chatWindow;
 }
 
 function createSettingsWindow() {
@@ -921,6 +929,10 @@ function sendToAvatarWakeword() {
 ipcMain.handle('window:close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win === setupWindow) {
+    app.quit();
+    return;
+  }
+  if (win === avatarWindow) {
     app.quit();
     return;
   }
