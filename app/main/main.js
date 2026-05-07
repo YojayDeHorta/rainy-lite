@@ -23,6 +23,7 @@ const TTS_PREFS = path.join(app.getPath('userData'), 'tts-preferences.json');
 const DEFAULT_AVATAR_MODEL = 'rainy.vrm';
 const PERSONALITY_CUSTOM_MAX = 600;
 const MAX_CUSTOM_VRM_SIZE_BYTES = 120 * 1024 * 1024;
+const APP_ICON_PNG = path.join(ROOT_DIR, 'assets', 'icons', 'asuka.png');
 
 const DEFAULT_PROFILE = {
   botName: 'Asuka',
@@ -56,7 +57,7 @@ const AVATAR_BASE_WINDOW = {
   cameraZ: 3.4,
 };
 
-function getPythonCommand(rootDir) {
+function getVenvPython(rootDir) {
   const venvPython = process.platform === 'win32'
     ? path.join(rootDir, '.venv', 'Scripts', 'python.exe')
     : path.join(rootDir, '.venv', 'bin', 'python');
@@ -65,33 +66,89 @@ function getPythonCommand(rootDir) {
     fs.accessSync(venvPython);
     return venvPython;
   } catch (_) {
-    return process.platform === 'win32' ? 'python' : 'python3';
+    return null;
   }
 }
 
+function getPythonLaunchCandidates(rootDir) {
+  const candidates = [];
+  const venvPython = getVenvPython(rootDir);
+  if (venvPython) candidates.push({ command: venvPython, prefixArgs: [], label: '.venv/python' });
+  if (process.platform === 'win32') {
+    candidates.push(
+      { command: 'python', prefixArgs: [], label: 'python' },
+      { command: 'py', prefixArgs: ['-3'], label: 'py -3' },
+      { command: 'python3', prefixArgs: [], label: 'python3' },
+    );
+  } else {
+    candidates.push(
+      { command: 'python3', prefixArgs: [], label: 'python3' },
+      { command: 'python', prefixArgs: [], label: 'python' },
+    );
+  }
+  const unique = [];
+  const seen = new Set();
+  for (const item of candidates) {
+    const key = `${item.command} ${item.prefixArgs.join(' ')}`.trim();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(item);
+  }
+  return unique;
+}
+
 function startBackend() {
-  backendProcess = spawn(
-    getPythonCommand(ROOT_DIR),
-    ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8765'],
-    {
-      cwd: ROOT_DIR,
-      env: { ...process.env, PYTHONUNBUFFERED: '1' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  );
+  const uvicornArgs = ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8765'];
+  const candidates = getPythonLaunchCandidates(ROOT_DIR);
 
-  backendProcess.stdout.on('data', (data) => {
-    console.log(`[rainy-backend] ${data.toString().trim()}`);
-  });
+  const tryLaunch = (index) => {
+    if (index >= candidates.length) {
+      console.error('[rainy-backend] No encontre un interprete de Python para iniciar el backend.');
+      return;
+    }
+    const candidate = candidates[index];
+    const child = spawn(
+      candidate.command,
+      [...candidate.prefixArgs, ...uvicornArgs],
+      {
+        cwd: ROOT_DIR,
+        env: { ...process.env, PYTHONUNBUFFERED: '1' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
 
-  backendProcess.stderr.on('data', (data) => {
-    console.error(`[rainy-backend] ${data.toString().trim()}`);
-  });
+    child.once('error', (error) => {
+      if (error?.code === 'ENOENT') {
+        console.warn(`[rainy-backend] Python no disponible con "${candidate.label}", probando siguiente...`);
+        tryLaunch(index + 1);
+        return;
+      }
+      console.error(`[rainy-backend] Error lanzando backend con "${candidate.label}": ${error.message || error}`);
+      tryLaunch(index + 1);
+    });
 
-  backendProcess.on('exit', (code) => {
-    console.log(`[rainy-backend] exited with code ${code}`);
-    backendProcess = null;
-  });
+    child.once('spawn', () => {
+      backendProcess = child;
+      console.log(`[rainy-backend] iniciado con ${candidate.label}`);
+    });
+
+    child.stdout.on('data', (data) => {
+      console.log(`[rainy-backend] ${data.toString().trim()}`);
+    });
+
+    child.stderr.on('data', (data) => {
+      console.error(`[rainy-backend] ${data.toString().trim()}`);
+    });
+
+    child.on('exit', (code) => {
+      if (backendProcess === child) {
+        console.log(`[rainy-backend] exited with code ${code}`);
+        backendProcess = null;
+      }
+    });
+  };
+
+  tryLaunch(0);
 }
 
 function readAvatarModelPreference() {
@@ -313,12 +370,14 @@ function broadcastAvatarModel(modelName) {
 }
 
 function baseWindowOptions(extra = {}) {
+  const iconPath = fs.existsSync(APP_ICON_PNG) ? APP_ICON_PNG : undefined;
   return {
     transparent: true,
     frame: false,
     resizable: true,
     hasShadow: false,
     backgroundColor: '#00000000',
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

@@ -13,7 +13,8 @@
   },
   "devDependencies": {
     "electron": "^39.2.6",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.8.1",
+    "png-to-ico": "^3.0.1"
   },
   "build": {
     "appId": "com.asukadesktop.app",
@@ -34,6 +35,7 @@
       "!**/*.sqlite"
     ],
     "win": {
+      "icon": "build/asuka.ico",
       "signAndEditExecutable": false,
       "target": [
         {
