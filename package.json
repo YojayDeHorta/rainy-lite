@@ -26,13 +26,17 @@
       "app/**/*",
       "backend/**/*",
       "assets/**/*",
+      ".venv/**/*",
       "requirements.txt",
       "package.json",
-      "!.venv/**",
       "!temp/**",
       "!data/**",
       "!dist/**",
       "!**/*.sqlite"
+    ],
+    "asarUnpack": [
+      "backend/**",
+      ".venv/**"
     ],
     "win": {
       "icon": "build/asuka.ico",

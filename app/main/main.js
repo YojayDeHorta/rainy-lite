@@ -16,6 +16,9 @@ let spotifyPlaying = false;
 let currentAvatarModel = null;
 
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
+const BACKEND_ROOT_DIR = app.isPackaged
+  ? path.join(process.resourcesPath, 'app.asar.unpacked')
+  : ROOT_DIR;
 const AVATAR_MODEL_PREFS = path.join(app.getPath('userData'), 'avatar-model.json');
 const PROFILE_PREFS = path.join(app.getPath('userData'), 'profile.json');
 const MIC_PREFS = path.join(app.getPath('userData'), 'mic-preferences.json');
@@ -99,7 +102,7 @@ function getPythonLaunchCandidates(rootDir) {
 
 function startBackend() {
   const uvicornArgs = ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8765'];
-  const candidates = getPythonLaunchCandidates(ROOT_DIR);
+  const candidates = getPythonLaunchCandidates(BACKEND_ROOT_DIR);
 
   const tryLaunch = (index) => {
     if (index >= candidates.length) {
@@ -111,7 +114,7 @@ function startBackend() {
       candidate.command,
       [...candidate.prefixArgs, ...uvicornArgs],
       {
-        cwd: ROOT_DIR,
+        cwd: BACKEND_ROOT_DIR,
         env: { ...process.env, PYTHONUNBUFFERED: '1' },
         stdio: ['ignore', 'pipe', 'pipe'],
       },
