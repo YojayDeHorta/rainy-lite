@@ -32,7 +32,7 @@ class MemoryRequest(BaseModel):
     content: str
 
 
-app = FastAPI(title="Rainy Lite Local API")
+app = FastAPI(title="Asuka Desktop Local API")
 
 app.add_middleware(
     CORSMiddleware,

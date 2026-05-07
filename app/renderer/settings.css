@@ -451,10 +451,6 @@ body.dark-theme .preview-glass {
   backdrop-filter: blur(3px);
   border-radius: 16px;
 }
-
-.vrm-loading-overlay[hidden] {
-  display: none !important;
-}
 body.dark-theme .vrm-loading-overlay {
   background: rgba(30, 30, 30, 0.7);
 }

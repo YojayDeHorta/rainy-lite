@@ -319,11 +319,6 @@ export async function initAvatar() {
     }
     root?.classList.add('vrm-loaded');
     clock = new THREE.Clock();
-    
-    updateIdlePose(0);
-    currentVrm.scene.updateMatrixWorld(true);
-    if (currentVrm.springBoneManager) currentVrm.springBoneManager.reset();
-    
     scheduleBlink();
     scheduleMicroExpression();
     animate();
@@ -348,11 +343,6 @@ export async function setAvatarModel(modelPayload) {
     scene.add(currentVrm.scene);
     applyModelSettings();
     applyExpressions();
-    
-    updateIdlePose(clock ? clock.elapsedTime : 0);
-    currentVrm.scene.updateMatrixWorld(true);
-    if (currentVrm.springBoneManager) currentVrm.springBoneManager.reset();
-    
     return true;
   } catch (error) {
     activeModelUrl = previousUrl;

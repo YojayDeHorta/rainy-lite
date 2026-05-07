@@ -1,5 +1,6 @@
 {
-  "name": "rainy-lite",
+  "name": "asuka-desktop",
+  "productName": "Asuka Desktop",
   "version": "0.1.0",
   "description": "Desktop AI companion for Windows.",
   "main": "app/main/main.js",
