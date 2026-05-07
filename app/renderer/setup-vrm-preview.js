@@ -150,6 +150,12 @@ export async function setVrmPreviewUrl(container, url) {
     currentVrm = vrm;
     pivot.add(vrm.scene);
     updatePreviewSettings(currentSettings);
+    
+    currentVrm.scene.updateMatrixWorld(true);
+    if (currentVrm.springBoneManager) {
+      currentVrm.springBoneManager.reset();
+    }
+    
     return true;
   } catch (_) {
     if (token === loadToken) teardownVrm();
