@@ -17,7 +17,18 @@ const DEFAULT_AVATAR_SETTINGS = {
   cameraZ: 3.4,
   light: 0.75,
   motion: 1.0,
+  modelYawDeg: 0,
+  modelPitchDeg: 0,
+  armHangDeg: 0,
 };
+
+function migrateAvatarSettingsRawRenderer(parsed) {
+  const base = { ...DEFAULT_AVATAR_SETTINGS, ...parsed };
+  if (base.armHangDeg === undefined && base.armRaiseDeg != null && base.armRaiseDeg !== '') {
+    base.armHangDeg = Math.max(0, Math.min(85, -Number(base.armRaiseDeg)));
+  }
+  return base;
+}
 
 let mediaRecorder = null;
 let chunks = [];
@@ -101,7 +112,7 @@ function normalizeConversationMeta(data) {
 function loadAvatarSettings() {
   try {
     const parsed = JSON.parse(localStorage.getItem(AVATAR_SETTINGS_KEY) || '{}');
-    return { ...DEFAULT_AVATAR_SETTINGS, ...parsed };
+    return migrateAvatarSettingsRawRenderer(parsed);
   } catch (_) {
     return { ...DEFAULT_AVATAR_SETTINGS };
   }

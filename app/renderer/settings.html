@@ -78,6 +78,20 @@
             <span id="avatar-model-status" class="model-status"></span>
           </div>
         </div>
+        <p class="avatar-pose-hint">Si el modelo aparece de espaldas o con los brazos muy arriba, corrige la pose aquí (los valores por defecto coinciden con el comportamiento anterior).</p>
+        <div class="setting-item">
+          <div class="setting-label">Giro del modelo (frente / espaldas) <b id="avatar-model-yaw-value">0°</b></div>
+          <input id="avatar-model-yaw" type="range" min="-180" max="180" step="1" />
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">Inclinacion del cuerpo <b id="avatar-model-pitch-value">0°</b></div>
+          <input id="avatar-model-pitch" type="range" min="-35" max="35" step="1" />
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">Brazos muy alzados (bajarlos) <b id="avatar-arm-hang-value">0°</b></div>
+          <input id="avatar-arm-hang" type="range" min="0" max="85" step="1" />
+        </div>
+        <p class="avatar-pose-hint avatar-pose-hint-tight">Si el modelo entra con los brazos en alto, sube este control hasta que queden mas a la altura natural. Cero es el comportamiento de siempre.</p>
         <div class="setting-item">
           <div class="setting-label">Horizontal <b id="avatar-x-value">0.00</b></div>
           <input id="avatar-x" type="range" min="-1.5" max="1.5" step="0.01" />

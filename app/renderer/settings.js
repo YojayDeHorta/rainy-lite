@@ -142,9 +142,23 @@ const DEFAULT_AVATAR_SETTINGS = {
   cameraZ: 3.4,
   light: 0.75,
   motion: 1.0,
+  modelYawDeg: 0,
+  modelPitchDeg: 0,
+  armHangDeg: 0,
 };
 
+function migrateAvatarSettingsRaw(parsed) {
+  const base = { ...DEFAULT_AVATAR_SETTINGS, ...parsed };
+  if (base.armHangDeg === undefined && base.armRaiseDeg != null && base.armRaiseDeg !== '') {
+    base.armHangDeg = Math.max(0, Math.min(85, -Number(base.armRaiseDeg)));
+  }
+  return base;
+}
+
 const avatarControls = {
+  modelYawDeg: document.getElementById('avatar-model-yaw'),
+  modelPitchDeg: document.getElementById('avatar-model-pitch'),
+  armHangDeg: document.getElementById('avatar-arm-hang'),
   x: document.getElementById('avatar-x'),
   y: document.getElementById('avatar-y'),
   scale: document.getElementById('avatar-scale'),
@@ -154,6 +168,9 @@ const avatarControls = {
 };
 
 const avatarValueLabels = {
+  modelYawDeg: document.getElementById('avatar-model-yaw-value'),
+  modelPitchDeg: document.getElementById('avatar-model-pitch-value'),
+  armHangDeg: document.getElementById('avatar-arm-hang-value'),
   x: document.getElementById('avatar-x-value'),
   y: document.getElementById('avatar-y-value'),
   scale: document.getElementById('avatar-scale-value'),
@@ -169,7 +186,7 @@ let loadedAvatarModel = '';
 function loadAvatarSettings() {
   try {
     const parsed = JSON.parse(localStorage.getItem(AVATAR_SETTINGS_KEY) || '{}');
-    return { ...DEFAULT_AVATAR_SETTINGS, ...parsed };
+    return migrateAvatarSettingsRaw(parsed);
   } catch (_) {
     return { ...DEFAULT_AVATAR_SETTINGS };
   }
@@ -179,15 +196,26 @@ function saveAvatarSettings(settings) {
   localStorage.setItem(AVATAR_SETTINGS_KEY, JSON.stringify(settings));
 }
 
+function formatAvatarValueLabel(key, value) {
+  if (key === 'modelYawDeg' || key === 'modelPitchDeg' || key === 'armHangDeg') {
+    return `${Math.round(Number(value))}°`;
+  }
+  return Number(value).toFixed(2);
+}
+
 function syncAvatarSettingsUI(settings) {
   for (const [key, control] of Object.entries(avatarControls)) {
+    if (!control || !avatarValueLabels[key]) continue;
     control.value = String(settings[key]);
-    avatarValueLabels[key].textContent = Number(settings[key]).toFixed(2);
+    avatarValueLabels[key].textContent = formatAvatarValueLabel(key, settings[key]);
   }
 }
 
 function currentAvatarSettingsFromUI() {
   return {
+    modelYawDeg: Number(avatarControls.modelYawDeg.value),
+    modelPitchDeg: Number(avatarControls.modelPitchDeg.value),
+    armHangDeg: Number(avatarControls.armHangDeg.value),
     x: Number(avatarControls.x.value),
     y: Number(avatarControls.y.value),
     scale: Number(avatarControls.scale.value),

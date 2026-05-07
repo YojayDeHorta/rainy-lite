@@ -345,3 +345,16 @@ input:checked + .slider:before {
   gap: 12px;
   flex-wrap: wrap;
 }
+
+.avatar-pose-hint {
+  font-size: 0.82rem;
+  opacity: 0.85;
+  line-height: 1.45;
+  margin: 0 0 8px;
+  padding: 0 4px;
+}
+
+.avatar-pose-hint-tight {
+  margin: -12px 0 16px;
+  font-size: 0.78rem;
+}

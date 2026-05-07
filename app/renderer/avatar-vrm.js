@@ -56,6 +56,9 @@ let avatarSettings = {
   cameraZ: 3.4,
   light: 0.65,
   motion: 1.0,
+  modelYawDeg: 0,
+  modelPitchDeg: 0,
+  armHangDeg: 0,
 };
 const reactionProfiles = [
   {
@@ -390,7 +393,21 @@ function normalizeSettings(settings) {
     cameraZ: clampNumber(settings.cameraZ, 1.7, 6.0, avatarSettings.cameraZ),
     light: clampNumber(settings.light, 0.15, 1.4, avatarSettings.light),
     motion: clampNumber(settings.motion, 0, 2, avatarSettings.motion),
+    modelYawDeg: clampNumber(settings.modelYawDeg, -180, 180, avatarSettings.modelYawDeg),
+    modelPitchDeg: clampNumber(settings.modelPitchDeg, -35, 35, avatarSettings.modelPitchDeg),
+    armHangDeg: resolveArmHangDeg(settings),
   };
+}
+
+function resolveArmHangDeg(settings) {
+  const fallback = avatarSettings.armHangDeg;
+  if (settings.armHangDeg !== undefined && settings.armHangDeg !== null) {
+    return clampNumber(settings.armHangDeg, 0, 85, fallback);
+  }
+  if (settings.armRaiseDeg !== undefined && settings.armRaiseDeg !== null) {
+    return clampNumber(-Number(settings.armRaiseDeg), 0, 85, fallback);
+  }
+  return fallback;
 }
 
 function clampNumber(value, min, max, fallback) {
@@ -406,10 +423,22 @@ function applyCameraSettings() {
   camera.updateProjectionMatrix();
 }
 
+function syncVrmSceneRotation() {
+  if (!currentVrm?.scene) return;
+  const s = currentVrm.scene;
+  const yawBase = Math.PI + THREE.MathUtils.degToRad(avatarSettings.modelYawDeg || 0);
+  const reactYaw = Number(reactionFx.modelYaw) || 0;
+  s.rotation.order = 'YXZ';
+  s.rotation.x = THREE.MathUtils.degToRad(avatarSettings.modelPitchDeg || 0);
+  s.rotation.y = yawBase + reactYaw;
+  s.rotation.z = 0;
+}
+
 function applyModelSettings() {
   if (!currentVrm?.scene) return;
   currentVrm.scene.position.set(avatarSettings.x, avatarSettings.y, 0);
   currentVrm.scene.scale.setScalar(avatarSettings.scale);
+  syncVrmSceneRotation();
 }
 
 function applyLightingSettings() {
@@ -556,7 +585,6 @@ function loadVRM(url) {
 
           const vrm = gltf.userData.vrm;
           if (!vrm) throw new Error('File loaded, but no VRM data was found.');
-          vrm.scene.rotation.y = Math.PI;
           if (!currentVrm) {
             currentVrm = vrm;
             applyModelSettings();
@@ -626,6 +654,7 @@ function updateIdlePose(elapsed) {
   const danceForearm = Math.sin(elapsed * 3.2 + 2.1) * 0.04 * dancing;
   const dragTiltX = dragFx.tiltX;
   const dragTiltZ = dragFx.tiltZ;
+  const armHangRad = THREE.MathUtils.degToRad(avatarSettings.armHangDeg || 0);
 
   if (head) {
     head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
@@ -637,12 +666,12 @@ function updateIdlePose(elapsed) {
   if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018 + reactionChestPitch + danceChest;
   if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + reactionHipsLift;
   if (leftUpperArm) {
-    leftUpperArm.rotation.x = 0.24 + Math.sin(elapsed * 0.64) * 0.012 * motion;
+    leftUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64) * 0.012 * motion;
     leftUpperArm.rotation.z = 1.22 + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045 + danceArmSwing;
     leftUpperArm.rotation.y = -0.02 + Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion;
   }
   if (rightUpperArm) {
-    rightUpperArm.rotation.x = 0.24 + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion;
+    rightUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion;
     rightUpperArm.rotation.z = -1.22 - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing;
     rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion;
   }
@@ -742,7 +771,7 @@ function updateReaction(elapsed, delta) {
     reactionFx.chestPitch += (0 - reactionFx.chestPitch) * blendOut;
     reactionFx.hipsLift += (0 - reactionFx.hipsLift) * blendOut;
     reactionFx.modelYaw += (0 - reactionFx.modelYaw) * blendOut;
-    if (currentVrm?.scene) currentVrm.scene.rotation.y = Math.PI + reactionFx.modelYaw;
+    syncVrmSceneRotation();
     return;
   }
 
@@ -773,12 +802,12 @@ function updateReaction(elapsed, delta) {
   reactionFx.chestPitch += (chestPitch * envelope - reactionFx.chestPitch) * blendIn;
   reactionFx.hipsLift += (hipsLift * envelope - reactionFx.hipsLift) * blendIn;
   reactionFx.modelYaw += (targetYaw - reactionFx.modelYaw) * Math.min(1, delta * 22);
-  if (currentVrm?.scene) currentVrm.scene.rotation.y = Math.PI + reactionFx.modelYaw;
+  syncVrmSceneRotation();
 
   if (elapsed >= reactionFx.endAt) {
     reactionFx.profile = null;
     reactionFx.modelYaw = 0;
-    if (currentVrm?.scene) currentVrm.scene.rotation.y = Math.PI;
+    syncVrmSceneRotation();
     if (avatarState === 'idle') {
       activeExpression = 'neutral';
       applyExpressions();
