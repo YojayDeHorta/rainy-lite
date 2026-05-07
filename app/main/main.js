@@ -376,10 +376,10 @@ function createSettingsWindow() {
     return;
   }
   settingsWindow = new BrowserWindow(baseWindowOptions({
-    width: 720,
-    height: 700,
-    minWidth: 520,
-    minHeight: 520,
+    width: 900,
+    height: 820,
+    minWidth: 700,
+    minHeight: 700,
     transparent: false,
     show: true,
     hasShadow: true,

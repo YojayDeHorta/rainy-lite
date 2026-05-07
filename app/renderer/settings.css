@@ -358,3 +358,120 @@ input:checked + .slider:before {
   margin: -12px 0 16px;
   font-size: 0.78rem;
 }
+
+/* Avatar Tab Layout */
+.avatar-layout {
+  display: flex;
+  gap: 20px;
+  height: calc(100vh - 165px);
+}
+
+.avatar-controls-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.avatar-preview-container {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-glass {
+  flex: 1;
+  background: var(--sidebar-bg);
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+body.dark-theme .preview-glass {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.preview-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  background: var(--bg-color);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-color);
+  border: 1px solid var(--line);
+  opacity: 0.8;
+}
+
+.vrm-preview {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+}
+
+.vrm-preview canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.preview-status {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 106, 0, 0.1);
+  color: var(--accent);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid rgba(255, 106, 0, 0.2);
+  white-space: nowrap;
+}
+
+/* Grouped Controls */
+.setting-group {
+  background: rgba(0,0,0,0.02);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 0;
+}
+
+body.dark-theme .setting-group {
+  background: rgba(255,255,255,0.02);
+}
+
+.group-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+
+.setting-item.compact {
+  padding: 0;
+  margin-bottom: 12px;
+  background: transparent;
+  border: none;
+}
+
+.setting-item.compact:last-child {
+  margin-bottom: 0;
+}
+
+.setting-item.compact .setting-label {
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}

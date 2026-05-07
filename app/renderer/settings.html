@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <title>Configuración</title>
   <link rel="stylesheet" href="settings.css">
+  <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.154.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.154.0/examples/jsm/",
+        "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@2.0.0/lib/three-vrm.module.js"
+      }
+    }
+  </script>
 </head>
 <body>
   <button id="settings-close-button" class="settings-close-button" title="Cerrar configuración">x</button>
@@ -68,60 +78,86 @@
       <section id="tab-avatar" class="tab-content">
         <div class="settings-header">
           <h2>Ajustes del Avatar</h2>
-          <button id="avatar-reset-button" class="btn-secondary">Reset</button>
         </div>
-        <div class="setting-item">
-          <div class="setting-label">Modelo del avatar</div>
-          <select id="avatar-model-select" class="model-select"></select>
-          <div class="model-actions">
-            <button id="avatar-model-apply-button" class="btn-secondary">Aplicar modelo</button>
-            <button id="avatar-model-upload-button" class="btn-secondary">Subir modelo VRM</button>
-            <button id="avatar-model-delete-button" class="btn-secondary">Eliminar custom</button>
-            <span id="avatar-model-status" class="model-status"></span>
+        
+        <div class="avatar-layout">
+          <div class="avatar-controls-scroll">
+            <div class="setting-item">
+              <div class="setting-label">Modelo del avatar</div>
+              <select id="avatar-model-select" class="model-select"></select>
+              <div class="model-actions">
+                <button id="avatar-model-upload-button" class="btn-secondary">Subir VRM</button>
+                <button id="avatar-model-delete-button" class="btn-secondary">Eliminar</button>
+              </div>
+              <span id="avatar-model-status" class="model-status"></span>
+            </div>
+            
+            <div class="setting-group">
+              <h4 class="group-title">Pose</h4>
+              <p class="avatar-pose-hint">Corrige si el modelo está de espaldas o en T-pose.</p>
+              <div class="setting-item compact">
+                <div class="setting-label">Giro <b id="avatar-model-yaw-value">0°</b></div>
+                <input id="avatar-model-yaw" type="range" min="-180" max="180" step="1" />
+              </div>
+              <div class="setting-item compact">
+                <div class="setting-label">Inclinación <b id="avatar-model-pitch-value">0°</b></div>
+                <input id="avatar-model-pitch" type="range" min="-35" max="35" step="1" />
+              </div>
+              <div class="setting-item compact">
+                <div class="setting-label">Hombro adelante <b id="avatar-arm-hang-value">0°</b></div>
+                <input id="avatar-arm-hang" type="range" min="0" max="85" step="1" />
+              </div>
+              <div class="setting-item compact">
+                <div class="setting-label">Brazos cerrados <b id="avatar-arm-abduction-value">0°</b></div>
+                <input id="avatar-arm-abduction" type="range" min="-35" max="140" step="1" />
+              </div>
+            </div>
+
+            <div class="setting-group">
+              <h4 class="group-title">Ventana & Cámara</h4>
+              <div class="setting-item compact">
+                <div class="setting-label">Horizontal <b id="avatar-x-value">0.00</b></div>
+                <input id="avatar-x" type="range" min="-1.5" max="1.5" step="0.01" />
+              </div>
+              <div class="setting-item compact">
+                <div class="setting-label">Vertical <b id="avatar-y-value">-0.45</b></div>
+                <input id="avatar-y" type="range" min="-2.0" max="1.5" step="0.01" />
+              </div>
+              <div class="setting-item compact">
+                <div class="setting-label">Escala <b id="avatar-scale-value">1.00</b></div>
+                <input id="avatar-scale" type="range" min="0.4" max="2.0" step="0.01" />
+              </div>
+              <div class="setting-item compact">
+                <div class="setting-label">Cámara <b id="avatar-camera-value">3.40</b></div>
+                <input id="avatar-camera" type="range" min="1.7" max="6.0" step="0.01" />
+              </div>
+            </div>
+
+            <div class="setting-group">
+              <h4 class="group-title">Entorno</h4>
+              <div class="setting-item compact">
+                <div class="setting-label">Luz <b id="avatar-light-value">0.65</b></div>
+                <input id="avatar-light" type="range" min="0.15" max="1.4" step="0.01" />
+              </div>
+              <div class="setting-item compact">
+                <div class="setting-label">Movimiento <b id="avatar-motion-value">1.00</b></div>
+                <input id="avatar-motion" type="range" min="0" max="2" step="0.01" />
+              </div>
+            </div>
+          </div>
+          
+          <div class="avatar-preview-container">
+            <div class="preview-glass">
+              <div class="preview-badge">Vista previa en tiempo real</div>
+              <div id="vrm-settings-preview" class="vrm-preview"></div>
+              <div id="settings-preview-status" class="preview-status" hidden></div>
+            </div>
           </div>
         </div>
-        <p class="avatar-pose-hint">Si el modelo aparece de espaldas o con los brazos muy arriba, corrige la pose aquí (los valores por defecto coinciden con el comportamiento anterior).</p>
-        <div class="setting-item">
-          <div class="setting-label">Giro del modelo (frente / espaldas) <b id="avatar-model-yaw-value">0°</b></div>
-          <input id="avatar-model-yaw" type="range" min="-180" max="180" step="1" />
-        </div>
-        <div class="setting-item">
-          <div class="setting-label">Inclinacion del cuerpo <b id="avatar-model-pitch-value">0°</b></div>
-          <input id="avatar-model-pitch" type="range" min="-35" max="35" step="1" />
-        </div>
-        <div class="setting-item">
-          <div class="setting-label">Hombro frente / atras (no lateral) <b id="avatar-arm-hang-value">0°</b></div>
-          <input id="avatar-arm-hang" type="range" min="0" max="85" step="1" />
-        </div>
-        <p class="avatar-pose-hint avatar-pose-hint-tight">Solo flexion hacia delante o atras. Si el problema son brazos en cruz o muy abiertos a los lados, usa el control de abajo.</p>
-        <div class="setting-item">
-          <div class="setting-label">Brazos abiertos al costado (acercar al cuerpo) <b id="avatar-arm-abduction-value">0°</b></div>
-          <input id="avatar-arm-abduction" type="range" min="-35" max="140" step="1" />
-        </div>
-        <p class="avatar-pose-hint avatar-pose-hint-tight">Sube el valor si el modelo entra en T o con los brazos al maximo hacia los lados. Valores negativos abren mas (por si el eje del modelo va al reves).</p>
-        <div class="setting-item">
-          <div class="setting-label">Horizontal <b id="avatar-x-value">0.00</b></div>
-          <input id="avatar-x" type="range" min="-1.5" max="1.5" step="0.01" />
-        </div>
-        <div class="setting-item">
-          <div class="setting-label">Vertical <b id="avatar-y-value">-0.45</b></div>
-          <input id="avatar-y" type="range" min="-2.0" max="1.5" step="0.01" />
-        </div>
-        <div class="setting-item">
-          <div class="setting-label">Escala <b id="avatar-scale-value">1.00</b></div>
-          <input id="avatar-scale" type="range" min="0.4" max="2.0" step="0.01" />
-        </div>
-        <div class="setting-item">
-          <div class="setting-label">Camara <b id="avatar-camera-value">3.40</b></div>
-          <input id="avatar-camera" type="range" min="1.7" max="6.0" step="0.01" />
-        </div>
-        <div class="setting-item">
-          <div class="setting-label">Luz <b id="avatar-light-value">0.65</b></div>
-          <input id="avatar-light" type="range" min="0.15" max="1.4" step="0.01" />
-        </div>
-        <div class="setting-item">
-          <div class="setting-label">Movimiento <b id="avatar-motion-value">1.00</b></div>
-          <input id="avatar-motion" type="range" min="0" max="2" step="0.01" />
+
+        <div class="avatar-footer" style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+          <button id="avatar-reset-button" class="btn-secondary">Restablecer valores</button>
+          <button id="avatar-save-button" class="btn-secondary" style="background: var(--accent); color: white; border: none; font-weight: 600; padding: 6px 20px;">Guardar cambios</button>
         </div>
       </section>
 
@@ -154,6 +190,6 @@
       </section>
     </main>
   </div>
-  <script src="settings.js"></script>
+  <script type="module" src="settings.js"></script>
 </body>
 </html>

@@ -1,3 +1,5 @@
+import { setVrmPreviewUrl, disposeVrmPreview, updatePreviewSettings } from './setup-vrm-preview.js';
+
 const tabs = document.querySelectorAll('.tab-button');
 const contents = document.querySelectorAll('.tab-content');
 
@@ -182,7 +184,6 @@ const avatarValueLabels = {
   motion: document.getElementById('avatar-motion-value'),
 };
 const avatarModelSelect = document.getElementById('avatar-model-select');
-const avatarModelApplyButton = document.getElementById('avatar-model-apply-button');
 const avatarModelUploadButton = document.getElementById('avatar-model-upload-button');
 const avatarModelDeleteButton = document.getElementById('avatar-model-delete-button');
 const avatarModelStatus = document.getElementById('avatar-model-status');
@@ -233,7 +234,6 @@ function currentAvatarSettingsFromUI() {
 }
 
 function applyAvatarSettings(settings) {
-  syncAvatarSettingsUI(settings);
   saveAvatarSettings(settings);
   window.rainyDesktop.updateAvatarSettings(settings);
 }
@@ -256,6 +256,34 @@ function renderModelOptions(models, currentModel) {
   loadedAvatarModel = avatarModelSelect.value || '';
   const selected = avatarModelsCache.find((m) => m.name === avatarModelSelect.value);
   avatarModelDeleteButton.disabled = !selected?.isCustom;
+  updateSettingsPreview();
+}
+
+async function updateSettingsPreview() {
+  const container = document.getElementById('vrm-settings-preview');
+  const status = document.getElementById('settings-preview-status');
+  if (!container) return;
+  const selected = avatarModelsCache.find((m) => m.name === avatarModelSelect.value);
+  if (selected && selected.url) {
+    if (status) {
+      status.textContent = 'Cargando modelo...';
+      status.hidden = false;
+    }
+    const ok = await setVrmPreviewUrl(container, selected.url);
+    if (status) {
+      if (ok) {
+        status.hidden = true;
+        updatePreviewSettings(currentAvatarSettingsFromUI());
+      }
+      else {
+        status.textContent = 'Error al cargar preview';
+        status.hidden = false;
+      }
+    }
+  } else {
+    disposeVrmPreview();
+    if (status) status.hidden = true;
+  }
 }
 
 async function initAvatarModelSelector() {
@@ -264,7 +292,6 @@ async function initAvatarModelSelector() {
     const models = response?.models || [];
     const current = response?.current || '';
     if (!models.length) {
-      avatarModelApplyButton.disabled = true;
       avatarModelDeleteButton.disabled = true;
       setModelStatus('No se encontraron modelos .vrm en assets/models ni assets.');
       return;
@@ -272,7 +299,6 @@ async function initAvatarModelSelector() {
     renderModelOptions(models, current);
     setModelStatus('');
   } catch (_) {
-    avatarModelApplyButton.disabled = true;
     avatarModelDeleteButton.disabled = true;
     setModelStatus('No pude cargar los modelos.');
   }
@@ -293,27 +319,38 @@ const initialSettings = loadAvatarSettings();
 syncAvatarSettingsUI(initialSettings);
 
 for (const control of Object.values(avatarControls)) {
-  control.addEventListener('input', () => applyAvatarSettings(currentAvatarSettingsFromUI()));
+  control.addEventListener('input', () => {
+    const s = currentAvatarSettingsFromUI();
+    syncAvatarSettingsUI(s);
+    updatePreviewSettings(s);
+  });
 }
 
-document.getElementById('avatar-reset-button').addEventListener('click', () => {
-  applyAvatarSettings({ ...DEFAULT_AVATAR_SETTINGS });
+document.getElementById('avatar-save-button').addEventListener('click', async () => {
+  const s = currentAvatarSettingsFromUI();
+  applyAvatarSettings(s);
+  
+  const selectedModel = avatarModelSelect?.value || '';
+  if (selectedModel && selectedModel !== loadedAvatarModel) {
+    setModelStatus('Guardando...');
+    const result = await window.rainyDesktop.setCurrentAvatarModel(selectedModel);
+    if (result?.ok) {
+      loadedAvatarModel = result.model;
+      setModelStatus('Ajustes, postura y modelo guardados.');
+    } else {
+      setModelStatus(result?.message || 'Ajustes guardados, pero falló el modelo.');
+    }
+  } else {
+    setModelStatus('Ajustes y postura guardados.');
+  }
+
+  setTimeout(() => setModelStatus(''), 3000);
 });
 
-avatarModelApplyButton?.addEventListener('click', async () => {
-  const selected = avatarModelSelect?.value || '';
-  if (!selected || selected === loadedAvatarModel) {
-    setModelStatus('Sin cambios por aplicar.');
-    return;
-  }
-  setModelStatus('Aplicando modelo...');
-  const result = await window.rainyDesktop.setCurrentAvatarModel(selected);
-  if (result?.ok) {
-    loadedAvatarModel = result.model;
-    setModelStatus('Modelo aplicado.');
-  } else {
-    setModelStatus(result?.message || 'No se pudo aplicar el modelo.');
-  }
+document.getElementById('avatar-reset-button').addEventListener('click', () => {
+  const s = { ...DEFAULT_AVATAR_SETTINGS };
+  syncAvatarSettingsUI(s);
+  updatePreviewSettings(s);
 });
 
 avatarModelUploadButton?.addEventListener('click', async () => {
@@ -338,6 +375,7 @@ avatarModelUploadButton?.addEventListener('click', async () => {
 avatarModelSelect?.addEventListener('change', () => {
   const selected = avatarModelsCache.find((m) => m.name === avatarModelSelect.value);
   avatarModelDeleteButton.disabled = !selected?.isCustom;
+  updateSettingsPreview();
 });
 
 avatarModelDeleteButton?.addEventListener('click', async () => {

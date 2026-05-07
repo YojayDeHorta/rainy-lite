@@ -305,7 +305,18 @@ export async function initAvatar() {
   try {
     const preferredModel = await window.rainyDesktop?.getCurrentAvatarModel?.();
     if (preferredModel?.url) activeModelUrl = preferredModel.url;
-    await loadVRM(activeModelUrl);
+    try {
+      await loadVRM(activeModelUrl);
+    } catch (preferredError) {
+      // If the saved model path is stale (e.g. deleted custom model), recover with bundled default.
+      if (activeModelUrl !== MODEL_URL) {
+        console.warn('No pude cargar el modelo preferido, pruebo fallback por defecto.', preferredError);
+        activeModelUrl = MODEL_URL;
+        await loadVRM(activeModelUrl);
+      } else {
+        throw preferredError;
+      }
+    }
     root?.classList.add('vrm-loaded');
     clock = new THREE.Clock();
     scheduleBlink();
@@ -313,8 +324,7 @@ export async function initAvatar() {
     animate();
     return true;
   } catch (error) {
-    console.warn('Asuka VRM not loaded. Using CSS placeholder.', error);
-    container.remove();
+    console.warn('Asuka VRM not loaded. Keeping placeholder and waiting model updates.', error);
     return false;
   }
 }
