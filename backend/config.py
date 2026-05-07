@@ -5,11 +5,22 @@ from dotenv import load_dotenv
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-DATA_DIR = ROOT_DIR / "data"
-TEMP_DIR = ROOT_DIR / "temp"
+USER_DATA_DIR = Path(os.getenv("RAINY_USER_DATA_DIR", "")).expanduser() if os.getenv("RAINY_USER_DATA_DIR") else None
 
-load_dotenv(ROOT_DIR / ".env")
+env_candidates = []
+explicit_env = os.getenv("RAINY_ENV_PATH", "").strip()
+if explicit_env:
+    env_candidates.append(Path(explicit_env))
+if USER_DATA_DIR:
+    env_candidates.append(USER_DATA_DIR / ".env")
+env_candidates.append(ROOT_DIR / ".env")
 
+for env_path in env_candidates:
+    if env_path and env_path.exists():
+        load_dotenv(env_path, override=False)
+
+DATA_DIR = (USER_DATA_DIR / "data") if USER_DATA_DIR else (ROOT_DIR / "data")
+TEMP_DIR = (USER_DATA_DIR / "temp") if USER_DATA_DIR else (ROOT_DIR / "temp")
 DATA_DIR.mkdir(exist_ok=True)
 TEMP_DIR.mkdir(exist_ok=True)
 

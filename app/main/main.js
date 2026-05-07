@@ -103,6 +103,8 @@ function getPythonLaunchCandidates(rootDir) {
 function startBackend() {
   const uvicornArgs = ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8765'];
   const candidates = getPythonLaunchCandidates(BACKEND_ROOT_DIR);
+  const userDataDir = app.getPath('userData');
+  const portableEnvPath = path.join(path.dirname(process.execPath), '.env');
 
   const tryLaunch = (index) => {
     if (index >= candidates.length) {
@@ -115,7 +117,12 @@ function startBackend() {
       [...candidate.prefixArgs, ...uvicornArgs],
       {
         cwd: BACKEND_ROOT_DIR,
-        env: { ...process.env, PYTHONUNBUFFERED: '1' },
+        env: {
+          ...process.env,
+          PYTHONUNBUFFERED: '1',
+          RAINY_USER_DATA_DIR: userDataDir,
+          RAINY_ENV_PATH: portableEnvPath,
+        },
         stdio: ['ignore', 'pipe', 'pipe'],
       },
     );
