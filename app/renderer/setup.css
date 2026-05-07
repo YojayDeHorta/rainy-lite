@@ -334,6 +334,10 @@ select {
   border-radius: 16px;
 }
 
+.vrm-loading-overlay[hidden] {
+  display: none !important;
+}
+
 .vrm-spinner {
   width: 40px;
   height: 40px;

@@ -8,9 +8,41 @@
   "scripts": {
     "dev": "electron .",
     "backend": "python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8765",
-    "backend:win": "python -m uvicorn backend.main:app --host 127.0.0.1 --port 8765"
+    "backend:win": "python -m uvicorn backend.main:app --host 127.0.0.1 --port 8765",
+    "dist:portable": "electron-builder --win portable"
   },
   "devDependencies": {
-    "electron": "^39.2.6"
+    "electron": "^39.2.6",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.asukadesktop.app",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "app/**/*",
+      "backend/**/*",
+      "assets/**/*",
+      "requirements.txt",
+      "package.json",
+      "!.venv/**",
+      "!temp/**",
+      "!data/**",
+      "!dist/**",
+      "!**/*.sqlite"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   }
 }
