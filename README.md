@@ -1,21 +1,20 @@
-# Rainy Lite
+# Asuka Desktop
 
-Rainy Lite is a Windows-first desktop AI companion prototype. It uses Electron for the transparent desktop window and a local FastAPI backend for chat, TTS, STT and memory.
+Asuka Desktop is a Windows-first desktop AI companion. It uses Electron for the desktop UI and a local FastAPI backend for orchestration, TTS, wake word, memory, STT forwarding, Spotify forwarding, and local dev fallbacks.
 
 ## Current MVP
 
-- Transparent frameless desktop window.
 - Separate floating avatar window and chat/control window.
-- Always-on-top toggle per window.
-- Global shortcuts:
-  - `Ctrl+Shift+R`: start/stop voice recording.
-  - `Ctrl+Shift+H`: hide/show chat.
-  - `Ctrl+Shift+A`: hide/show avatar.
-- Text chat with local FastAPI backend.
-- TTS with `edge-tts`.
-- Optional STT with Groq Whisper.
+- First-run setup for assistant name, user name, personality, and VRM model.
+- Settings window for theme, microphone, personality, avatar pose/model, and Edge TTS voice.
+- VRM avatar loader with bundled models in `assets/models/` and support for user-uploaded `.vrm` files.
+- Cursor tracking, blinking, micro-expressions, click reactions, lip sync, and Spotify dancing states.
+- Text chat with local backend plus optional remote proxy for AI keys.
+- TTS with `edge-tts` running locally.
+- Voice input with STT through proxy or local Groq Whisper.
+- Optional wake word using OpenWakeWord.
 - SQLite memory/chat storage.
-- VRM avatar loader with CSS fallback when no model exists.
+- Windows portable build with `electron-builder`.
 
 ## Setup
 
@@ -28,7 +27,7 @@ npm install
 cp .env.example .env
 ```
 
-On Windows, use:
+On Windows:
 
 ```powershell
 cd rainy-lite
@@ -39,116 +38,107 @@ npm install
 copy .env.example .env
 ```
 
+Recommended app config is proxy mode:
+
+```ini
+PROXY_URL=https://your-proxy.example.com
+PROXY_SECRET=shared_secret_matching_proxy_API_SECRET
+```
+
+The local backend still supports direct local API keys when `PROXY_URL` is empty; see `.env.example`.
+
 ## Run
 
 ```bash
 npm run dev
 ```
 
-Electron starts the local backend automatically on `127.0.0.1:8765`.
+Electron starts the local backend automatically on `127.0.0.1:8765`. On first run, Asuka opens the setup window. After setup, it opens the avatar and keeps the chat window available through the avatar button or global shortcut.
 
-Rainy opens two windows:
+Global shortcuts:
 
-- Avatar window: the floating assistant meant to stay over the desktop.
-- Chat window: text chat, microphone button and controls.
+- `Ctrl+Shift+R`: start/stop voice recording.
+- `Ctrl+Shift+H`: hide/show chat.
+- `Ctrl+Shift+A`: hide/show avatar.
 
-The avatar window is intentionally clean: it only shows the character. Text responses stay in the chat window.
+## Proxy Backend
 
-Use the gear button in the chat window to tune the avatar in real time:
+The `proxy/` folder is a deployable FastAPI service that stores provider keys server-side and exposes:
 
-- Horizontal position.
-- Vertical position.
-- Model scale.
-- Camera distance.
-- Light intensity.
-- Idle movement intensity.
+- `POST /api/chat`
+- `POST /api/stt`
+- `GET /api/spotify/search`
 
-Those values are saved locally and restored on the next launch.
+Setup:
 
-The avatar also has lightweight live behavior inspired by Asuka Lite:
+```bash
+cd proxy
+cp .env.example .env
+docker compose up -d
+```
 
-- Cursor tracking with head/neck motion.
-- Random micro-expressions while idle.
-- Click reactions on the avatar window.
-- Different motion states for idle, listening, thinking and speaking.
+Set `API_SECRET` in `proxy/.env` and the same value in the app's `PROXY_SECRET`. The proxy listens on port `7345`; put it behind HTTPS with nginx/Caddy for distribution.
 
 ## Safe System Actions
 
-Rainy can execute a limited set of desktop actions directly. Actions are still restricted to an allowlist.
+Asuka can execute a limited set of desktop actions directly. Actions are restricted to an allowlist in the prompt and Electron main process.
 
 Supported actions:
 
 - `OPEN_URL`: open an `http` or `https` URL.
-- `OPEN_APP`: open an allowlisted app such as `notepad`, `calculator`, `chrome`, `edge`, `explorer` or `vscode` on Windows.
+- `OPEN_APP`: open an allowlisted app such as `notepad`, `calculator`, `chrome`, `edge`, `explorer`, `vscode`, or `spotify`.
 - `OPEN_FOLDER`: open a folder path.
 - `COPY_TEXT`: copy text to the clipboard.
 - `MEDIA_PLAY_PAUSE`: toggle media playback.
 - `MEDIA_NEXT`: skip to the next track.
 - `MEDIA_PREVIOUS`: go to the previous track.
 - `SPOTIFY_SEARCH`: open a Spotify search.
-- `SPOTIFY_SEARCH_AND_PLAY`: open a Spotify search and click the first result.
+- `SPOTIFY_SEARCH_AND_PLAY`: search Spotify Web API, resolve the first track, and open its `spotify:track:ID` URI.
 - `SHOW_AVATAR` / `HIDE_AVATAR`: show or hide the avatar window.
 
-Spotify can be opened with `OPEN_APP "spotify"`. Media controls use the OS media layer, so they can control Spotify or another active media player depending on the system.
+Spotify track search uses Client Credentials flow either on the proxy or locally. It does not need user OAuth.
 
-## Avatar
+## Avatar Models
 
-Rainy looks for a VRM model at:
+Bundled models live in:
 
 ```txt
-assets/rainy.vrm
+assets/models/*.vrm
 ```
 
-If that file does not exist, the app keeps using the animated CSS placeholder. Once a VRM is present, the renderer enables:
+User-uploaded models are copied to Electron's user data folder under `models/`. Custom uploads are capped at 120 MB and can be deleted from settings; bundled models are read-only.
 
-- Transparent Three.js render layer.
-- Idle breathing/head motion.
-- Natural blinking.
-- Basic emotion tags from the LLM.
-- Basic mouth movement from TTS audio.
+The settings window can correct model yaw, pitch, arm hang, arm abduction, scale, camera distance, light, and motion intensity. These values are stored locally.
 
-## AI Providers
+## Wake Word
 
-Default mode is `AI_PROVIDER=local`, which only returns a fallback reply. Set one provider in `.env`:
-
-```ini
-AI_PROVIDER=gemini
-GEMINI_KEY=your_key
-```
-
-or:
-
-```ini
-AI_PROVIDER=groq
-GROQ_API_KEY=your_key
-```
-
-STT currently uses Groq Whisper, so voice transcription needs `GROQ_API_KEY`.
-
-## Wake Word (OpenWakeWord)
-
-Fase 1 uses OpenWakeWord in the backend with a default pre-trained keyword available in your local runtime.
-
-Enable it in `.env`:
+Wake word is disabled by default. Enable it in `.env`:
 
 ```ini
 WAKEWORD_ENABLED=1
+WAKEWORD_NAME=alexa
 WAKEWORD_THRESHOLD=0.55
 WAKEWORD_COOLDOWN_S=2.5
 ```
 
-Optional (future custom keyword like Asuka):
+Bundled wake-word models live in `assets/wakeword/`. You can use a custom ONNX with:
 
 ```ini
 WAKEWORD_MODEL_PATH=C:\path\to\custom_model.onnx
 ```
 
-The chat renderer polls wakeword events and reuses the existing recording flow (same path as clicking the Mic button).
+If Bluetooth headphones switch to a bad hands-free microphone profile, pin a specific input device with `WAKEWORD_SOUND_DEVICE`. Device IDs are available at:
 
-## Next Steps
+```txt
+GET http://127.0.0.1:8765/api/wakeword/input-devices
+```
 
-- Expand the VRM renderer with pointer reactions and higher quality animations from `asuka-lite`.
-- Add a real `assets/rainy.vrm` model.
-- Add wake word support instead of only global hotkey.
-- Add safe Windows actions through explicit backend commands.
-- Add tray icon and packaged Windows builds.
+## Build
+
+Windows portable build:
+
+```bash
+npm run dist:portable
+```
+
+The build includes `app/`, `backend/`, `assets/`, `.venv/`, and `requirements.txt`. Backend files and `.venv` are unpacked from ASAR so Python can run them.

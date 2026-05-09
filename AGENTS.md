@@ -2,110 +2,118 @@
 
 ## What this is
 
-Rainy Lite — a Windows-first desktop AI companion. Electron frontend (two windows: floating avatar + chat panel) with a local FastAPI backend for TTS and memory, and a remote proxy backend for AI, STT, and Spotify.
+Asuka Desktop — a Windows-first Electron desktop AI companion. It has a local FastAPI backend for TTS, memory, wake word, and local orchestration, plus an optional remote `proxy/` backend for AI, STT, and Spotify so distributed builds do not ship API keys.
 
 ## Commands
 
 ```bash
-npm run dev            # Start Electron (auto-spawns local backend on 127.0.0.1:8765)
+npm run dev            # Start Electron; Electron auto-spawns local backend on 127.0.0.1:8765
 npm run backend        # Start local backend only (Linux/macOS)
 npm run backend:win    # Start local backend only (Windows)
+npm run dist:portable  # Build Windows portable app with electron-builder
 ```
 
-No test suite, no linter, no formatter configured. Verify changes with:
-- `node --check app/main/main.js` — JS syntax
-- `.venv/bin/python -c "import py_compile; py_compile.compile('backend/FILE.py', doraise=True)"` — Python syntax
+No test suite, linter, or formatter is configured. Focused verification:
+- `node --check app/main/main.js`
+- `node --check app/renderer/renderer.js`
+- `node --check app/renderer/settings.js`
+- `node --check app/renderer/setup.js`
+- `.venv/bin/python -c "import py_compile, glob; [py_compile.compile(f, doraise=True) for f in glob.glob('backend/*.py') + glob.glob('proxy/*.py')]"`
 
-## Setup (local dev)
+## Setup
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 npm install
-cp .env.example .env   # fill in PROXY_URL and PROXY_SECRET
+cp .env.example .env   # recommended: fill PROXY_URL and PROXY_SECRET
 ```
 
-Windows: use `python` instead of `python3`, `.venv\Scripts\activate`.
+Windows: use `python` instead of `python3`, and `.venv\Scripts\activate`.
 
-## Setup (proxy server)
+Proxy server setup:
 
 ```bash
 cd proxy/
-cp .env.example .env   # fill in API keys + API_SECRET
-docker compose up -d   # runs on port 7345
+cp .env.example .env   # fill API keys + API_SECRET
 ```
 
 ## Architecture
 
 ```
-app/main/main.js       → Electron main process (windows, IPC, system actions, backend spawn)
-app/main/preload.js    → contextBridge exposing rainyDesktop.* APIs
-app/renderer/
-  avatar.html/css      → Transparent floating avatar window (VRM + Three.js)
-  avatar-vrm.js        → VRM loader, idle pose, expressions, cursor tracking, lip sync, dance routines
-  avatar-window.js     → Avatar renderer orchestration, TTS playback, Spotify track change detection
-  index.html           → Chat window UI
-  renderer.js          → Chat logic, action parsing, auto-execution
-  styles.css           → Chat panel styles
-backend/                 (local — runs inside the Electron app)
-  main.py              → FastAPI: /api/chat, /api/tts, /api/stt, /api/memory, /api/spotify/search
-  ai_core.py           → AI routing: local providers OR proxy forwarding via PROXY_URL
-  config.py            → Loads .env, exposes all settings as module constants
-  prompts.py           → System prompt with emotion tags + action allowlist
-  spotify.py           → Spotify search: local OR proxy forwarding via PROXY_URL
-  tts.py               → edge-tts synthesis (always local, no key needed)
-  stt.py               → STT: local Groq Whisper OR proxy forwarding via PROXY_URL
-  memory.py            → SQLite chat history + memory (always local)
-proxy/                   (remote — deployed on your server)
-  main.py              → FastAPI proxy: /api/chat, /api/stt, /api/spotify/search
-  config.py            → Loads .env with API keys + API_SECRET
-  Dockerfile           → Python 3.12 slim, port 7345
-  docker-compose.yml   → Docker deploy config
-  requirements.txt     → Proxy-specific dependencies (includes slowapi for rate limiting)
-assets/rainy.vrm       → VRM model file (currently a copy of Asuka's model)
+app/main/main.js       -> Electron main: windows, setup/profile, IPC, system actions, backend spawn, Spotify monitor
+app/main/preload.js    -> contextBridge exposing window.rainyDesktop.* APIs
+app/renderer/index.html + renderer.js
+                        -> chat UI, voice recording, endpointing, wake-word polling, action parsing
+app/renderer/avatar.*  -> transparent avatar window, VRM animation, lip sync, wake-word indicator, Spotify dancing
+app/renderer/settings.*-> settings window: theme, mic, personality, avatar pose/model, TTS prefs
+app/renderer/setup.*   -> first-run setup: bot/user names, personality, VRM model preview
+app/renderer/setup-vrm-preview.js
+                        -> shared Three.js/VRM preview used by setup/settings
+backend/               -> local FastAPI backend, spawned by Electron
+  main.py              -> /api/chat, /api/tts, /api/stt, /api/memory, /api/spotify/search, wakeword endpoints
+  ai_core.py           -> local providers OR proxy forwarding via PROXY_URL
+  config.py            -> .env loading; supports RAINY_ENV_PATH and RAINY_USER_DATA_DIR
+  prompts.py           -> bot/personality prompt, emotion tags, action allowlist, conversation-control format
+  spotify.py           -> local Spotify API OR proxy forwarding
+  stt.py               -> local Groq Whisper OR proxy forwarding
+  tts.py               -> edge-tts synthesis, always local
+  wakeword.py          -> OpenWakeWord listener, diagnostics, input-device selection
+  temp_cleanup.py      -> sweeps old tts_*/stt_* files from temp
+  memory.py            -> SQLite chat history + memory, always local
+proxy/                 -> remote FastAPI proxy for deployed/distributed builds
+  main.py              -> /api/chat, /api/stt, /api/spotify/search with API-secret auth + rate limiting
+  config.py            -> proxy .env settings and API keys
+  Dockerfile           -> Python 3.12 slim, port 7345
+  docker-compose.yml   -> container name asuka-proxy, binds 0.0.0.0:7345
+assets/models/*.vrm    -> bundled VRM models; user-uploaded VRMs live in Electron userData/models
+assets/wakeword/*.onnx -> bundled wake-word models
 ```
 
-## Proxy mode
+## Runtime Flow
 
-When `PROXY_URL` is set in the local `.env`, the local backend forwards AI chat, STT, and Spotify search to the remote proxy instead of calling APIs directly. TTS and memory always stay local.
+- First run opens `setup.html` instead of chat/avatar until `profile.json` has `setupCompleted: true`.
+- Normal UI has separate windows: avatar (transparent, frameless, always-on-top) and chat (opaque, frameless, initially hidden).
+- Electron auto-spawns backend with `python -m uvicorn backend.main:app --host 127.0.0.1 --port 8765`.
+- Packaged builds use `process.resourcesPath/app.asar.unpacked` for backend files and pass `RAINY_USER_DATA_DIR` plus `RAINY_ENV_PATH` to backend.
+- Backend Python files use relative imports; run them as modules from repo root, not as direct scripts.
+
+## Proxy Mode
+
+When `PROXY_URL` is set in local `.env`, local backend forwards AI chat, STT, and Spotify search to the remote proxy. TTS, memory, temp cleanup, wake word, and profile/settings remain local.
 
 ```
-Electron app → local backend (:8765) → proxy (asuka-backend.yojay.space:7345) → Gemini/Groq/Spotify APIs
-                    ↓
-              TTS + memory (local, no keys needed)
+Electron -> local backend (:8765) -> proxy (:7345 / HTTPS reverse proxy) -> Gemini/Groq/OpenAI/Spotify
+                         -> local TTS + SQLite + wake word
 ```
 
-Authentication: the local backend sends `X-Api-Key` header with `PROXY_SECRET`; the proxy validates it against `API_SECRET`. Requests without a valid key get 403.
+Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `API_SECRET`. Requests without a valid key get 403 unless hitting `/api/health`.
 
-## Key facts
+## State And Persistence
 
-- **Backend auto-starts** from Electron main process using `.venv` Python. Don't run it separately unless debugging.
-- **Backend Python files** use relative imports (`from . import config`), so they must be run as a module: `python -m uvicorn backend.main:app`.
-- **Two separate Electron windows**: avatar (transparent, frameless, always-on-top) and chat (opaque `#070b13`, frameless, 540x720).
-- **All UI is in Spanish.** The system prompt, responses, error messages, and TTS voice are all Spanish.
-- **Avatar window is intentionally clean.** No backgrounds, no text bubbles, no rain effects. Only the VRM model visible.
-- **Actions execute without confirmation.** The AI outputs `[ACTION: TYPE "payload"]` tags; the renderer parses and auto-executes them via IPC to main process.
-- **Allowed action types** are defined in `backend/prompts.py` (the AI prompt) and handled in `app/main/main.js:executeAction()`. Both must stay in sync.
-- **Spotify** uses Web API (Client Credentials flow, no user OAuth). In proxy mode, credentials live on the server only. Searches return track URIs like `spotify:track:ID` which are opened via `shell.openExternal`.
-- **Spotify track detection**: main.js polls the Spotify window title via PowerShell. When the title changes (new song), it sends `rainy:spotify-track-changed` IPC to the avatar window, which cycles the dance routine.
-- **Dance routines**: 3 routines (sway, bounce, groove) defined in `avatar-vrm.js` as `danceRoutines[]`. They rotate sequentially via `currentDanceIndex` each time the avatar enters 'dancing' state or the Spotify track changes.
-- **Media keys** on Windows use PowerShell + `user32.dll keybd_event`. On macOS uses AppleScript to Spotify. On Linux uses `playerctl`.
-- **VRM loading** uses Three.js importmap in avatar.html. If `assets/rainy.vrm` is missing, a CSS fallback renders instead.
-- **Window dragging** is custom IPC-based (pointer events → `window:get-position`/`window:set-position`), not CSS `-webkit-app-region: drag`, because drag regions block pointer events needed for VRM interaction.
-- **Global cursor tracking** polls `screen.getCursorScreenPoint()` at 30fps and sends to avatar window for head/neck motion.
+- Local backend loads env from `RAINY_ENV_PATH`, then `RAINY_USER_DATA_DIR/.env`, then repo `.env`.
+- `config.py` reads env once at import; changing `.env` requires backend restart.
+- Electron userData stores `profile.json`, `avatar-model.json`, `mic-preferences.json`, and `tts-preferences.json`.
+- Avatar pose/settings and theme are in renderer `localStorage` under legacy `rainy-*` keys.
+- SQLite lives under local data dir as `rainy.sqlite`; temp audio files are served from `/temp` and cleaned by `temp_cleanup.py`.
 
-## Conventions
+## Key Facts
 
-- No code comments unless explicitly requested by user.
-- PowerShell scripts on Windows use `-EncodedCommand` with Base64 UTF-16LE encoding to avoid quote escaping and CMD flashing.
-- Action handling: main.js dispatches by `type` string (uppercase), payload is always a string.
-- Config values are read once at import from `config.py`; changing `.env` requires backend restart.
-- `requests` library is used in backend for proxy forwarding and Spotify API. Don't add `httpx` or `aiohttp`.
+- UI and assistant responses are Spanish by default.
+- `rainyDesktop` preload API, `rainy:*` IPC events, and `rainy-*` storage keys are legacy internal names; do not rename them unless doing a dedicated migration.
+- Actions execute without confirmation. The AI emits `[ACTION: TYPE "payload"]`; `renderer.js` parses it and calls `main.js:executeAction()`.
+- Keep `backend/prompts.py` action allowlist in sync with `executeAction()` and `renderer.js:actionLabel()`.
+- AI responses must start with one emotion tag and end with exactly one `[CONVERSATION: ...]` control line; `ai_core.py` strips conversation control before display/TTS.
+- Spotify playback uses Web API search to get `spotify:track:ID`, then opens that URI with `shell.openExternal()`.
+- Windows Spotify dance detection polls Spotify window titles via PowerShell every 800ms; avatar enters `dancing` when a non-generic title is detected.
+- Media keys use PowerShell + `user32.dll keybd_event` on Windows, AppleScript on macOS, and `playerctl` on Linux.
+- PowerShell scripts should use `-EncodedCommand` with Base64 UTF-16LE to avoid escaping issues and flashing shells.
+- Custom VRM upload copies `.vrm` files up to 120 MB into `app.getPath('userData')/models`; only user-uploaded models can be deleted.
+- OpenWakeWord may download missing model resources into the installed package resources and copy keyword ONNX files from `assets/wakeword`.
 
 ## Gotchas
 
-- `.venv/` is not committed. The Electron app checks for `.venv` Python first, falls back to system `python`/`python3`.
-- `temp/` stores TTS audio files served via FastAPI static mount at `/temp/`. Cleared on restart (in gitignore).
-- `data/*.sqlite` is in gitignore — local DB is ephemeral per machine.
-- The VRM model at `assets/rainy.vrm` is a placeholder (Asuka's model). Don't commit changes to it lightly.
-- `proxy/.env` is gitignored — API keys live only on the server, never in the distributed app.
-- Without `PROXY_URL`, the local backend falls back to using local API keys from `.env` (dev mode).
+- `.venv/`, `node_modules/`, `dist/`, local SQLite, `temp/`, root `.env`, and `proxy/.env` are gitignored.
+- `.env.example` recommends proxy mode, but `config.py` still supports local dev keys for Gemini/Groq/OpenAI/Ollama/Spotify if `PROXY_URL` is empty.
+- Do not commit API keys or generated SQLite/temp audio files.
+- `requests` is the repo's HTTP client in backend/proxy; avoid adding `httpx` or `aiohttp` without a concrete reason.
+- The bundled models and icon use Asuka naming; changing product identity touches package metadata, assets, IPC docs, proxy names, and userData compatibility.

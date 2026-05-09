@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
-const MODEL_URL = '../../assets/rainy.vrm';
+const MODEL_URL = '../../assets/models/asuka.vrm';
 let activeModelUrl = MODEL_URL;
 
 let scene;
