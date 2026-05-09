@@ -151,6 +151,6 @@ def build_system_prompt(
 
 
 LOCAL_FALLBACK_REPLY = (
-    "[NEUTRAL] Estoy despierta, pero todavia no tengo un proveedor de IA configurado. "
-    "Pon una API key en .env y podre responder mejor."
+    "[NEUTRAL] Estoy despierta, pero no pude conectarme al servicio de IA. "
+    "Intentalo de nuevo en un momento."
 )

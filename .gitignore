@@ -10,3 +10,4 @@ data/*.sqlite
 data/*.sqlite-*
 temp/*
 !temp/.gitkeep
+proxy/.env

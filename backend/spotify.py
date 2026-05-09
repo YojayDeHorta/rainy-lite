@@ -40,6 +40,8 @@ def _get_access_token():
 
 
 def search_track(query, limit=5):
+    if config.PROXY_URL:
+        return _search_track_proxy(query, limit)
     token = _get_access_token()
 
     resp = requests.get(
@@ -66,3 +68,13 @@ def search_track(query, limit=5):
             }
         )
     return tracks
+
+
+def _search_track_proxy(query, limit=5):
+    resp = requests.get(
+        f"{config.PROXY_URL}/api/spotify/search",
+        params={"q": query, "limit": limit},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json().get("tracks", [])

@@ -132,6 +132,23 @@ async def generate_response(
     return LOCAL_FALLBACK_REPLY
 
 
+async def _proxy_chat(message: str, history: list[dict], system_prompt: str) -> str:
+    def run():
+        resp = requests.post(
+            f"{config.PROXY_URL}/api/chat",
+            json={
+                "message": message,
+                "history": history[-20:],
+                "system_prompt": system_prompt,
+            },
+            timeout=60,
+        )
+        resp.raise_for_status()
+        return resp.json().get("response", "")
+
+    return await asyncio.to_thread(run)
+
+
 async def generate_response_with_metadata(
     message: str,
     history: list[dict],
@@ -140,6 +157,32 @@ async def generate_response_with_metadata(
     personality_preset: str | None = None,
     personality_custom: str | None = None,
 ):
+    if config.PROXY_URL:
+        system_prompt = build_system_prompt(
+            bot_name, user_name,
+            personality_preset=personality_preset,
+            personality_custom=personality_custom,
+        )
+        memories = get_memories()
+        if memories:
+            system_prompt += "\nMemorias del usuario:\n" + "\n".join(f"- {item}" for item in memories)
+        try:
+            raw_response = await _proxy_chat(message, history, system_prompt)
+        except Exception:
+            raw_response = ""
+        if not raw_response:
+            return {
+                "response": LOCAL_FALLBACK_REPLY,
+                "conversation": {"continue": False, "reason": "uncertain"},
+            }
+        parsed = parse_conversation_control(raw_response)
+        if parsed["reason"] == "uncertain":
+            parsed = infer_conversation_control(message, raw_response)
+        return {
+            "response": clean_response(raw_response),
+            "conversation": parsed,
+        }
+
     provider = config.AI_PROVIDER
     raw_response = ""
     if provider == "gemini" and config.GEMINI_KEY:

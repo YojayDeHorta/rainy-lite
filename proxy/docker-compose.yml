@@ -1,0 +1,9 @@
+services:
+  asuka-proxy:
+    build: .
+    container_name: asuka-proxy
+    restart: unless-stopped
+    ports:
+      - "7345:7345"
+    env_file:
+      - .env

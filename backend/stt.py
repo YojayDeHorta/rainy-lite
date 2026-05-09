@@ -1,11 +1,15 @@
 import asyncio
 
+import requests as http_requests
 from groq import Groq
 
 from . import config
 
 
 async def transcribe(file_path):
+    if config.PROXY_URL:
+        return await _transcribe_proxy(file_path)
+
     if config.STT_PROVIDER != "groq" or not config.GROQ_API_KEY:
         return None
 
@@ -20,5 +24,19 @@ async def transcribe(file_path):
                 response_format="json",
             )
         return result.text
+
+    return await asyncio.to_thread(run)
+
+
+async def _transcribe_proxy(file_path):
+    def run():
+        with open(file_path, "rb") as f:
+            resp = http_requests.post(
+                f"{config.PROXY_URL}/api/stt",
+                files={"file": (file_path.name, f.read())},
+                timeout=30,
+            )
+        resp.raise_for_status()
+        return resp.json().get("text")
 
     return await asyncio.to_thread(run)
