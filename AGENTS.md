@@ -74,7 +74,7 @@ assets/wakeword/*.onnx -> bundled wake-word models
 - First run opens `setup.html` instead of chat/avatar until `profile.json` has `setupCompleted: true`.
 - Normal UI has separate windows: avatar (transparent, frameless, always-on-top) and chat (opaque, frameless, initially hidden).
 - Electron auto-spawns backend with `python -m uvicorn backend.main:app --host 127.0.0.1 --port 8765`.
-- Packaged builds use `process.resourcesPath/app.asar.unpacked` for backend files and pass `RAINY_USER_DATA_DIR` plus `RAINY_ENV_PATH` to backend.
+- Packaged builds use `process.resourcesPath/app.asar.unpacked` for backend files and pass `RAINY_USER_DATA_DIR` plus `RAINY_ENV_PATH` to backend. `package.json` currently copies root `.env` next to the portable `.exe` via `build.extraFiles` for personal builds.
 - Backend Python files use relative imports; run them as modules from repo root, not as direct scripts.
 
 ## Proxy Mode
@@ -113,6 +113,7 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 ## Gotchas
 
 - `.venv/`, `node_modules/`, `dist/`, local SQLite, `temp/`, root `.env`, and `proxy/.env` are gitignored.
+- Portable packaging now requires a root `.env` at build time because `build.extraFiles` copies it beside the `.exe`; remove that entry for public builds or use a non-secret `.env`.
 - `.env.example` recommends proxy mode, but `config.py` still supports local dev keys for Gemini/Groq/OpenAI/Ollama/Spotify if `PROXY_URL` is empty.
 - Do not commit API keys or generated SQLite/temp audio files.
 - `requests` is the repo's HTTP client in backend/proxy; avoid adding `httpx` or `aiohttp` without a concrete reason.

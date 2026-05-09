@@ -141,4 +141,6 @@ Windows portable build:
 npm run dist:portable
 ```
 
-The build includes `app/`, `backend/`, `assets/`, `.venv/`, and `requirements.txt`. Backend files and `.venv` are unpacked from ASAR so Python can run them.
+The build includes `app/`, `backend/`, `assets/`, `.venv/`, `requirements.txt`, and copies the root `.env` next to the portable `.exe`. Backend files and `.venv` are unpacked from ASAR so Python can run them.
+
+For shared/public builds, remove the `extraFiles` `.env` entry from `package.json` or use a `.env` without secrets.

@@ -34,6 +34,12 @@
       "!dist/**",
       "!**/*.sqlite"
     ],
+    "extraFiles": [
+      {
+        "from": ".env",
+        "to": ".env"
+      }
+    ],
     "asarUnpack": [
       "backend/**",
       ".venv/**"
