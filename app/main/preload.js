@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   onAvatarModel: (callback) => ipcRenderer.on('rainy:avatar-model', (_event, payload) => callback(payload)),
   onAvatarSpeechStatus: (callback) => ipcRenderer.on('rainy:avatar-speech-status', (_event, payload) => callback(payload)),
   onSpotifyPlayback: (callback) => ipcRenderer.on('rainy:spotify-playback', (_event, payload) => callback(payload)),
+  onSpotifyTrackChanged: (callback) => ipcRenderer.on('rainy:spotify-track-changed', () => callback()),
   onGlobalCursor: (callback) => ipcRenderer.on('rainy:global-cursor', (_event, payload) => callback(payload)),
   openSettingsWindow: () => ipcRenderer.invoke('window:open-settings'),
   openSetupWindow: () => ipcRenderer.invoke('window:open-setup'),

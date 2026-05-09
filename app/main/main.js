@@ -13,6 +13,7 @@ let cursorTrackingId;
 let spotifyMonitorId;
 let spotifyCheckInFlight = false;
 let spotifyPlaying = false;
+let spotifyTitle = '';
 let currentAvatarModel = null;
 
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
@@ -595,16 +596,27 @@ function startSpotifyMonitor() {
     if (spotifyCheckInFlight) return;
     spotifyCheckInFlight = true;
     try {
-      const next = await queryWindowsSpotifyPlaying();
-      if (next !== spotifyPlaying) {
-        updateAvatarSpotifyPlayback(next);
+      const result = await queryWindowsSpotifyPlaying();
+      if (result.playing !== spotifyPlaying) {
+        updateAvatarSpotifyPlayback(result.playing);
       }
+      if (result.playing && result.title && result.title !== spotifyTitle) {
+        spotifyTitle = result.title;
+        if (spotifyPlaying) notifyAvatarTrackChanged();
+      }
+      if (!result.playing) spotifyTitle = '';
     } catch (_) {
       if (spotifyPlaying) updateAvatarSpotifyPlayback(false);
     } finally {
       spotifyCheckInFlight = false;
     }
   }, 800);
+}
+
+function notifyAvatarTrackChanged() {
+  if (!avatarWindow || avatarWindow.isDestroyed()) return;
+  if (avatarWindow.webContents.isLoading()) return;
+  avatarWindow.webContents.send('rainy:spotify-track-changed');
 }
 
 function stopSpotifyMonitor() {
@@ -786,22 +798,22 @@ function queryWindowsSpotifyPlaying() {
   const script = `
 $ErrorActionPreference = "SilentlyContinue"
 if (-not (Get-Process -Name "Spotify" -ErrorAction SilentlyContinue)) {
-  Write-Output "paused"
+  Write-Output "paused|"
   exit 0
 }
 $titles = Get-Process -Name "Spotify" -ErrorAction SilentlyContinue |
   Where-Object { $_.MainWindowTitle -and $_.MainWindowTitle.Trim().Length -gt 0 } |
   Select-Object -ExpandProperty MainWindowTitle
 if (-not $titles -or $titles.Count -eq 0) {
-  Write-Output "paused"
+  Write-Output "paused|"
   exit 0
 }
 $candidate = ($titles | Sort-Object Length -Descending | Select-Object -First 1).Trim()
 if ($candidate -match "^(Spotify|Spotify Premium|Spotify Free)$") {
-  Write-Output "paused"
+  Write-Output "paused|"
   exit 0
 }
-Write-Output "playing"
+Write-Output "playing|$candidate"
 `;
   const encoded = Buffer.from(script, 'utf16le').toString('base64');
   return new Promise((resolve) => {
@@ -818,9 +830,13 @@ Write-Output "playing"
     child.stdout.on('data', (data) => {
       stdout += data.toString();
     });
-    child.on('error', () => resolve(false));
+    child.on('error', () => resolve({ playing: false, title: '' }));
     child.on('exit', () => {
-      resolve(stdout.trim().toLowerCase().includes('playing'));
+      const line = stdout.trim();
+      const sep = line.indexOf('|');
+      const status = sep >= 0 ? line.substring(0, sep) : line;
+      const title = sep >= 0 ? line.substring(sep + 1).trim() : '';
+      resolve({ playing: status.toLowerCase() === 'playing', title });
     });
   });
 }

@@ -197,6 +197,12 @@ window.rainyDesktop.onSpotifyPlayback((payload) => {
   spotifyPlaying = Boolean(payload?.isPlaying);
   resolveAvatarState();
 });
+window.rainyDesktop.onSpotifyTrackChanged(() => {
+  if (appliedState === 'dancing') {
+    setAvatarState('idle');
+    setAvatarState('dancing');
+  }
+});
 window.rainyDesktop.onGlobalCursor((payload) => updateGlobalCursor(payload));
 
 window.rainyDesktop.onAvatarWakewordTriggered(() => {
