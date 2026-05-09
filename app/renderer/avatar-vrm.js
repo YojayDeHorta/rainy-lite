@@ -49,6 +49,60 @@ let dragFx = {
 };
 let look = { x: 0, y: 0 };
 let saccade = { x: 0, y: 0, nextAt: 0 };
+let currentDanceIndex = 0;
+
+const danceRoutines = [
+  function sway(t) {
+    const side = Math.sin(t * 2.75 + Math.PI * 0.25);
+    return {
+      head: Math.sin(t * 3.2 + 0.6) * 0.024,
+      headZ: side * 0.078 * 0.6,
+      spine: side * 0.078,
+      chest: Math.sin(t * 3.25 + 0.9) * 0.022,
+      armSwing: Math.sin(t * 3.05 + 0.6) * 0.075,
+      forearm: Math.sin(t * 3.2 + 2.1) * 0.04,
+      hipsY: 0,
+      hipsZ: 0,
+      handZ: 0,
+    };
+  },
+  function bounce(t) {
+    const beat = Math.sin(t * 4.2);
+    const halfBeat = Math.sin(t * 8.4);
+    const offbeat = Math.sin(t * 4.2 + Math.PI);
+    const groove = Math.sin(t * 2.1 + 0.4);
+    return {
+      head: beat * 0.045 + halfBeat * 0.015,
+      headZ: groove * 0.03,
+      spine: groove * 0.11 + offbeat * 0.025,
+      chest: beat * 0.04 + Math.sin(t * 6.3 + 1.2) * 0.012,
+      armSwing: beat * 0.13 + offbeat * 0.04,
+      forearm: -Math.abs(beat) * 0.09 + halfBeat * 0.025,
+      hipsY: Math.abs(beat) * 0.045 + halfBeat * 0.012,
+      hipsZ: groove * 0.04,
+      handZ: Math.sin(t * 4.2 + 1.8) * 0.06,
+    };
+  },
+  function groove(t) {
+    const wave1 = Math.sin(t * 2.8);
+    const wave2 = Math.sin(t * 2.8 + 0.7);
+    const wave3 = Math.sin(t * 2.8 + 1.4);
+    const wave4 = Math.sin(t * 2.8 + 2.1);
+    const accent = Math.sin(t * 5.6 + 0.3);
+    const slide = Math.sin(t * 1.4 + 0.5);
+    return {
+      head: wave4 * 0.035 + accent * 0.012,
+      headZ: wave4 * 0.05 + slide * 0.02,
+      spine: wave2 * 0.1 + slide * 0.04,
+      chest: wave3 * 0.035 + accent * 0.015,
+      armSwing: wave2 * 0.06 + Math.sin(t * 3.5 + 2.0) * 0.055,
+      forearm: wave3 * 0.05 + accent * 0.03,
+      hipsY: Math.abs(wave1) * 0.025 + Math.abs(accent) * 0.01,
+      hipsZ: wave1 * 0.06 + slide * 0.03,
+      handZ: Math.sin(t * 3.5 + 1.0) * 0.07,
+    };
+  },
+];
 let avatarSettings = {
   x: 0,
   y: -0.45,
@@ -371,8 +425,12 @@ export function setAvatarEmotion(emotion) {
 }
 
 export function setAvatarState(state) {
+  const prev = avatarState;
   const next = String(state || 'idle').toLowerCase();
   avatarState = ['idle', 'listening', 'thinking', 'speaking', 'dancing'].includes(next) ? next : 'idle';
+  if (avatarState === 'dancing' && prev !== 'dancing') {
+    currentDanceIndex = (currentDanceIndex + 1) % danceRoutines.length;
+  }
   if (avatarState === 'listening') activeExpression = 'surprised';
   if (avatarState === 'thinking') activeExpression = 'thinking';
   if (avatarState === 'dancing') activeExpression = 'happy';
@@ -668,12 +726,16 @@ function updateIdlePose(elapsed) {
   const speakingPulse = avatarState === 'speaking' ? currentLip : 0;
   const listeningTilt = avatarState === 'listening' ? 0.035 : 0;
   const dancing = avatarState === 'dancing' ? 1 : 0;
-  const danceSide = Math.sin(elapsed * 2.75 + Math.PI * 0.25);
-  const danceHead = Math.sin(elapsed * 3.2 + 0.6) * 0.024 * dancing;
-  const danceSpine = danceSide * 0.078 * dancing;
-  const danceChest = Math.sin(elapsed * 3.25 + 0.9) * 0.022 * dancing;
-  const danceArmSwing = Math.sin(elapsed * 3.05 + 0.6) * 0.075 * dancing;
-  const danceForearm = Math.sin(elapsed * 3.2 + 2.1) * 0.04 * dancing;
+  const d = dancing ? danceRoutines[currentDanceIndex](elapsed) : { head: 0, headZ: 0, spine: 0, chest: 0, armSwing: 0, forearm: 0, hipsY: 0, hipsZ: 0, handZ: 0 };
+  const danceHead = d.head * dancing;
+  const danceSpine = d.spine * dancing;
+  const danceChest = d.chest * dancing;
+  const danceArmSwing = d.armSwing * dancing;
+  const danceForearm = d.forearm * dancing;
+  const danceHipsY = d.hipsY * dancing;
+  const danceHipsZ = d.hipsZ * dancing;
+  const danceHeadZ = d.headZ * dancing;
+  const danceHandZ = d.handZ * dancing;
   const dragTiltX = dragFx.tiltX;
   const dragTiltZ = dragFx.tiltZ;
   const armHangRad = THREE.MathUtils.degToRad(avatarSettings.armHangDeg || 0);
@@ -682,12 +744,15 @@ function updateIdlePose(elapsed) {
   if (head) {
     head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
     head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.03 + reactionHeadPitch + dragTiltX * 0.55 + danceHead;
-    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionHeadRoll + dragTiltZ * 0.6 + danceSpine * 0.6;
+    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionHeadRoll + dragTiltZ * 0.6 + danceHeadZ;
   }
   if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025 + reactionNeckPitch + dragTiltX * 0.4;
   if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionSpineRoll + dragTiltZ * 0.45 + danceSpine;
   if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018 + reactionChestPitch + danceChest;
-  if (hips) hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + reactionHipsLift;
+  if (hips) {
+    hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + reactionHipsLift + danceHipsY;
+    hips.rotation.z = danceHipsZ;
+  }
   if (leftUpperArm) {
     leftUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64) * 0.012 * motion;
     leftUpperArm.rotation.z = 1.22 - armAbRad + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045 + danceArmSwing;
@@ -709,12 +774,12 @@ function updateIdlePose(elapsed) {
   if (leftHand) {
     leftHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 0.5) * 0.01 * motion;
     leftHand.rotation.y = 0.07 + Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion;
-    leftHand.rotation.z = 0.05 + Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion;
+    leftHand.rotation.z = 0.05 + Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion + danceHandZ;
   }
   if (rightHand) {
     rightHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 1.6) * 0.01 * motion;
     rightHand.rotation.y = -0.07 - Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion;
-    rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion;
+    rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion - danceHandZ;
   }
   applyRelaxedFingers(elapsed, motion);
 }
