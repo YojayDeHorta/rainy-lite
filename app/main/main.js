@@ -903,6 +903,8 @@ function startNormalUi() {
   startSpotifyMonitor();
 }
 
+app.setName('Asuka Desktop');
+
 app.whenReady().then(() => {
   startBackend();
   if (isSetupCompleted()) startNormalUi();
