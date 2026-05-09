@@ -71,9 +71,13 @@ def search_track(query, limit=5):
 
 
 def _search_track_proxy(query, limit=5):
+    headers = {}
+    if config.PROXY_SECRET:
+        headers["x-api-key"] = config.PROXY_SECRET
     resp = requests.get(
         f"{config.PROXY_URL}/api/spotify/search",
         params={"q": query, "limit": limit},
+        headers=headers,
         timeout=15,
     )
     resp.raise_for_status()

@@ -30,10 +30,14 @@ async def transcribe(file_path):
 
 async def _transcribe_proxy(file_path):
     def run():
+        headers = {}
+        if config.PROXY_SECRET:
+            headers["x-api-key"] = config.PROXY_SECRET
         with open(file_path, "rb") as f:
             resp = http_requests.post(
                 f"{config.PROXY_URL}/api/stt",
                 files={"file": (file_path.name, f.read())},
+                headers=headers,
                 timeout=30,
             )
         resp.raise_for_status()

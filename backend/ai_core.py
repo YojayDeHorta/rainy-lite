@@ -134,6 +134,9 @@ async def generate_response(
 
 async def _proxy_chat(message: str, history: list[dict], system_prompt: str) -> str:
     def run():
+        headers = {}
+        if config.PROXY_SECRET:
+            headers["x-api-key"] = config.PROXY_SECRET
         resp = requests.post(
             f"{config.PROXY_URL}/api/chat",
             json={
@@ -141,6 +144,7 @@ async def _proxy_chat(message: str, history: list[dict], system_prompt: str) -> 
                 "history": history[-20:],
                 "system_prompt": system_prompt,
             },
+            headers=headers,
             timeout=60,
         )
         resp.raise_for_status()

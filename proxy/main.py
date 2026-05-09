@@ -39,6 +39,15 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def verify_api_secret(request: Request, call_next):
+    if config.API_SECRET and request.url.path != "/api/health":
+        key = request.headers.get("x-api-key", "")
+        if key != config.API_SECRET:
+            return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+    return await call_next(request)
+
+
 class ChatRequest(BaseModel):
     message: str
     history: list[dict] = []

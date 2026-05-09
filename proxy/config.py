@@ -23,3 +23,4 @@ SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
 STT_LANGUAGE = os.getenv("STT_LANGUAGE", "es")
 
 RATE_LIMIT = os.getenv("RATE_LIMIT", "30/minute")
+API_SECRET = os.getenv("API_SECRET", "")
