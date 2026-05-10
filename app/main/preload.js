@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   updateAvatarSettings: (settings) => ipcRenderer.invoke('avatar:update-settings', settings),
   getAvatarAlwaysOnTop: () => ipcRenderer.invoke('avatar:get-always-on-top'),
   setAvatarAlwaysOnTop: (enabled) => ipcRenderer.invoke('avatar:set-always-on-top', enabled),
+  resetAvatarWindowPosition: () => ipcRenderer.invoke('avatar:reset-window-position'),
   setAvatarState: (state) => ipcRenderer.invoke('avatar:set-state', state),
   listAvatarModels: () => ipcRenderer.invoke('avatar:list-models'),
   uploadAvatarModel: () => ipcRenderer.invoke('avatar:upload-model'),

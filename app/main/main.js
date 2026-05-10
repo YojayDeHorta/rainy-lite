@@ -259,9 +259,10 @@ function readAvatarWindowPreference() {
     const parsed = JSON.parse(raw);
     return {
       alwaysOnTop: parsed?.alwaysOnTop === undefined ? true : Boolean(parsed.alwaysOnTop),
+      bounds: normalizeAvatarBounds(parsed?.bounds),
     };
   } catch (_) {
-    return { alwaysOnTop: true };
+    return { alwaysOnTop: true, bounds: null };
   }
 }
 
@@ -269,9 +270,60 @@ function writeAvatarWindowPreference(prefs = {}) {
   const prev = readAvatarWindowPreference();
   const next = {
     alwaysOnTop: prefs.alwaysOnTop !== undefined ? Boolean(prefs.alwaysOnTop) : prev.alwaysOnTop,
+    bounds: prefs.bounds !== undefined ? normalizeAvatarBounds(prefs.bounds) : prev.bounds,
   };
   fs.writeFileSync(AVATAR_WINDOW_PREFS, JSON.stringify(next), 'utf8');
   return next;
+}
+
+function normalizeAvatarBounds(bounds) {
+  if (!bounds) return null;
+  const width = Math.max(150, Math.round(Number(bounds.width) || AVATAR_BASE_WINDOW.width));
+  const height = Math.max(240, Math.round(Number(bounds.height) || AVATAR_BASE_WINDOW.height));
+  const x = Math.round(Number(bounds.x));
+  const y = Math.round(Number(bounds.y));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y, width, height };
+}
+
+function getDefaultAvatarBounds() {
+  const display = screen.getPrimaryDisplay();
+  const area = display.workArea;
+  return {
+    x: Math.round(area.x + area.width - AVATAR_BASE_WINDOW.width - 40),
+    y: Math.round(area.y + area.height - AVATAR_BASE_WINDOW.height - 30),
+    width: AVATAR_BASE_WINDOW.width,
+    height: AVATAR_BASE_WINDOW.height,
+  };
+}
+
+function isBoundsVisible(bounds) {
+  if (!bounds) return false;
+  return screen.getAllDisplays().some((display) => {
+    const area = display.workArea;
+    const overlapX = Math.max(0, Math.min(bounds.x + bounds.width, area.x + area.width) - Math.max(bounds.x, area.x));
+    const overlapY = Math.max(0, Math.min(bounds.y + bounds.height, area.y + area.height) - Math.max(bounds.y, area.y));
+    return overlapX >= 80 && overlapY >= 80;
+  });
+}
+
+function resolveAvatarInitialBounds(savedBounds) {
+  const bounds = normalizeAvatarBounds(savedBounds);
+  return isBoundsVisible(bounds) ? bounds : getDefaultAvatarBounds();
+}
+
+function saveAvatarWindowBounds() {
+  if (!avatarWindow || avatarWindow.isDestroyed()) return;
+  writeAvatarWindowPreference({ bounds: avatarWindow.getBounds() });
+}
+
+function resetAvatarWindowBounds() {
+  const bounds = getDefaultAvatarBounds();
+  writeAvatarWindowPreference({ bounds });
+  if (!avatarWindow || avatarWindow.isDestroyed()) createAvatarWindow();
+  avatarWindow.setBounds(bounds, false);
+  avatarWindow.show();
+  return bounds;
 }
 
 function readMicPreference() {
@@ -604,9 +656,12 @@ function createAvatarWindow() {
     return avatarWindow;
   }
   const windowPrefs = readAvatarWindowPreference();
+  const initialBounds = resolveAvatarInitialBounds(windowPrefs.bounds);
   avatarWindow = new BrowserWindow(baseWindowOptions({
-    width: AVATAR_BASE_WINDOW.width,
-    height: AVATAR_BASE_WINDOW.height,
+    x: initialBounds.x,
+    y: initialBounds.y,
+    width: initialBounds.width,
+    height: initialBounds.height,
     minWidth: 150,
     minHeight: 240,
     alwaysOnTop: windowPrefs.alwaysOnTop,
@@ -618,6 +673,8 @@ function createAvatarWindow() {
     const model = getCurrentAvatarModelEntry();
     if (model) broadcastAvatarModel(model.name);
   });
+  avatarWindow.on('moved', saveAvatarWindowBounds);
+  avatarWindow.on('resized', saveAvatarWindowBounds);
   avatarWindow.on('closed', () => {
     avatarWindow = null;
   });
@@ -805,6 +862,7 @@ function applyAvatarWindowScale(settings) {
   const nextY = Math.round(centerY - nextHeight / 2);
 
   avatarWindow.setBounds({ x: nextX, y: nextY, width: nextWidth, height: nextHeight }, false);
+  saveAvatarWindowBounds();
 }
 
 function updateAvatarState(state) {
@@ -1442,6 +1500,7 @@ ipcMain.handle('window:set-position', (event, position) => {
   const x = Math.round(Number(position?.x) || 0);
   const y = Math.round(Number(position?.y) || 0);
   win.setPosition(x, y, false);
+  if (win === avatarWindow) saveAvatarWindowBounds();
 });
 
 ipcMain.handle('avatar:speak', (_event, payload) => {
@@ -1459,6 +1518,8 @@ ipcMain.handle('avatar:set-always-on-top', (_event, enabled) => {
   writeAvatarWindowPreference({ alwaysOnTop: Boolean(enabled) });
   return { enabled: Boolean(avatarWindow.isAlwaysOnTop()) };
 });
+
+ipcMain.handle('avatar:reset-window-position', () => ({ ok: true, bounds: resetAvatarWindowBounds() }));
 
 ipcMain.handle('avatar:wakeword-triggered', () => {
   sendToAvatarWakeword();

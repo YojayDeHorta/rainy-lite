@@ -39,6 +39,7 @@ const micRefreshButton = document.getElementById('mic-refresh-button');
 const micPermitButton = document.getElementById('mic-permit-button');
 const micHint = document.getElementById('mic-hint');
 const avatarAlwaysOnTopToggle = document.getElementById('avatar-always-on-top-toggle');
+const avatarResetPositionButton = document.getElementById('avatar-reset-position-button');
 const avatarWindowStatus = document.getElementById('avatar-window-status');
 const discordEnabledToggle = document.getElementById('discord-enabled-toggle');
 const discordSaveButton = document.getElementById('discord-save-button');
@@ -169,6 +170,16 @@ async function initAvatarWindowSettings() {
       setAvatarWindowStatus(result?.enabled ? 'El avatar queda encima de otras ventanas.' : 'El avatar puede quedar detras de otras ventanas.');
     } catch (_) {
       setAvatarWindowStatus('No pude cambiar la ventana del avatar.');
+    }
+  });
+
+  avatarResetPositionButton?.addEventListener('click', async () => {
+    setAvatarWindowStatus('Recentrando avatar...');
+    try {
+      await window.rainyDesktop.resetAvatarWindowPosition();
+      setAvatarWindowStatus('Avatar reubicado en la pantalla principal.');
+    } catch (_) {
+      setAvatarWindowStatus('No pude resetear la posición del avatar.');
     }
   });
 }
