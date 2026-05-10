@@ -63,6 +63,7 @@ let activeVrmaUntil = 0;
 let vrmaModulePromise = null;
 let nextIdleVrmaAt = 0;
 let lastIdleVrmaFile = '';
+let lastDanceVrmaFile = '';
 const vrmaAnimationCache = new Map();
 const missingVrmaAnimations = new Set();
 
@@ -73,9 +74,21 @@ const idleVrmaProfiles = [
   { file: 'Idle1-left-right.vrma', loopFor: 6 },
   { file: 'idle2-heart.vrma' },
   { file: 'idle3-yawn.vrma' },
+  { file: 'idle4-break.vrma' },
+  { file: 'idle5-idle-happy.vrma' },
+  { file: 'idle6-penguin.vrma' },
+];
+const danceVrmaProfiles = [
+  { file: 'dance1-doodle.vrma' },
+  { file: 'dance2-toothless.vrma' },
+  { file: 'dance3-poke.vrma' },
+  { file: 'dance4-smug.vrma' },
+  { file: 'dance5-arona.vrma' },
+  { file: 'dance6-dare.vrma' },
 ];
 const IDLE_VRMA_MIN_DELAY = 50;
 const IDLE_VRMA_MAX_DELAY = 75;
+const DANCE_VRMA_CHANCE = 0.35;
 
 const danceRoutines = [
   function sway(t) {
@@ -468,7 +481,10 @@ export function setAvatarState(state) {
   const next = String(state || 'idle').toLowerCase();
   avatarState = ['idle', 'listening', 'thinking', 'speaking', 'dancing'].includes(next) ? next : 'idle';
   if (avatarState === 'dancing' && prev !== 'dancing') {
-    currentDanceIndex = (currentDanceIndex + 1) % danceRoutines.length;
+    void selectDanceStyle();
+  }
+  if (prev === 'dancing' && avatarState !== 'dancing') {
+    if (activeVrmaAction) stopVrmaAnimation();
   }
   if (avatarState === 'listening') activeExpression = 'surprised';
   if (avatarState === 'thinking') activeExpression = 'thinking';
@@ -760,6 +776,48 @@ function pickIdleVrmaFile() {
   return pool[Math.floor(Math.random() * pool.length)] || null;
 }
 
+function pickDanceVrmaFile() {
+  const available = danceVrmaProfiles.filter((profile) => !missingVrmaAnimations.has(getVrmaUrl(profile.file)));
+  if (!available.length) return null;
+  const pool = available.length > 1
+    ? available.filter((profile) => profile.file !== lastDanceVrmaFile)
+    : available;
+  return pool[Math.floor(Math.random() * pool.length)] || null;
+}
+
+function selectProceduralDanceStyle() {
+  stopVrmaAnimation();
+  if (danceRoutines.length <= 1) {
+    currentDanceIndex = 0;
+    return;
+  }
+  let nextIndex = currentDanceIndex;
+  while (nextIndex === currentDanceIndex) {
+    nextIndex = Math.floor(Math.random() * danceRoutines.length);
+  }
+  currentDanceIndex = nextIndex;
+}
+
+async function selectDanceStyle() {
+  if (avatarState !== 'dancing') return;
+  const shouldUseVrma = Math.random() < DANCE_VRMA_CHANCE;
+  const profile = shouldUseVrma ? pickDanceVrmaFile() : null;
+
+  if (profile?.file) {
+    const played = await playVrmaFromUrl(getVrmaUrl(profile.file), { ...profile, loopUntilStopped: true });
+    if (avatarState !== 'dancing') {
+      stopVrmaAnimation();
+      return;
+    }
+    if (played) {
+      lastDanceVrmaFile = profile.file;
+      return;
+    }
+  }
+
+  if (avatarState === 'dancing') selectProceduralDanceStyle();
+}
+
 async function getVrmaModule() {
   if (!vrmaModulePromise) {
     vrmaModulePromise = import('@pixiv/three-vrm-animation').catch(() => null);
@@ -808,11 +866,14 @@ async function playVrmaFromUrl(url, options = {}) {
   normalizeVrmaClipRootMotion(clip);
   const action = vrmaMixer.clipAction(clip);
   const loopFor = Math.max(0, Number(options.loopFor) || 0);
-  action.loop = loopFor > 0 ? THREE.LoopRepeat : THREE.LoopOnce;
-  action.clampWhenFinished = loopFor <= 0;
+  const loopUntilStopped = Boolean(options.loopUntilStopped);
+  action.loop = loopFor > 0 || loopUntilStopped ? THREE.LoopRepeat : THREE.LoopOnce;
+  action.clampWhenFinished = loopFor <= 0 && !loopUntilStopped;
   action.reset().fadeIn(0.08).play();
   activeVrmaAction = action;
-  activeVrmaUntil = clock.elapsedTime + Math.max(0.1, loopFor || clip.duration);
+  activeVrmaUntil = loopUntilStopped
+    ? Number.POSITIVE_INFINITY
+    : clock.elapsedTime + Math.max(0.1, loopFor || clip.duration);
   return true;
 }
 
