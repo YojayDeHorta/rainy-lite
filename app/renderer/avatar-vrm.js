@@ -803,7 +803,7 @@ function updateIdlePose(elapsed) {
   }
   if (rightHand) {
     rightHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 1.6) * 0.01 * motion + reactionArmWave * 0.2;
-    rightHand.rotation.y = -0.07 - Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion + reactionArmWave * 1.05;
+    rightHand.rotation.y = -0.07 - Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion - reactionArmWave * 1.05;
     rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion - danceHandZ - reactionArmWave * Math.sin(elapsed * 18) * 0.42;
   }
   applyRelaxedFingers(elapsed, motion);
