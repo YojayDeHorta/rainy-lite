@@ -78,17 +78,24 @@ const idleVrmaProfiles = [
   { file: 'idle5-idle-happy.vrma' },
   { file: 'idle6-penguin.vrma' },
 ];
-const danceVrmaProfiles = [
+const normalDanceVrmaProfiles = [
+  { file: 'dance-left-right.vrma' },
+];
+const rareDanceVrmaProfiles = [
   { file: 'dance1-doodle.vrma' },
   { file: 'dance2-toothless.vrma' },
   { file: 'dance3-poke.vrma' },
   { file: 'dance4-smug.vrma' },
-  { file: 'dance5-arona.vrma' },
   { file: 'dance6-dare.vrma' },
+  { file: 'dance7-popular.vrma' },
+];
+const superRareDanceVrmaProfiles = [
+  { file: 'dance5-arona.vrma' },
 ];
 const IDLE_VRMA_MIN_DELAY = 50;
 const IDLE_VRMA_MAX_DELAY = 75;
-const DANCE_VRMA_CHANCE = 0.35;
+const RARE_DANCE_VRMA_CHANCE = 0.28;
+const SUPER_RARE_DANCE_VRMA_CHANCE = 0.05;
 
 const danceRoutines = [
   function sway(t) {
@@ -776,8 +783,8 @@ function pickIdleVrmaFile() {
   return pool[Math.floor(Math.random() * pool.length)] || null;
 }
 
-function pickDanceVrmaFile() {
-  const available = danceVrmaProfiles.filter((profile) => !missingVrmaAnimations.has(getVrmaUrl(profile.file)));
+function pickDanceVrmaFile(profiles) {
+  const available = profiles.filter((profile) => !missingVrmaAnimations.has(getVrmaUrl(profile.file)));
   if (!available.length) return null;
   const pool = available.length > 1
     ? available.filter((profile) => profile.file !== lastDanceVrmaFile)
@@ -785,10 +792,24 @@ function pickDanceVrmaFile() {
   return pool[Math.floor(Math.random() * pool.length)] || null;
 }
 
-function selectProceduralDanceStyle() {
+function pickNormalDanceStyle() {
+  const options = danceRoutines.map((_, index) => ({ type: 'procedural', index }));
+  for (const profile of normalDanceVrmaProfiles) {
+    if (!missingVrmaAnimations.has(getVrmaUrl(profile.file))) {
+      options.push({ type: 'vrma', profile });
+    }
+  }
+  return options[Math.floor(Math.random() * options.length)] || { type: 'procedural', index: 0 };
+}
+
+function selectProceduralDanceStyle(index = null) {
   stopVrmaAnimation();
   if (danceRoutines.length <= 1) {
     currentDanceIndex = 0;
+    return;
+  }
+  if (Number.isInteger(index) && index >= 0 && index < danceRoutines.length) {
+    currentDanceIndex = index;
     return;
   }
   let nextIndex = currentDanceIndex;
@@ -800,8 +821,15 @@ function selectProceduralDanceStyle() {
 
 async function selectDanceStyle() {
   if (avatarState !== 'dancing') return;
-  const shouldUseVrma = Math.random() < DANCE_VRMA_CHANCE;
-  const profile = shouldUseVrma ? pickDanceVrmaFile() : null;
+  const roll = Math.random();
+  const superRareProfile = roll < SUPER_RARE_DANCE_VRMA_CHANCE
+    ? pickDanceVrmaFile(superRareDanceVrmaProfiles)
+    : null;
+  const rareProfile = !superRareProfile && roll < SUPER_RARE_DANCE_VRMA_CHANCE + RARE_DANCE_VRMA_CHANCE
+    ? pickDanceVrmaFile(rareDanceVrmaProfiles)
+    : null;
+  const normalStyle = superRareProfile || rareProfile ? null : pickNormalDanceStyle();
+  const profile = superRareProfile || rareProfile || (normalStyle?.type === 'vrma' ? normalStyle.profile : null);
 
   if (profile?.file) {
     const played = await playVrmaFromUrl(getVrmaUrl(profile.file), { ...profile, loopUntilStopped: true });
@@ -815,7 +843,7 @@ async function selectDanceStyle() {
     }
   }
 
-  if (avatarState === 'dancing') selectProceduralDanceStyle();
+  if (avatarState === 'dancing') selectProceduralDanceStyle(normalStyle?.index);
 }
 
 async function getVrmaModule() {
