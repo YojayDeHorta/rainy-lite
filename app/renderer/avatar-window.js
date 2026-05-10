@@ -198,7 +198,6 @@ window.rainyDesktop.onSpotifyPlayback((payload) => {
   resolveAvatarState();
 });
 window.rainyDesktop.onSpotifyTrackChanged(() => {
-  triggerAvatarReaction('spotify');
   if (appliedState === 'dancing') {
     setAvatarState('idle');
     setAvatarState('dancing');

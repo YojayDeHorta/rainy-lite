@@ -317,8 +317,7 @@ async function executeAction(action) {
   card.classList.toggle('failed', !response.ok);
   result.textContent = response.message || (response.ok ? 'Accion completada.' : 'No se pudo ejecutar.');
   if (response.ok) {
-    const reaction = action.type.startsWith('SPOTIFY_') ? 'spotify' : 'success';
-    window.rainyDesktop.triggerAvatarReaction?.(reaction);
+    if (!action.type.startsWith('SPOTIFY_')) window.rainyDesktop.triggerAvatarReaction?.('success');
   } else {
     window.rainyDesktop.triggerAvatarReaction?.('confused');
   }
