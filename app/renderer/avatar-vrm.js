@@ -303,7 +303,7 @@ const reactionProfiles = [
 ];
 
 const contextualReactions = {
-  greet: { id: 'greet_wave', duration: 1.15, expression: 'happy', headPitch: 0.1, headRoll: 0.08, bodyLift: 0.035, bodySway: 0.08, chestPitch: 0.025, frequency: 2.4 },
+  greet: { id: 'greet_wave', duration: 1.45, expression: 'happy', headPitch: 0.08, headRoll: 0.06, bodyLift: 0.025, bodySway: 0.04, chestPitch: 0.02, armWave: 1, frequency: 3.2 },
   listen: { id: 'listen_bow', duration: 0.85, expression: 'surprised', headPitch: 0.16, neckPitch: 0.08, chestPitch: 0.035, frequency: 1.6 },
   think: { id: 'think_glance', duration: 0.9, expression: 'thinking', headRoll: 0.12, bodySway: 0.045, frequency: 1.3 },
   speak: { id: 'speak_focus', duration: 0.7, expression: 'happy', headPitch: 0.06, neckPitch: 0.04, chestPitch: 0.025, frequency: 1.8 },
@@ -324,6 +324,7 @@ let reactionFx = {
   chestPitch: 0,
   hipsLift: 0,
   modelYaw: 0,
+  armWave: 0,
 };
 
 const expressionMap = {
@@ -746,6 +747,7 @@ function updateIdlePose(elapsed) {
   const reactionSpineRoll = reactionFx.spineRoll;
   const reactionChestPitch = reactionFx.chestPitch;
   const reactionHipsLift = reactionFx.hipsLift;
+  const reactionArmWave = reactionFx.armWave;
   const speakingPulse = avatarState === 'speaking' ? currentLip : 0;
   const listeningTilt = avatarState === 'listening' ? 0.035 : 0;
   const dancing = avatarState === 'dancing' ? 1 : 0;
@@ -783,15 +785,15 @@ function updateIdlePose(elapsed) {
   }
   if (rightUpperArm) {
     rightUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion;
-    rightUpperArm.rotation.z = -1.22 + armAbRad - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing;
-    rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion;
+    rightUpperArm.rotation.z = -1.22 + armAbRad - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing + reactionArmWave * 0.85;
+    rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion - reactionArmWave * 0.28;
   }
   if (leftLowerArm) {
     leftLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 0.55) * 0.014 * motion + danceForearm;
     leftLowerArm.rotation.y = 0.04 + Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion;
   }
   if (rightLowerArm) {
-    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion - danceForearm;
+    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion - danceForearm - reactionArmWave * 0.75;
     rightLowerArm.rotation.y = -0.04 - Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion;
   }
   if (leftHand) {
@@ -802,7 +804,7 @@ function updateIdlePose(elapsed) {
   if (rightHand) {
     rightHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 1.6) * 0.01 * motion;
     rightHand.rotation.y = -0.07 - Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion;
-    rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion - danceHandZ;
+    rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion - danceHandZ + reactionArmWave * Math.sin(elapsed * 18) * 0.42;
   }
   applyRelaxedFingers(elapsed, motion);
 }
@@ -882,6 +884,7 @@ function updateReaction(elapsed, delta) {
     reactionFx.chestPitch += (0 - reactionFx.chestPitch) * blendOut;
     reactionFx.hipsLift += (0 - reactionFx.hipsLift) * blendOut;
     reactionFx.modelYaw += (0 - reactionFx.modelYaw) * blendOut;
+    reactionFx.armWave += (0 - reactionFx.armWave) * blendOut;
     syncVrmSceneRotation();
     return;
   }
@@ -904,6 +907,7 @@ function updateReaction(elapsed, delta) {
   const hipsLift = (profile.bodyLift || 0) * Math.max(0, bodyWave);
   const spinTurns = Number(profile.spinTurns) || 0;
   const targetYaw = spinTurns ? spinTurns * Math.PI * 2 * easedProgress : 0;
+  const armWave = (profile.armWave || 0) * envelope;
 
   reactionFx.intensity += (targetIntensity - reactionFx.intensity) * blendIn;
   reactionFx.headPitch += (headPitch * envelope - reactionFx.headPitch) * blendIn;
@@ -913,6 +917,7 @@ function updateReaction(elapsed, delta) {
   reactionFx.chestPitch += (chestPitch * envelope - reactionFx.chestPitch) * blendIn;
   reactionFx.hipsLift += (hipsLift * envelope - reactionFx.hipsLift) * blendIn;
   reactionFx.modelYaw += (targetYaw - reactionFx.modelYaw) * Math.min(1, delta * 22);
+  reactionFx.armWave += (armWave - reactionFx.armWave) * blendIn;
   syncVrmSceneRotation();
 
   if (elapsed >= reactionFx.endAt) {
