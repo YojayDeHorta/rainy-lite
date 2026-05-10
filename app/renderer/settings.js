@@ -1,4 +1,4 @@
-import { setVrmPreviewUrl, disposeVrmPreview, updatePreviewSettings } from './setup-vrm-preview.js';
+import { setVrmPreviewUrl, disposeVrmPreview, updatePreviewSettings, setPreviewIdleMotion, setPreviewSpin } from './setup-vrm-preview.js';
 
 const tabs = document.querySelectorAll('.tab-button');
 const contents = document.querySelectorAll('.tab-content');
@@ -324,6 +324,8 @@ async function updateSettingsPreview() {
   if (!container) return;
   const selected = avatarModelsCache.find((m) => m.name === avatarModelSelect.value);
   if (selected && selected.url) {
+    setPreviewSpin(false);
+    setPreviewIdleMotion(true);
     if (status) status.hidden = true;
     if (spinner) spinner.hidden = false;
     

@@ -1,4 +1,4 @@
-import { disposeVrmPreview, setVrmPreviewUrl, updatePreviewSettings, setPreviewSpin } from './setup-vrm-preview.js';
+import { disposeVrmPreview, setVrmPreviewUrl, updatePreviewSettings, setPreviewSpin, setPreviewIdleMotion } from './setup-vrm-preview.js';
 
 const API_BASE = 'http://127.0.0.1:8765';
 const PERSONALITY_CUSTOM_MAX = 600;
@@ -150,6 +150,7 @@ async function refreshPreview() {
     ...loadSavedAvatarPose(),
   });
   setPreviewSpin(true);
+  setPreviewIdleMotion(false);
   const ok = await setVrmPreviewUrl(previewEl, url);
   
   if (spinner) spinner.hidden = true;

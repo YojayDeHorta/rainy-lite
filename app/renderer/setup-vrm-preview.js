@@ -13,10 +13,19 @@ let clock;
 let loadToken = 0;
 let previewActive = false;
 let enableSpin = false;
+let enableIdleMotion = false;
 let ambientLight;
 let keyLight;
 let rimLight;
 const PREVIEW_Y_OFFSET = -0.65;
+let idleTime = 0;
+let basePivotY = PREVIEW_Y_OFFSET + 1.03;
+let baseModelPitchRad = 0;
+let baseModelYawRad = Math.PI;
+let baseLeftArmX = 0.24;
+let baseLeftArmZ = 1.22;
+let baseRightArmX = 0.24;
+let baseRightArmZ = -1.22;
 let currentSettings = {
   x: 0, y: 1.03, scale: 0.85, cameraZ: 3.4, light: 0.75, modelYawDeg: 0, modelPitchDeg: 0, armHangDeg: 0, armAbductionDeg: 0
 };
@@ -35,7 +44,31 @@ function animate() {
   if (!previewActive || !renderer || !clock) return;
   rafId = requestAnimationFrame(animate);
   const delta = clock.getDelta();
+  idleTime += delta;
   if (pivot && enableSpin) pivot.rotation.y += delta * 0.35;
+  if (enableIdleMotion) {
+    const breathe = Math.sin(idleTime * 1.25);
+    const sway = Math.sin(idleTime * 0.75);
+    if (pivot) {
+      pivot.position.y = basePivotY + breathe * 0.014;
+    }
+    if (currentVrm?.scene) {
+      currentVrm.scene.rotation.x = baseModelPitchRad + breathe * 0.01;
+      currentVrm.scene.rotation.y = baseModelYawRad + sway * 0.035;
+    }
+    if (currentVrm?.humanoid) {
+      const leftArm = currentVrm.humanoid.getNormalizedBoneNode('leftUpperArm');
+      const rightArm = currentVrm.humanoid.getNormalizedBoneNode('rightUpperArm');
+      if (leftArm) {
+        leftArm.rotation.x = baseLeftArmX + breathe * 0.015;
+        leftArm.rotation.z = baseLeftArmZ + sway * 0.01;
+      }
+      if (rightArm) {
+        rightArm.rotation.x = baseRightArmX + breathe * 0.015;
+        rightArm.rotation.z = baseRightArmZ - sway * 0.01;
+      }
+    }
+  }
   currentVrm?.update(delta);
   renderer.render(scene, camera);
 }
@@ -74,6 +107,10 @@ export function disposeVrmPreview() {
 export function setPreviewSpin(active) {
   enableSpin = !!active;
   if (!active && pivot) pivot.rotation.y = 0;
+}
+
+export function setPreviewIdleMotion(active) {
+  enableIdleMotion = !!active;
 }
 
 function ensureScene(container) {
@@ -176,9 +213,10 @@ export function updatePreviewSettings(settings) {
   }
   
   if (pivot) {
+    basePivotY = (currentSettings.y || 0) + PREVIEW_Y_OFFSET;
     pivot.position.set(
       currentSettings.x || 0,
-      (currentSettings.y || 0) + PREVIEW_Y_OFFSET,
+      basePivotY,
       0,
     );
     pivot.scale.setScalar(currentSettings.scale || 1);
@@ -187,8 +225,11 @@ export function updatePreviewSettings(settings) {
   if (currentVrm && currentVrm.scene) {
     const s = currentVrm.scene;
     const yawBase = Math.PI + THREE.MathUtils.degToRad(currentSettings.modelYawDeg || 0);
+    const pitchBase = THREE.MathUtils.degToRad(currentSettings.modelPitchDeg || 0);
+    baseModelPitchRad = pitchBase;
+    baseModelYawRad = yawBase;
     s.rotation.order = 'YXZ';
-    s.rotation.x = THREE.MathUtils.degToRad(currentSettings.modelPitchDeg || 0);
+    s.rotation.x = pitchBase;
     s.rotation.y = yawBase;
     s.rotation.z = 0;
 
@@ -197,14 +238,18 @@ export function updatePreviewSettings(settings) {
       const rightArm = currentVrm.humanoid.getNormalizedBoneNode('rightUpperArm');
       const armHangRad = THREE.MathUtils.degToRad(currentSettings.armHangDeg || 0);
       const armAbRad = THREE.MathUtils.degToRad(currentSettings.armAbductionDeg || 0);
+      baseLeftArmX = 0.24 + armHangRad;
+      baseLeftArmZ = 1.22 - armAbRad;
+      baseRightArmX = 0.24 + armHangRad;
+      baseRightArmZ = -1.22 + armAbRad;
       
       if (leftArm) {
-        leftArm.rotation.x = 0.24 + armHangRad;
-        leftArm.rotation.z = 1.22 - armAbRad;
+        leftArm.rotation.x = baseLeftArmX;
+        leftArm.rotation.z = baseLeftArmZ;
       }
       if (rightArm) {
-        rightArm.rotation.x = 0.24 + armHangRad;
-        rightArm.rotation.z = -1.22 + armAbRad;
+        rightArm.rotation.x = baseRightArmX;
+        rightArm.rotation.z = baseRightArmZ;
       }
     }
   }
