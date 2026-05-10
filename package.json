@@ -9,7 +9,9 @@
     "dev": "electron .",
     "backend": "python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8765",
     "backend:win": "python -m uvicorn backend.main:app --host 127.0.0.1 --port 8765",
-    "dist:portable": "electron-builder --win portable"
+    "dist:portable": "electron-builder --win portable",
+    "dist:installer": "electron-builder --win nsis",
+    "dist:win": "electron-builder --win nsis portable"
   },
   "devDependencies": {
     "electron": "^39.2.6",
@@ -55,6 +57,14 @@
           ]
         }
       ]
+    },
+    "nsis": {
+      "installerIcon": "build/asuka.ico",
+      "uninstallerIcon": "build/asuka.ico",
+      "installerHeaderIcon": "build/asuka.ico",
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Asuka Desktop"
     }
   },
   "dependencies": {
