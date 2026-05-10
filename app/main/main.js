@@ -266,10 +266,10 @@ function readDiscordPreference() {
     const raw = fs.readFileSync(DISCORD_PREFS, 'utf8');
     const parsed = JSON.parse(raw);
     return {
-      enabled: Boolean(parsed?.enabled),
+      enabled: parsed?.enabled === undefined ? true : Boolean(parsed.enabled),
     };
   } catch (_) {
-    return { enabled: false };
+    return { enabled: true };
   }
 }
 
