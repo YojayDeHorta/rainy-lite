@@ -119,9 +119,50 @@ body.dark-theme ::-webkit-scrollbar-thumb:hover {
 
 .content {
   flex: 1;
-  padding: 20px 30px;
+  padding: 0 30px 20px;
   overflow-y: auto;
   -webkit-app-region: no-drag;
+}
+
+.content-titlebar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 78px;
+  margin: 0 -30px 22px;
+  padding: 14px 58px 14px 30px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-color);
+  backdrop-filter: blur(16px);
+  -webkit-app-region: drag;
+}
+
+.content-titlebar h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.content-kicker {
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.content-drag-hint {
+  color: #6b7280;
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+body.dark-theme .content-drag-hint {
+  color: #9ca3af;
 }
 
 .tab-content {

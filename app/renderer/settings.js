@@ -2,6 +2,15 @@ import { setVrmPreviewUrl, disposeVrmPreview, updatePreviewSettings } from './se
 
 const tabs = document.querySelectorAll('.tab-button');
 const contents = document.querySelectorAll('.tab-content');
+const settingsSectionTitle = document.getElementById('settings-section-title');
+
+const tabTitles = {
+  general: 'General',
+  personality: 'Personalidad',
+  memory: 'Memoria e historial',
+  avatar: 'Ajustes del Avatar',
+  voice: 'Voz (Edge TTS)',
+};
 
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
@@ -10,6 +19,7 @@ tabs.forEach(tab => {
     
     tab.classList.add('active');
     document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+    if (settingsSectionTitle) settingsSectionTitle.textContent = tabTitles[tab.dataset.tab] || tab.textContent.trim();
   });
 });
 
