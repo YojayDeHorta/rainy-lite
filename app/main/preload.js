@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   setCurrentAvatarModel: (model) => ipcRenderer.invoke('avatar:set-model', model),
   notifyWakewordTriggered: () => ipcRenderer.invoke('avatar:wakeword-triggered'),
   triggerAvatarReaction: (name) => ipcRenderer.invoke('avatar:reaction', name),
+  notifyAvatarInteraction: () => ipcRenderer.invoke('avatar:interaction'),
   notifyAvatarSpeechStatus: (payload) => ipcRenderer.invoke('avatar:speech-status', payload),
   executeAction: (action) => ipcRenderer.invoke('system:execute-action', action),
   openChatSession: (sessionId) => ipcRenderer.invoke('chat:open-session', sessionId),

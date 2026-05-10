@@ -16,6 +16,7 @@ let spotifyMonitorId;
 let spotifyCheckInFlight = false;
 let spotifyPlaying = false;
 let spotifyTitle = '';
+let lastUserActivityAt = Date.now();
 let currentAvatarModel = null;
 let currentAvatarState = 'idle';
 let discordClient = null;
@@ -77,24 +78,34 @@ const PERFORMANCE_PROFILES = {
     id: 'saver',
     label: 'Ahorrador',
     avatarFps: 24,
+    idleAvatarFps: 12,
+    pixelRatioCap: 1,
     cursorFps: 10,
     spotifyIntervalMs: 5000,
+    spotifyInactiveIntervalMs: 15000,
   },
   normal: {
     id: 'normal',
     label: 'Normal',
     avatarFps: 30,
+    idleAvatarFps: 15,
+    pixelRatioCap: 1.25,
     cursorFps: 15,
     spotifyIntervalMs: 2500,
+    spotifyInactiveIntervalMs: 12000,
   },
   fluid: {
     id: 'fluid',
     label: 'Fluido',
     avatarFps: 60,
+    idleAvatarFps: 20,
+    pixelRatioCap: 1.5,
     cursorFps: 30,
     spotifyIntervalMs: 800,
+    spotifyInactiveIntervalMs: 10000,
   },
 };
+const PERFORMANCE_IDLE_AFTER_MS = 5 * 60 * 1000;
 
 function getVenvPython(rootDir) {
   const venvPython = process.platform === 'win32'
@@ -380,6 +391,25 @@ function writePerformancePreference(prefs = {}) {
   const profileId = normalizePerformanceProfileId(prefs.profile);
   fs.writeFileSync(PERFORMANCE_PREFS, JSON.stringify({ profile: profileId }), 'utf8');
   return readPerformancePreference();
+}
+
+function markUserActivity() {
+  lastUserActivityAt = Date.now();
+  sendAvatarPerformanceSettings();
+}
+
+function getEffectiveAvatarPerformance() {
+  const base = readPerformancePreference().effective;
+  const avatarVisible = Boolean(avatarWindow && !avatarWindow.isDestroyed() && avatarWindow.isVisible());
+  const idle = Date.now() - lastUserActivityAt > PERFORMANCE_IDLE_AFTER_MS
+    && currentAvatarState === 'idle'
+    && !spotifyPlaying;
+  return {
+    ...base,
+    avatarFps: idle ? base.idleAvatarFps : base.avatarFps,
+    idle,
+    paused: !avatarVisible,
+  };
 }
 
 function readMicPreference() {
@@ -743,9 +773,18 @@ function createAvatarWindow() {
     if (model) broadcastAvatarModel(model.name);
     sendAvatarPerformanceSettings();
   });
+  avatarWindow.on('show', () => {
+    markUserActivity();
+    startGlobalCursorTracking();
+  });
+  avatarWindow.on('hide', () => {
+    stopGlobalCursorTracking();
+    sendAvatarPerformanceSettings();
+  });
   avatarWindow.on('moved', saveAvatarWindowBounds);
   avatarWindow.on('resized', saveAvatarWindowBounds);
   avatarWindow.on('closed', () => {
+    stopGlobalCursorTracking();
     avatarWindow = null;
   });
   return avatarWindow;
@@ -823,7 +862,12 @@ function createSetupWindow() {
 
 function toggleWindow(win) {
   if (!win) return;
-  win.isVisible() ? win.hide() : win.show();
+  if (win.isVisible()) {
+    win.hide();
+  } else {
+    win.show();
+    markUserActivity();
+  }
 }
 
 function showChatWindow() {
@@ -938,6 +982,7 @@ function applyAvatarWindowScale(settings) {
 function updateAvatarState(state) {
   if (!avatarWindow) createAvatarWindow();
   currentAvatarState = String(state || 'idle').toLowerCase();
+  if (currentAvatarState !== 'idle') markUserActivity();
   updateDiscordPresence();
 
   const send = () => avatarWindow?.webContents.send('rainy:avatar-state', state);
@@ -946,11 +991,13 @@ function updateAvatarState(state) {
   } else {
     send();
   }
+  sendAvatarPerformanceSettings();
 }
 
 function updateAvatarSpotifyPlayback(isPlaying) {
   if (!avatarWindow) createAvatarWindow();
   spotifyPlaying = Boolean(isPlaying);
+  if (spotifyPlaying) markUserActivity();
   updateDiscordPresence();
   const send = () => avatarWindow?.webContents.send('rainy:spotify-playback', { isPlaying: spotifyPlaying });
   if (avatarWindow.webContents.isLoading()) {
@@ -962,7 +1009,7 @@ function updateAvatarSpotifyPlayback(isPlaying) {
 
 function sendAvatarPerformanceSettings() {
   if (!avatarWindow || avatarWindow.isDestroyed()) return;
-  const payload = readPerformancePreference().effective;
+  const payload = getEffectiveAvatarPerformance();
   const send = () => avatarWindow?.webContents.send('rainy:performance-preferences', payload);
   if (avatarWindow.webContents.isLoading()) {
     avatarWindow.webContents.once('did-finish-load', send);
@@ -979,6 +1026,7 @@ function stopGlobalCursorTracking() {
 
 function startGlobalCursorTracking() {
   if (cursorTrackingId) return;
+  if (!avatarWindow || avatarWindow.isDestroyed() || !avatarWindow.isVisible()) return;
   const intervalMs = Math.round(1000 / readPerformancePreference().effective.cursorFps);
   cursorTrackingId = setInterval(() => {
     if (!avatarWindow || avatarWindow.isDestroyed() || !avatarWindow.isVisible()) return;
@@ -993,12 +1041,18 @@ function startGlobalCursorTracking() {
 
 function startSpotifyMonitor() {
   if (process.platform !== 'win32' || spotifyMonitorId) return;
-  const intervalMs = readPerformancePreference().effective.spotifyIntervalMs;
-  spotifyMonitorId = setInterval(async () => {
-    if (spotifyCheckInFlight) return;
+  const tick = async () => {
+    if (spotifyCheckInFlight) {
+      spotifyMonitorId = setTimeout(tick, readPerformancePreference().effective.spotifyIntervalMs);
+      return;
+    }
     spotifyCheckInFlight = true;
+    let nextIntervalMs = readPerformancePreference().effective.spotifyInactiveIntervalMs;
     try {
       const result = await queryWindowsSpotifyPlaying();
+      nextIntervalMs = result.spotifyOpen
+        ? readPerformancePreference().effective.spotifyIntervalMs
+        : readPerformancePreference().effective.spotifyInactiveIntervalMs;
       if (result.playing !== spotifyPlaying) {
         updateAvatarSpotifyPlayback(result.playing);
       }
@@ -1011,8 +1065,10 @@ function startSpotifyMonitor() {
       if (spotifyPlaying) updateAvatarSpotifyPlayback(false);
     } finally {
       spotifyCheckInFlight = false;
+      if (spotifyMonitorId) spotifyMonitorId = setTimeout(tick, nextIntervalMs);
     }
-  }, intervalMs);
+  };
+  spotifyMonitorId = setTimeout(tick, 0);
 }
 
 function applyPerformancePreference() {
@@ -1023,6 +1079,10 @@ function applyPerformancePreference() {
   sendAvatarPerformanceSettings();
 }
 
+setInterval(() => {
+  sendAvatarPerformanceSettings();
+}, 30000);
+
 function notifyAvatarTrackChanged() {
   if (!avatarWindow || avatarWindow.isDestroyed()) return;
   if (avatarWindow.webContents.isLoading()) return;
@@ -1031,7 +1091,7 @@ function notifyAvatarTrackChanged() {
 
 function stopSpotifyMonitor() {
   if (!spotifyMonitorId) return;
-  clearInterval(spotifyMonitorId);
+  clearTimeout(spotifyMonitorId);
   spotifyMonitorId = null;
 }
 
@@ -1210,19 +1270,19 @@ function queryWindowsSpotifyPlaying() {
   const script = `
 $ErrorActionPreference = "SilentlyContinue"
 if (-not (Get-Process -Name "Spotify" -ErrorAction SilentlyContinue)) {
-  Write-Output "paused|"
+  Write-Output "closed|"
   exit 0
 }
 $titles = Get-Process -Name "Spotify" -ErrorAction SilentlyContinue |
   Where-Object { $_.MainWindowTitle -and $_.MainWindowTitle.Trim().Length -gt 0 } |
   Select-Object -ExpandProperty MainWindowTitle
 if (-not $titles -or $titles.Count -eq 0) {
-  Write-Output "paused|"
+  Write-Output "open|"
   exit 0
 }
 $candidate = ($titles | Sort-Object Length -Descending | Select-Object -First 1).Trim()
 if ($candidate -match "^(Spotify|Spotify Premium|Spotify Free)$") {
-  Write-Output "paused|"
+  Write-Output "open|"
   exit 0
 }
 Write-Output "playing|$candidate"
@@ -1248,7 +1308,8 @@ Write-Output "playing|$candidate"
       const sep = line.indexOf('|');
       const status = sep >= 0 ? line.substring(0, sep) : line;
       const title = sep >= 0 ? line.substring(sep + 1).trim() : '';
-      resolve({ playing: status.toLowerCase() === 'playing', title });
+      const cleanStatus = status.toLowerCase();
+      resolve({ playing: cleanStatus === 'playing', spotifyOpen: cleanStatus !== 'closed', title });
     });
   });
 }
@@ -1567,6 +1628,7 @@ ipcMain.handle('chat:open-session', (_event, sessionId) => {
 });
 
 ipcMain.handle('window:toggle-chat', () => {
+  markUserActivity();
   if (!chatWindow) createChatWindow();
   const next = !chatWindow.isVisible();
   if (next) chatWindow.show();
@@ -1610,6 +1672,7 @@ ipcMain.handle('window:set-position', (event, position) => {
 });
 
 ipcMain.handle('avatar:speak', (_event, payload) => {
+  markUserActivity();
   sendToAvatar(payload);
 });
 
@@ -1628,16 +1691,24 @@ ipcMain.handle('avatar:set-always-on-top', (_event, enabled) => {
 ipcMain.handle('avatar:reset-window-position', () => ({ ok: true, bounds: resetAvatarWindowBounds() }));
 
 ipcMain.handle('avatar:wakeword-triggered', () => {
+  markUserActivity();
   sendToAvatarWakeword();
   return true;
 });
 
 ipcMain.handle('avatar:reaction', (_event, name) => {
+  markUserActivity();
   sendAvatarReaction(name);
   return true;
 });
 
+ipcMain.handle('avatar:interaction', () => {
+  markUserActivity();
+  return true;
+});
+
 ipcMain.handle('avatar:speech-status', (_event, payload) => {
+  markUserActivity();
   if (!chatWindow || chatWindow.isDestroyed()) return false;
   const send = () => chatWindow?.webContents.send('rainy:avatar-speech-status', payload || {});
   if (chatWindow.webContents.isLoading()) {

@@ -16,7 +16,10 @@ let animationFrame = null;
 let clock;
 let avatarTargetFps = 30;
 let avatarFrameIntervalMs = 1000 / avatarTargetFps;
+let avatarPixelRatioCap = 1.25;
+let avatarRenderPaused = false;
 let lastAvatarRenderAt = 0;
+let lastInteractionNotifyAt = 0;
 let targetLip = 0;
 let currentLip = 0;
 let activeExpression = 'neutral';
@@ -510,6 +513,13 @@ export function updatePerformanceSettings(settings = {}) {
   const nextFps = Number(settings.avatarFps);
   avatarTargetFps = Number.isFinite(nextFps) ? Math.max(12, Math.min(60, nextFps)) : 30;
   avatarFrameIntervalMs = 1000 / avatarTargetFps;
+  const nextPixelRatioCap = Number(settings.pixelRatioCap);
+  avatarPixelRatioCap = Number.isFinite(nextPixelRatioCap)
+    ? Math.max(0.75, Math.min(1.5, nextPixelRatioCap))
+    : 1.25;
+  avatarRenderPaused = Boolean(settings.paused);
+  const container = document.getElementById('vrm-layer');
+  if (container) resizeRenderer(container);
 }
 
 function resolveArmHangDeg(settings) {
@@ -565,14 +575,22 @@ function resizeRenderer(container) {
   if (!renderer || !camera || !container) return;
   const width = Math.max(1, container.clientWidth);
   const height = Math.max(1, container.clientHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, avatarPixelRatioCap));
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
 }
 
+function notifyAvatarInteraction() {
+  const now = performance.now();
+  if (now - lastInteractionNotifyAt < 1200) return;
+  lastInteractionNotifyAt = now;
+  window.rainyDesktop?.notifyAvatarInteraction?.();
+}
+
 function bindAvatarInteraction(target) {
   target.addEventListener('pointermove', (event) => {
+    notifyAvatarInteraction();
     const rect = target.getBoundingClientRect();
     pointer.x = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
     pointer.y = -(((event.clientY - rect.top) / rect.height - 0.5) * 2);
@@ -616,6 +634,7 @@ function bindAvatarInteraction(target) {
 
   target.addEventListener('pointerdown', async (event) => {
     if (event.button !== 0) return;
+    notifyAvatarInteraction();
     const position = await window.rainyDesktop?.getWindowPosition?.() || { x: 0, y: 0 };
     drag = {
       pointerId: event.pointerId,
@@ -718,6 +737,11 @@ function loadVRM(url) {
 
 function animate() {
   animationFrame = requestAnimationFrame(animate);
+  if (avatarRenderPaused) {
+    lastAvatarRenderAt = 0;
+    clock.getDelta();
+    return;
+  }
   const now = performance.now();
   if (lastAvatarRenderAt && now - lastAvatarRenderAt < avatarFrameIntervalMs - 1) return;
   lastAvatarRenderAt = now;
