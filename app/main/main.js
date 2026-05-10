@@ -1707,6 +1707,22 @@ ipcMain.handle('avatar:interaction', () => {
   return true;
 });
 
+ipcMain.handle('avatar:context-menu', () => {
+  markUserActivity();
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'Mostrar chat',
+      click: () => showChatWindow(),
+    },
+    {
+      label: 'Configuracion',
+      click: () => createSettingsWindow(),
+    },
+  ]);
+  menu.popup({ window: avatarWindow || undefined });
+  return true;
+});
+
 ipcMain.handle('avatar:speech-status', (_event, payload) => {
   markUserActivity();
   if (!chatWindow || chatWindow.isDestroyed()) return false;

@@ -223,6 +223,11 @@ chatToggleButton?.addEventListener('click', async () => {
   chatToggleButton.title = next ? 'Cerrar chat' : 'Abrir chat';
 });
 
+window.addEventListener('contextmenu', (event) => {
+  event.preventDefault();
+  window.rainyDesktop.openAvatarContextMenu?.();
+});
+
 window.rainyDesktop.getPerformancePreferences?.().then((prefs) => {
   updatePerformanceSettings(prefs?.effective || prefs);
 }).catch(() => {});

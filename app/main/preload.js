@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   onGlobalCursor: (callback) => ipcRenderer.on('rainy:global-cursor', (_event, payload) => callback(payload)),
   onOpenChatSession: (callback) => ipcRenderer.on('rainy:open-chat-session', (_event, sessionId) => callback(sessionId)),
   openSettingsWindow: () => ipcRenderer.invoke('window:open-settings'),
+  openAvatarContextMenu: () => ipcRenderer.invoke('avatar:context-menu'),
   openSetupWindow: () => ipcRenderer.invoke('window:open-setup'),
   getProfile: () => ipcRenderer.invoke('profile:get'),
   saveProfile: (profile) => ipcRenderer.invoke('profile:save', profile),
