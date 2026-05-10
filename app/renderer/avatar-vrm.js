@@ -61,12 +61,21 @@ let vrmaMixer = null;
 let activeVrmaAction = null;
 let activeVrmaUntil = 0;
 let vrmaModulePromise = null;
+let nextIdleVrmaAt = 0;
+let lastIdleVrmaFile = '';
 const vrmaAnimationCache = new Map();
 const missingVrmaAnimations = new Set();
 
 const vrmaReactionFiles = {
   greet: 'greet.vrma',
 };
+const idleVrmaProfiles = [
+  { file: 'idle1.vrma', loopFor: 6 },
+  { file: 'idle2.vrma' },
+  { file: 'idle3.vrma' },
+];
+const IDLE_VRMA_MIN_DELAY = 10;
+const IDLE_VRMA_MAX_DELAY = 22;
 
 const danceRoutines = [
   function sway(t) {
@@ -408,6 +417,7 @@ export async function initAvatar() {
     
     scheduleBlink();
     scheduleMicroExpression();
+    scheduleNextIdleVrma(4, 8);
     animate();
     return true;
   } catch (error) {
@@ -474,11 +484,15 @@ export function setAvatarState(state) {
 export async function triggerAvatarReaction(name) {
   if (!clock) return false;
   const reactionName = String(name || '').toLowerCase();
-  if (await playVrmaReaction(reactionName)) return true;
+  if (await playVrmaReaction(reactionName)) {
+    scheduleNextIdleVrma();
+    return true;
+  }
 
   const profile = contextualReactions[reactionName];
   if (!profile) return false;
   startReaction(profile, clock.elapsedTime);
+  scheduleNextIdleVrma();
   return true;
 }
 
@@ -725,6 +739,27 @@ function getVrmaUrlForReaction(name) {
   return `${ANIMATION_BASE_URL}${fileName}`;
 }
 
+function getVrmaUrl(fileName) {
+  if (!fileName) return '';
+  return `${ANIMATION_BASE_URL}${fileName}`;
+}
+
+function scheduleNextIdleVrma(minDelay = IDLE_VRMA_MIN_DELAY, maxDelay = IDLE_VRMA_MAX_DELAY) {
+  if (!clock) return;
+  const min = Math.max(1, Number(minDelay) || IDLE_VRMA_MIN_DELAY);
+  const max = Math.max(min, Number(maxDelay) || IDLE_VRMA_MAX_DELAY);
+  nextIdleVrmaAt = clock.elapsedTime + min + Math.random() * (max - min);
+}
+
+function pickIdleVrmaFile() {
+  const available = idleVrmaProfiles.filter((profile) => !missingVrmaAnimations.has(getVrmaUrl(profile.file)));
+  if (!available.length) return '';
+  const pool = available.length > 1
+    ? available.filter((profile) => profile.file !== lastIdleVrmaFile)
+    : available;
+  return pool[Math.floor(Math.random() * pool.length)] || null;
+}
+
 async function getVrmaModule() {
   if (!vrmaModulePromise) {
     vrmaModulePromise = import('@pixiv/three-vrm-animation').catch(() => null);
@@ -758,6 +793,10 @@ async function playVrmaReaction(name) {
   const url = getVrmaUrlForReaction(name);
   if (!url) return false;
 
+  return playVrmaFromUrl(url);
+}
+
+async function playVrmaFromUrl(url, options = {}) {
   const vrmAnimation = await loadVrmaAnimation(url);
   if (!vrmAnimation || !currentVrm?.scene) return false;
 
@@ -768,12 +807,31 @@ async function playVrmaReaction(name) {
   const clip = vrmaModule.createVRMAnimationClip(vrmAnimation, currentVrm);
   normalizeVrmaClipRootMotion(clip);
   const action = vrmaMixer.clipAction(clip);
-  action.loop = THREE.LoopOnce;
-  action.clampWhenFinished = true;
+  const loopFor = Math.max(0, Number(options.loopFor) || 0);
+  action.loop = loopFor > 0 ? THREE.LoopRepeat : THREE.LoopOnce;
+  action.clampWhenFinished = loopFor <= 0;
   action.reset().fadeIn(0.08).play();
   activeVrmaAction = action;
-  activeVrmaUntil = clock.elapsedTime + Math.max(0.1, clip.duration);
+  activeVrmaUntil = clock.elapsedTime + Math.max(0.1, loopFor || clip.duration);
   return true;
+}
+
+async function maybePlayIdleVrma(elapsed) {
+  if (!nextIdleVrmaAt || elapsed < nextIdleVrmaAt) return;
+  if (avatarState !== 'idle' || reactionFx.profile || activeVrmaAction || dragFx.isDragging) {
+    scheduleNextIdleVrma();
+    return;
+  }
+
+  const profile = pickIdleVrmaFile();
+  if (!profile?.file) {
+    scheduleNextIdleVrma();
+    return;
+  }
+
+  const played = await playVrmaFromUrl(getVrmaUrl(profile.file), profile);
+  if (played) lastIdleVrmaFile = profile.file;
+  scheduleNextIdleVrma();
 }
 
 function updateVrmaAnimation(delta, elapsed) {
@@ -865,6 +923,7 @@ function animate() {
   updateLip(delta);
   updateDragVisuals(delta);
   updateVrmaAnimation(delta, elapsed);
+  void maybePlayIdleVrma(elapsed);
   currentVrm?.update(delta);
   renderer.render(scene, camera);
 }
