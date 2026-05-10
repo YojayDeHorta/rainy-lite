@@ -96,7 +96,7 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - Avatar pose/settings and theme are in renderer `localStorage` under legacy `rainy-*` keys.
 - SQLite lives under local data dir as `rainy.sqlite`; temp audio files are served from `/temp` and cleaned by `temp_cleanup.py`.
 - Chat history is session-based. `chat_sessions` stores title, summary, summary_message_count, started_at, updated_at; `chat_messages` stores `session_id`, role, content, created_at.
-- Current-session selection creates a new session when the latest one is from another day or idle for more than 8 hours.
+- Current-session selection always uses the latest session. New sessions are manual only via `POST /api/chat/sessions` / chat `Nuevo` button.
 
 ## Key Facts
 
@@ -107,6 +107,7 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - AI responses must start with one emotion tag and end with exactly one `[CONVERSATION: ...]` control line; `ai_core.py` strips conversation control before display/TTS.
 - Chat context uses memories + current session summary + recent session messages. `main.py` refreshes the session summary in the background every 16 messages.
 - Chat UI has a `Nuevo` button that calls `POST /api/chat/sessions` and clears the visible chat. Settings has a Memoria tab that lists/deletes sessions and memories.
+- User messages go through `memory_extractor.py` for conservative memories such as `me gusta X`, `prefiero que X`, `recuerda que X`, and names. It intentionally ignores secrets/tokens/password-like content.
 - Spotify playback uses Web API search to get `spotify:track:ID`, then opens that URI with `shell.openExternal()`.
 - Windows Spotify dance detection polls Spotify window titles via PowerShell every 800ms; avatar enters `dancing` when a non-generic title is detected.
 - Media keys use PowerShell + `user32.dll keybd_event` on Windows, AppleScript on macOS, and `playerctl` on Linux.

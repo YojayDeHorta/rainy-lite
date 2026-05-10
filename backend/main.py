@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 import edge_tts
 
-from . import ai_core, config, memory, prompts, spotify, stt, temp_cleanup, tts, wakeword
+from . import ai_core, config, memory, memory_extractor, prompts, spotify, stt, temp_cleanup, tts, wakeword
 
 
 class ChatRequest(BaseModel):
@@ -127,6 +127,8 @@ async def chat(req: ChatRequest):
     session_id = session["id"]
     history = memory.get_chat_history(session_id=session_id)
     memory.add_chat_message("user", message, session_id=session_id)
+    for item in memory_extractor.extract_memories_from_user_message(message):
+        memory.add_memory(item)
     generated = await ai_core.generate_response_with_metadata(
         message,
         history,

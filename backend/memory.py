@@ -1,11 +1,7 @@
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from .config import SQLITE_PATH
-
-
-SESSION_IDLE_HOURS = 8
-
 
 def connect():
     conn = sqlite3.connect(SQLITE_PATH)
@@ -55,15 +51,6 @@ def init_db():
 
 def _now_iso():
     return datetime.now(timezone.utc).isoformat()
-
-
-def _parse_iso(value: str | None):
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError:
-        return None
 
 
 def _ensure_column(conn, table: str, column: str, definition: str):
@@ -118,13 +105,8 @@ def get_or_create_current_session():
             LIMIT 1
             """
         ).fetchone()
-        now = datetime.now(timezone.utc)
         if row:
-            updated_at = _parse_iso(row["updated_at"])
-            same_day = updated_at and updated_at.date() == now.date()
-            still_active = updated_at and now - updated_at <= timedelta(hours=SESSION_IDLE_HOURS)
-            if same_day and still_active:
-                return dict(row)
+            return dict(row)
         session_id = _create_session(conn)
         return dict(conn.execute("SELECT * FROM chat_sessions WHERE id = ?", (session_id,)).fetchone())
 

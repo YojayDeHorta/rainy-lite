@@ -115,10 +115,7 @@ The settings window can correct model yaw, pitch, arm hang, arm abduction, scale
 
 Asuka stores chat locally in SQLite. On startup, the chat window reloads the current session's recent messages so the conversation is visible again.
 
-Sessions are split automatically:
-
-- A new session starts on a new day.
-- A new session starts after more than 8 hours of inactivity.
+Sessions are manual: Asuka keeps using the latest session until you press “Nuevo” in the chat.
 
 Every 16 messages, the backend refreshes a compact summary of the current session. Future replies use:
 
@@ -126,7 +123,7 @@ Every 16 messages, the backend refreshes a compact summary of the current sessio
 - current session summary
 - recent messages from the current session
 
-Persistent memories are stored separately from chat history and are available through `/api/memory`, but automatic memory extraction is intentionally conservative and not part of this first pass.
+Persistent memories are stored separately from chat history and are available through `/api/memory`. Asuka conservatively extracts simple stable facts from user messages such as “me gusta X”, “prefiero que X”, “recuerda que X”, or “me llamo X”, while ignoring password/token/secret-like content.
 
 Use the chat titlebar button “Nuevo” to start a fresh conversation manually. The settings window includes a “Memoria” tab to review/delete recent sessions and persistent memories.
 
