@@ -16,6 +16,39 @@ let appliedState = 'idle';
 let wakewordIndicatorActive = false;
 let wakewordBeepPending = false;
 
+const startupSpeakLines = [
+  '¿Me extrañaste, {usuario}? Porque yo ya estaba lista para volver.',
+  '{nombreBot} ha llegado. Ahora sí podemos empezar con estilo.',
+  'Ya estoy aquí, {usuario}. Prometo acompañarte sin ocupar mucho espacio.',
+  'Volví. Intenta no emocionarte tanto, aunque sería totalmente entendible.',
+  'Listo, ya desperté. Dame un segundo y conquistamos este escritorio.',
+  'Hola, {usuario}. Te estaba esperando con mi mejor cara de inocente.',
+  'Aparecí justo a tiempo. Como siempre, dramática pero eficiente.',
+  '¿Empezamos, {usuario}? Hoy tengo buena energía y cero planes de aburrirme.',
+  '{nombreBot} entrando en escena. Música, luces y productividad opcional.',
+  'Tu compañía favorita ya está aquí. El escritorio se sentía muy solo.',
+  'No temas, llegué yo. Todo está bajo mi dudoso pero encantador control.',
+  'Reporte: estoy adorable, lista, y ligeramente peligrosa para tu concentración.',
+  'Hola otra vez, {usuario}. Me alegra verte por aquí de nuevo.',
+  'Me invocaste, y aquí estoy. Bastante rápido, debo decir.',
+  'Hoy también me veo increíble. Gracias por notarlo en silencio.',
+  'Bueno, ya podemos empezar. Yo pongo la presencia, tú pones el plan.',
+  'Sistema iniciado. Encanto activado. Pequeño caos en modo espera.',
+  'Te cubro la espalda, {usuario}. Al menos desde este rinconcito de pantalla.',
+  '{nombreBot} lista para molestar con cariño y ayudar cuando haga falta.',
+  'Desperté solo por ti, {usuario}. Eso suena intenso, pero queda bonito.',
+  'Modo compañía activado. Me quedo cerca por si necesitas una chispa.',
+  'Tu escritorio acaba de mejorar. No lo digo yo, lo dice la ciencia imaginaria.',
+  'Presente, despierta y peligrosa. Pero en el sentido adorable, claro.',
+  'Prometo portarme bien. Más o menos. No firmemos nada todavía.',
+  'Ya llegué. Ahora sí hay estilo, presencia y un poquito de drama.',
+  'Hola, {usuario}. ¿Qué travesura hacemos primero, algo útil o algo divertido?',
+  '{nombreBot} reportándose con energía. Lista para acompañarte en lo que salga.',
+  'Estoy lista para hacerte compañía. Tú trabaja tranquilo, yo pongo ambiente.',
+  'Tu copiloto favorita está online. Abróchate el cinturón emocional.',
+  'Aquí estoy, brillante como siempre. Y modestísima, por supuesto.',
+];
+
 function playWakewordBeep() {
   try {
     if (!beepContext) beepContext = new AudioContext();
@@ -101,7 +134,28 @@ function setEmotion(emotion) {
   setAvatarEmotion(clean);
 }
 
-async function speak(text) {
+function fillStartupLineTemplate(template, profile = {}) {
+  const userName = String(profile?.userName || 'Usuario').trim() || 'Usuario';
+  const botName = String(profile?.botName || 'Asuka').trim() || 'Asuka';
+  return String(template || '')
+    .replaceAll('{usuario}', userName)
+    .replaceAll('{nombreBot}', botName);
+}
+
+async function speakStartupLine() {
+  try {
+    const profile = await window.rainyDesktop.getProfile?.();
+    const line = startupSpeakLines[Math.floor(Math.random() * startupSpeakLines.length)];
+    const text = fillStartupLineTemplate(line, profile);
+    setEmotion('happy');
+    speak(text, { preserveState: true });
+  } catch (_) {
+    const line = startupSpeakLines[Math.floor(Math.random() * startupSpeakLines.length)];
+    speak(fillStartupLineTemplate(line), { preserveState: true });
+  }
+}
+
+async function speak(text, options = {}) {
   if (!text) return;
   try {
     let prefs = {};
@@ -120,13 +174,13 @@ async function speak(text) {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (data.url) playWithLipSync(`${API_BASE}${data.url}`);
+    if (data.url) playWithLipSync(`${API_BASE}${data.url}`, options);
   } catch (error) {
     console.error(error);
   }
 }
 
-function playWithLipSync(url) {
+function playWithLipSync(url, options = {}) {
   const audio = new Audio(url);
   audio.crossOrigin = 'anonymous';
 
@@ -156,10 +210,10 @@ function playWithLipSync(url) {
   audio.onplay = tick;
   audio.onplaying = () => {
     isSpeaking = true;
-    requestedState = 'idle';
+    if (!options.preserveState) requestedState = 'idle';
     window.rainyDesktop?.notifyAvatarSpeechStatus?.({ event: 'start' });
     syncWakewordIndicator();
-    resolveAvatarState();
+    if (!options.preserveState) resolveAvatarState();
   };
   audio.onended = () => {
     mouth.style.transform = 'scaleY(1)';
@@ -169,13 +223,13 @@ function playWithLipSync(url) {
     isSpeaking = false;
     window.rainyDesktop?.notifyAvatarSpeechStatus?.({ event: 'end' });
     syncWakewordIndicator();
-    resolveAvatarState();
+    if (!options.preserveState) resolveAvatarState();
   };
   audio.play().catch((error) => {
     isSpeaking = false;
     window.rainyDesktop?.notifyAvatarSpeechStatus?.({ event: 'end' });
     syncWakewordIndicator();
-    resolveAvatarState();
+    if (!options.preserveState) resolveAvatarState();
     console.error(error);
   });
 }
@@ -233,5 +287,9 @@ window.rainyDesktop.getPerformancePreferences?.().then((prefs) => {
 }).catch(() => {});
 
 initAvatar().then((ok) => {
-  if (ok) void triggerAvatarReaction('greet');
+  if (!ok) return;
+  void triggerAvatarReaction('greet');
+  setTimeout(() => {
+    void speakStartupLine();
+  }, 250);
 });
