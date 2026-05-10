@@ -34,6 +34,7 @@ const MIC_PREFS = path.join(app.getPath('userData'), 'mic-preferences.json');
 const TTS_PREFS = path.join(app.getPath('userData'), 'tts-preferences.json');
 const DISCORD_PREFS = path.join(app.getPath('userData'), 'discord-preferences.json');
 const INTEGRATION_PREFS = path.join(app.getPath('userData'), 'integration-preferences.json');
+const PERFORMANCE_PREFS = path.join(app.getPath('userData'), 'performance-preferences.json');
 const DEFAULT_AVATAR_MODEL = 'rainy.vrm';
 const PERSONALITY_CUSTOM_MAX = 600;
 const MAX_CUSTOM_VRM_SIZE_BYTES = 120 * 1024 * 1024;
@@ -69,6 +70,30 @@ const AVATAR_BASE_WINDOW = {
   height: 680,
   scale: 0.85,
   cameraZ: 3.4,
+};
+
+const PERFORMANCE_PROFILES = {
+  saver: {
+    id: 'saver',
+    label: 'Ahorrador',
+    avatarFps: 24,
+    cursorFps: 10,
+    spotifyIntervalMs: 5000,
+  },
+  normal: {
+    id: 'normal',
+    label: 'Normal',
+    avatarFps: 30,
+    cursorFps: 15,
+    spotifyIntervalMs: 2500,
+  },
+  fluid: {
+    id: 'fluid',
+    label: 'Fluido',
+    avatarFps: 60,
+    cursorFps: 30,
+    spotifyIntervalMs: 800,
+  },
 };
 
 function getVenvPython(rootDir) {
@@ -324,6 +349,37 @@ function resetAvatarWindowBounds() {
   avatarWindow.setBounds(bounds, false);
   avatarWindow.show();
   return bounds;
+}
+
+function normalizePerformanceProfileId(value) {
+  const id = String(value || '').trim().toLowerCase();
+  return PERFORMANCE_PROFILES[id] ? id : 'normal';
+}
+
+function readPerformancePreference() {
+  const fallback = {
+    profile: 'normal',
+    profiles: Object.values(PERFORMANCE_PROFILES),
+    effective: PERFORMANCE_PROFILES.normal,
+  };
+  try {
+    const raw = fs.readFileSync(PERFORMANCE_PREFS, 'utf8');
+    const parsed = JSON.parse(raw);
+    const profileId = normalizePerformanceProfileId(parsed?.profile);
+    return {
+      profile: profileId,
+      profiles: Object.values(PERFORMANCE_PROFILES),
+      effective: PERFORMANCE_PROFILES[profileId],
+    };
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function writePerformancePreference(prefs = {}) {
+  const profileId = normalizePerformanceProfileId(prefs.profile);
+  fs.writeFileSync(PERFORMANCE_PREFS, JSON.stringify({ profile: profileId }), 'utf8');
+  return readPerformancePreference();
 }
 
 function readMicPreference() {
@@ -685,6 +741,7 @@ function createAvatarWindow() {
   avatarWindow.webContents.once('did-finish-load', () => {
     const model = getCurrentAvatarModelEntry();
     if (model) broadcastAvatarModel(model.name);
+    sendAvatarPerformanceSettings();
   });
   avatarWindow.on('moved', saveAvatarWindowBounds);
   avatarWindow.on('resized', saveAvatarWindowBounds);
@@ -903,8 +960,26 @@ function updateAvatarSpotifyPlayback(isPlaying) {
   }
 }
 
+function sendAvatarPerformanceSettings() {
+  if (!avatarWindow || avatarWindow.isDestroyed()) return;
+  const payload = readPerformancePreference().effective;
+  const send = () => avatarWindow?.webContents.send('rainy:performance-preferences', payload);
+  if (avatarWindow.webContents.isLoading()) {
+    avatarWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+}
+
+function stopGlobalCursorTracking() {
+  if (!cursorTrackingId) return;
+  clearInterval(cursorTrackingId);
+  cursorTrackingId = null;
+}
+
 function startGlobalCursorTracking() {
   if (cursorTrackingId) return;
+  const intervalMs = Math.round(1000 / readPerformancePreference().effective.cursorFps);
   cursorTrackingId = setInterval(() => {
     if (!avatarWindow || avatarWindow.isDestroyed() || !avatarWindow.isVisible()) return;
     if (avatarWindow.webContents.isLoading()) return;
@@ -913,11 +988,12 @@ function startGlobalCursorTracking() {
       cursor: screen.getCursorScreenPoint(),
       bounds: avatarWindow.getBounds(),
     });
-  }, 33);
+  }, intervalMs);
 }
 
 function startSpotifyMonitor() {
   if (process.platform !== 'win32' || spotifyMonitorId) return;
+  const intervalMs = readPerformancePreference().effective.spotifyIntervalMs;
   spotifyMonitorId = setInterval(async () => {
     if (spotifyCheckInFlight) return;
     spotifyCheckInFlight = true;
@@ -936,7 +1012,15 @@ function startSpotifyMonitor() {
     } finally {
       spotifyCheckInFlight = false;
     }
-  }, 800);
+  }, intervalMs);
+}
+
+function applyPerformancePreference() {
+  stopGlobalCursorTracking();
+  startGlobalCursorTracking();
+  stopSpotifyMonitor();
+  startSpotifyMonitor();
+  sendAvatarPerformanceSettings();
 }
 
 function notifyAvatarTrackChanged() {
@@ -1256,10 +1340,7 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
-  if (cursorTrackingId) {
-    clearInterval(cursorTrackingId);
-    cursorTrackingId = null;
-  }
+  stopGlobalCursorTracking();
   stopSpotifyMonitor();
   if (backendProcess) {
     backendProcess.kill();
@@ -1459,6 +1540,14 @@ ipcMain.handle('integrations:set-preferences', (_event, patch) => ({
   ok: true,
   preferences: writeIntegrationPreference(patch || {}),
 }));
+
+ipcMain.handle('performance:get-preferences', () => readPerformancePreference());
+
+ipcMain.handle('performance:set-preferences', (_event, patch) => {
+  const prefs = writePerformancePreference(patch || {});
+  applyPerformancePreference();
+  return { ok: true, preferences: prefs };
+});
 
 ipcMain.handle('startup:get-enabled', () => getLaunchOnStartupPreference());
 

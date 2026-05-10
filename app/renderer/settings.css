@@ -418,6 +418,60 @@ input:checked + .slider:before {
   flex-wrap: wrap;
 }
 
+.performance-options {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.performance-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  row-gap: 3px;
+  align-items: start;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.02);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+
+body.dark-theme .performance-card {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.performance-card:hover {
+  border-color: var(--accent);
+  background: rgba(255, 107, 0, 0.06);
+}
+
+.performance-card input {
+  grid-row: 1 / span 2;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.performance-card:has(input:checked) {
+  border-color: var(--accent);
+  background: rgba(255, 107, 0, 0.12);
+}
+
+.performance-title {
+  font-weight: 700;
+}
+
+.performance-copy {
+  color: #6b7280;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+body.dark-theme .performance-copy {
+  color: #9ca3af;
+}
+
 .avatar-pose-hint {
   font-size: 0.82rem;
   opacity: 0.85;

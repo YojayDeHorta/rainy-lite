@@ -14,6 +14,9 @@ let rimLight;
 let currentVrm = null;
 let animationFrame = null;
 let clock;
+let avatarTargetFps = 30;
+let avatarFrameIntervalMs = 1000 / avatarTargetFps;
+let lastAvatarRenderAt = 0;
 let targetLip = 0;
 let currentLip = 0;
 let activeExpression = 'neutral';
@@ -503,6 +506,12 @@ function normalizeSettings(settings) {
   };
 }
 
+export function updatePerformanceSettings(settings = {}) {
+  const nextFps = Number(settings.avatarFps);
+  avatarTargetFps = Number.isFinite(nextFps) ? Math.max(12, Math.min(60, nextFps)) : 30;
+  avatarFrameIntervalMs = 1000 / avatarTargetFps;
+}
+
 function resolveArmHangDeg(settings) {
   const fallback = avatarSettings.armHangDeg;
   if (settings.armHangDeg !== undefined && settings.armHangDeg !== null) {
@@ -709,6 +718,9 @@ function loadVRM(url) {
 
 function animate() {
   animationFrame = requestAnimationFrame(animate);
+  const now = performance.now();
+  if (lastAvatarRenderAt && now - lastAvatarRenderAt < avatarFrameIntervalMs - 1) return;
+  lastAvatarRenderAt = now;
   const delta = clock.getDelta();
   const elapsed = clock.elapsedTime;
 

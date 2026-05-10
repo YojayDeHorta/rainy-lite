@@ -1,4 +1,4 @@
-import { initAvatar, setAvatarEmotion, setAvatarLipSync, setAvatarModel, setAvatarState, triggerAvatarReaction, updateAvatarSettings, updateGlobalCursor } from './avatar-vrm.js';
+import { initAvatar, setAvatarEmotion, setAvatarLipSync, setAvatarModel, setAvatarState, triggerAvatarReaction, updateAvatarSettings, updateGlobalCursor, updatePerformanceSettings } from './avatar-vrm.js';
 
 const API_BASE = 'http://127.0.0.1:8765';
 
@@ -188,6 +188,7 @@ window.rainyDesktop.onAvatarSpeak((payload) => {
 });
 
 window.rainyDesktop.onAvatarSettings((settings) => updateAvatarSettings(settings));
+window.rainyDesktop.onPerformancePreferences((settings) => updatePerformanceSettings(settings));
 window.rainyDesktop.onAvatarState((state) => {
   requestedState = String(state || 'idle').toLowerCase();
   syncWakewordIndicator();
@@ -221,6 +222,10 @@ chatToggleButton?.addEventListener('click', async () => {
   const next = await window.rainyDesktop.toggleChat();
   chatToggleButton.title = next ? 'Cerrar chat' : 'Abrir chat';
 });
+
+window.rainyDesktop.getPerformancePreferences?.().then((prefs) => {
+  updatePerformanceSettings(prefs?.effective || prefs);
+}).catch(() => {});
 
 initAvatar().then((ok) => {
   if (ok) setTimeout(() => triggerAvatarReaction('greet'), 450);

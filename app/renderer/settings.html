@@ -20,6 +20,7 @@
     <aside class="sidebar">
       <div class="brand">Configuración</div>
       <button class="tab-button active" data-tab="general">General</button>
+      <button class="tab-button" data-tab="performance">Rendimiento</button>
       <button class="tab-button" data-tab="integrations">Integraciones</button>
       <button class="tab-button" data-tab="personality">Personalidad</button>
       <button class="tab-button" data-tab="memory">Memoria</button>
@@ -85,6 +86,29 @@
           </div>
           <p id="mic-hint" class="mic-hint"></p>
         </div>
+      </section>
+
+      <section id="tab-performance" class="tab-content">
+        <h2>Rendimiento</h2>
+        <p class="personality-hint">Estos ajustes afectan la fluidez del avatar, la deteccion de musica y el seguimiento del cursor.</p>
+        <div class="performance-options" role="radiogroup" aria-label="Perfil de rendimiento">
+          <label class="performance-card">
+            <input type="radio" name="performance-profile" value="saver">
+            <span class="performance-title">Ahorrador</span>
+            <span class="performance-copy">Menor consumo de bateria y CPU.</span>
+          </label>
+          <label class="performance-card">
+            <input type="radio" name="performance-profile" value="normal">
+            <span class="performance-title">Normal</span>
+            <span class="performance-copy">Equilibrio recomendado para uso diario.</span>
+          </label>
+          <label class="performance-card">
+            <input type="radio" name="performance-profile" value="fluid">
+            <span class="performance-title">Fluido</span>
+            <span class="performance-copy">Animaciones mas suaves y respuesta visual mas rapida.</span>
+          </label>
+        </div>
+        <span id="performance-status" class="model-status"></span>
       </section>
 
       <section id="tab-integrations" class="tab-content">

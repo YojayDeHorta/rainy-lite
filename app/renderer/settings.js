@@ -6,6 +6,7 @@ const settingsSectionTitle = document.getElementById('settings-section-title');
 
 const tabTitles = {
   general: 'General',
+  performance: 'Rendimiento',
   integrations: 'Integraciones',
   personality: 'Personalidad',
   memory: 'Memoria e historial',
@@ -61,6 +62,43 @@ async function initStartupSettings() {
 }
 
 void initStartupSettings();
+
+const performanceStatus = document.getElementById('performance-status');
+const performanceProfileInputs = document.querySelectorAll('input[name="performance-profile"]');
+
+function setPerformanceStatus(text) {
+  if (performanceStatus) performanceStatus.textContent = text || '';
+}
+
+async function initPerformanceSettings() {
+  if (!performanceProfileInputs.length) return;
+  try {
+    const prefs = await window.rainyDesktop.getPerformancePreferences();
+    const profile = String(prefs?.profile || 'normal');
+    for (const input of performanceProfileInputs) {
+      input.checked = input.value === profile;
+    }
+  } catch (_) {
+    setPerformanceStatus('No pude leer el perfil de rendimiento.');
+  }
+
+  for (const input of performanceProfileInputs) {
+    input.addEventListener('change', async () => {
+      if (!input.checked) return;
+      setPerformanceStatus('Aplicando...');
+      try {
+        const result = await window.rainyDesktop.setPerformancePreferences({ profile: input.value });
+        const profile = result?.preferences?.profile || input.value;
+        for (const item of performanceProfileInputs) item.checked = item.value === profile;
+        setPerformanceStatus('Perfil aplicado.');
+      } catch (_) {
+        setPerformanceStatus('No pude aplicar el perfil.');
+      }
+    });
+  }
+}
+
+void initPerformanceSettings();
 
 const micDeviceSelect = document.getElementById('mic-device-select');
 const micRefreshButton = document.getElementById('mic-refresh-button');
