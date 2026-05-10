@@ -116,6 +116,7 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - Spotify playback uses Web API search to get `spotify:track:ID`, then opens that URI with `shell.openExternal()`.
 - Windows Spotify dance detection polls Spotify window titles via PowerShell every 800ms; avatar enters `dancing` when a non-generic title is detected.
 - Integrations toggles live in Settings → Integraciones. Electron stores `wakewordEnabled` and `spotifyActionsEnabled` in `integration-preferences.json`; Spotify actions are blocked in `executeAction()` when disabled.
+- Windows startup toggle uses Electron `app.setLoginItemSettings()` from Settings → General and defaults off.
 - Discord Rich Presence uses `discord-rpc` from Electron main. `DISCORD_CLIENT_ID` comes from `.env`; Settings stores only per-user enabled/disabled state and silently reconnects if Discord is not open.
 - Media keys use PowerShell + `user32.dll keybd_event` on Windows, AppleScript on macOS, and `playerctl` on Linux.
 - PowerShell scripts should use `-EncodedCommand` with Base64 UTF-16LE to avoid escaping issues and flashing shells.

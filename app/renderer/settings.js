@@ -26,6 +26,8 @@ tabs.forEach(tab => {
 
 const closeButton = document.getElementById('settings-close-button');
 const editProfileButton = document.getElementById('edit-profile-button');
+const startupToggle = document.getElementById('startup-toggle');
+const startupStatus = document.getElementById('startup-status');
 closeButton?.addEventListener('click', () => {
   window.rainyDesktop.close();
 });
@@ -33,6 +35,32 @@ editProfileButton?.addEventListener('click', () => {
   window.rainyDesktop.openSetupWindow();
   window.rainyDesktop.close();
 });
+
+function setStartupStatus(text) {
+  if (startupStatus) startupStatus.textContent = text || '';
+}
+
+async function initStartupSettings() {
+  if (!startupToggle) return;
+  try {
+    startupToggle.checked = Boolean(await window.rainyDesktop.getLaunchOnStartup());
+  } catch (_) {
+    setStartupStatus('No pude leer esta opción.');
+  }
+
+  startupToggle.addEventListener('change', async () => {
+    setStartupStatus('Aplicando...');
+    try {
+      const result = await window.rainyDesktop.setLaunchOnStartup(startupToggle.checked);
+      startupToggle.checked = Boolean(result?.enabled);
+      setStartupStatus(result?.enabled ? 'El bot se abrirá al iniciar Windows.' : 'El bot no se abrirá automáticamente.');
+    } catch (_) {
+      setStartupStatus('No pude cambiar esta opción.');
+    }
+  });
+}
+
+void initStartupSettings();
 
 const micDeviceSelect = document.getElementById('mic-device-select');
 const micRefreshButton = document.getElementById('mic-refresh-button');

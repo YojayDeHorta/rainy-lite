@@ -9,6 +9,7 @@ Asuka Desktop is a Windows-first desktop AI companion. It uses Electron for the 
 - Settings window for theme, microphone, personality, avatar pose/model, and Edge TTS voice.
 - Integrations panel for Wake Word, Spotify actions, and Discord Rich Presence toggles.
 - Tray icon for quickly showing chat/avatar, opening settings, or exiting.
+- Optional launch on Windows startup from Settings.
 - Memory/settings panel for recent sessions and persistent memories.
 - VRM avatar loader with bundled models in `assets/models/` and support for user-uploaded `.vrm` files.
 - Cursor tracking, blinking, micro-expressions, click reactions, lip sync, and Spotify dancing states.

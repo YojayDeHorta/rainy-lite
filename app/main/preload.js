@@ -52,4 +52,6 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   setDiscordPreferences: (prefs) => ipcRenderer.invoke('discord:set-preferences', prefs),
   getIntegrationPreferences: () => ipcRenderer.invoke('integrations:get-preferences'),
   setIntegrationPreferences: (prefs) => ipcRenderer.invoke('integrations:set-preferences', prefs),
+  getLaunchOnStartup: () => ipcRenderer.invoke('startup:get-enabled'),
+  setLaunchOnStartup: (enabled) => ipcRenderer.invoke('startup:set-enabled', enabled),
 });

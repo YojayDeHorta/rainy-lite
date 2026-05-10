@@ -366,6 +366,19 @@ function writeIntegrationPreference(prefs = {}) {
   return next;
 }
 
+function getLaunchOnStartupPreference() {
+  return app.getLoginItemSettings().openAtLogin;
+}
+
+function setLaunchOnStartupPreference(enabled) {
+  const openAtLogin = Boolean(enabled);
+  app.setLoginItemSettings({
+    openAtLogin,
+    path: process.execPath,
+  });
+  return { enabled: app.getLoginItemSettings().openAtLogin };
+}
+
 function readDiscordPreference() {
   try {
     const raw = fs.readFileSync(DISCORD_PREFS, 'utf8');
@@ -1446,6 +1459,10 @@ ipcMain.handle('integrations:set-preferences', (_event, patch) => ({
   ok: true,
   preferences: writeIntegrationPreference(patch || {}),
 }));
+
+ipcMain.handle('startup:get-enabled', () => getLaunchOnStartupPreference());
+
+ipcMain.handle('startup:set-enabled', (_event, enabled) => setLaunchOnStartupPreference(enabled));
 
 ipcMain.handle('chat:open-session', (_event, sessionId) => {
   if (!chatWindow || chatWindow.isDestroyed()) createChatWindow();
