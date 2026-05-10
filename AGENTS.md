@@ -45,7 +45,7 @@ app/main/preload.js    -> contextBridge exposing window.rainyDesktop.* APIs
 app/renderer/index.html + renderer.js
                         -> chat UI, voice recording, endpointing, wake-word polling, action parsing
 app/renderer/avatar.*  -> transparent avatar window, VRM animation, lip sync, wake-word indicator, Spotify dancing
-app/renderer/settings.*-> settings window: theme, mic, personality, avatar pose/model, TTS prefs
+app/renderer/settings.*-> settings window: theme, mic, personality, memory/sessions, avatar pose/model, TTS prefs
 app/renderer/setup.*   -> first-run setup: bot/user names, personality, VRM model preview
 app/renderer/setup-vrm-preview.js
                         -> shared Three.js/VRM preview used by setup/settings
@@ -106,6 +106,7 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - Keep `backend/prompts.py` action allowlist in sync with `executeAction()` and `renderer.js:actionLabel()`.
 - AI responses must start with one emotion tag and end with exactly one `[CONVERSATION: ...]` control line; `ai_core.py` strips conversation control before display/TTS.
 - Chat context uses memories + current session summary + recent session messages. `main.py` refreshes the session summary in the background every 16 messages.
+- Chat UI has a `Nuevo` button that calls `POST /api/chat/sessions` and clears the visible chat. Settings has a Memoria tab that lists/deletes sessions and memories.
 - Spotify playback uses Web API search to get `spotify:track:ID`, then opens that URI with `shell.openExternal()`.
 - Windows Spotify dance detection polls Spotify window titles via PowerShell every 800ms; avatar enters `dancing` when a non-generic title is detected.
 - Media keys use PowerShell + `user32.dll keybd_event` on Windows, AppleScript on macOS, and `playerctl` on Linux.

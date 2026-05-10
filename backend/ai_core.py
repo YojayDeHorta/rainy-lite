@@ -4,7 +4,7 @@ import re
 import requests
 
 from . import config
-from .memory import get_memories
+from .memory import get_memory_contents
 from .prompts import LOCAL_FALLBACK_REPLY, build_system_prompt
 
 CONVERSATION_CONTROL_RE = re.compile(
@@ -65,7 +65,7 @@ def _messages_for_chat(
     personality_custom: str | None = None,
     session_summary: str | None = None,
 ):
-    memories = get_memories()
+    memories = get_memory_contents()
     system_text = build_contextual_system_prompt(
         bot_name,
         user_name,
@@ -264,7 +264,7 @@ async def generate_response_with_metadata(
             user_name,
             personality_preset=personality_preset,
             personality_custom=personality_custom,
-            memories=get_memories(),
+            memories=get_memory_contents(),
             session_summary=session_summary,
         )
         try:
@@ -362,7 +362,7 @@ async def _generate_gemini(
                 user_name,
                 personality_preset=personality_preset,
                 personality_custom=personality_custom,
-                memories=get_memories(),
+                memories=get_memory_contents(),
                 session_summary=session_summary,
             ),
         )

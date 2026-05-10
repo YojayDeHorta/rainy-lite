@@ -155,6 +155,12 @@ def create_new_session(title: str | None = None):
         return dict(conn.execute("SELECT * FROM chat_sessions WHERE id = ?", (session_id,)).fetchone())
 
 
+def delete_session(session_id: int):
+    with connect() as conn:
+        conn.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+
+
 def add_chat_message(role: str, content: str, session_id: int | None = None):
     if session_id is None:
         session_id = get_or_create_current_session()["id"]
@@ -233,10 +239,24 @@ def add_memory(content: str):
 def get_memories(limit: int = 20):
     with connect() as conn:
         rows = conn.execute(
-            "SELECT content FROM memories ORDER BY id DESC LIMIT ?",
+            "SELECT id, content, created_at FROM memories ORDER BY id DESC LIMIT ?",
             (limit,),
         ).fetchall()
-    return [row["content"] for row in rows]
+    return [dict(row) for row in rows]
+
+
+def get_memory_contents(limit: int = 20):
+    return [item["content"] for item in get_memories(limit=limit)]
+
+
+def delete_memory(memory_id: int):
+    with connect() as conn:
+        conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
+
+
+def clear_memories():
+    with connect() as conn:
+        conn.execute("DELETE FROM memories")
 
 
 def clear_chat():

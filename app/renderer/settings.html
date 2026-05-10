@@ -22,6 +22,7 @@
       <div class="brand">Configuración</div>
       <button class="tab-button active" data-tab="general">General</button>
       <button class="tab-button" data-tab="personality">Personalidad</button>
+      <button class="tab-button" data-tab="memory">Memoria</button>
       <button class="tab-button" data-tab="avatar">Avatar</button>
       <button class="tab-button" data-tab="voice">Voz</button>
     </aside>
@@ -71,6 +72,29 @@
         <div class="setting-item personality-actions">
           <button type="button" id="settings-personality-save" class="btn-secondary">Guardar personalidad</button>
           <span id="settings-personality-status" class="model-status"></span>
+        </div>
+      </section>
+
+      <section id="tab-memory" class="tab-content">
+        <h2>Memoria e historial</h2>
+        <div class="setting-item">
+          <div class="setting-label">
+            <span>Conversaciones recientes</span>
+            <button type="button" id="sessions-refresh-button" class="btn-secondary">Actualizar</button>
+          </div>
+          <div id="sessions-list" class="memory-list"></div>
+          <span id="sessions-status" class="model-status"></span>
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">
+            <span>Memorias persistentes</span>
+            <button type="button" id="memories-refresh-button" class="btn-secondary">Actualizar</button>
+          </div>
+          <div id="memories-list" class="memory-list"></div>
+          <div class="model-actions">
+            <button type="button" id="memories-clear-button" class="btn-secondary">Borrar todas</button>
+          </div>
+          <span id="memories-status" class="model-status"></span>
         </div>
       </section>
 

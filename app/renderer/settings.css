@@ -215,6 +215,46 @@ body.dark-theme .setting-item {
   min-height: 16px;
 }
 
+.memory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.memory-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+body.dark-theme .memory-row {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.memory-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.memory-meta,
+.memory-summary {
+  color: #6b7280;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+body.dark-theme .memory-meta,
+body.dark-theme .memory-summary {
+  color: #9ca3af;
+}
+
 .mic-actions {
   flex-wrap: wrap;
 }

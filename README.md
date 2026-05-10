@@ -7,6 +7,7 @@ Asuka Desktop is a Windows-first desktop AI companion. It uses Electron for the 
 - Separate floating avatar window and chat/control window.
 - First-run setup for assistant name, user name, personality, and VRM model.
 - Settings window for theme, microphone, personality, avatar pose/model, and Edge TTS voice.
+- Memory/settings panel for recent sessions and persistent memories.
 - VRM avatar loader with bundled models in `assets/models/` and support for user-uploaded `.vrm` files.
 - Cursor tracking, blinking, micro-expressions, click reactions, lip sync, and Spotify dancing states.
 - Text chat with local backend plus optional remote proxy for AI keys.
@@ -126,6 +127,8 @@ Every 16 messages, the backend refreshes a compact summary of the current sessio
 - recent messages from the current session
 
 Persistent memories are stored separately from chat history and are available through `/api/memory`, but automatic memory extraction is intentionally conservative and not part of this first pass.
+
+Use the chat titlebar button “Nuevo” to start a fresh conversation manually. The settings window includes a “Memoria” tab to review/delete recent sessions and persistent memories.
 
 ## Wake Word
 

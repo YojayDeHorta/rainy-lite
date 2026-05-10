@@ -188,6 +188,12 @@ def create_chat_session(req: SessionRequest):
     return {"session": memory.create_new_session(title=req.title)}
 
 
+@app.delete("/api/chat/sessions/{session_id}")
+def delete_chat_session(session_id: int):
+    memory.delete_session(session_id)
+    return {"status": "ok"}
+
+
 @app.delete("/api/chat/history")
 def clear_chat_history():
     memory.clear_chat()
@@ -203,6 +209,18 @@ def remember(req: MemoryRequest):
 @app.get("/api/memory")
 def memories():
     return {"items": memory.get_memories()}
+
+
+@app.delete("/api/memory/{memory_id}")
+def delete_memory(memory_id: int):
+    memory.delete_memory(memory_id)
+    return {"status": "ok"}
+
+
+@app.delete("/api/memory")
+def clear_memories():
+    memory.clear_memories()
+    return {"status": "ok"}
 
 
 @app.get("/api/spotify/search")

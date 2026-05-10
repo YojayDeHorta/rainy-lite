@@ -7,6 +7,7 @@ const voiceButton = document.getElementById('voice-button');
 const subtitle = document.getElementById('subtitle');
 const statusDot = document.getElementById('status-dot');
 const settingsButton = document.getElementById('settings-button');
+const newChatButton = document.getElementById('new-chat-button');
 const titleLabel = document.querySelector('.brand span:last-child');
 
 const AVATAR_SETTINGS_KEY = 'rainy-avatar-settings-v1';
@@ -177,6 +178,24 @@ async function loadChatHistory() {
     }
   } catch (_) {
     // History is nice-to-have; chat still works without it.
+  }
+}
+
+async function startNewChatSession() {
+  try {
+    const res = await fetch(`${API_BASE}/api/chat/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Nueva conversación' }),
+    });
+    if (!res.ok) throw new Error('session');
+    chatLog.innerHTML = '';
+    addHistorySeparator('Nueva conversación');
+    subtitle.textContent = 'Nueva conversación lista.';
+    stopConversationSession();
+    setAvatarState('idle');
+  } catch (_) {
+    subtitle.textContent = 'No pude crear una conversación nueva.';
   }
 }
 
@@ -578,6 +597,9 @@ input.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') sendMessage(input.value);
 });
 voiceButton.addEventListener('click', toggleRecording);
+newChatButton?.addEventListener('click', () => {
+  void startNewChatSession();
+});
 
 document.getElementById('min-button').addEventListener('click', () => window.rainyDesktop.minimize());
 document.getElementById('close-button').addEventListener('click', () => window.rainyDesktop.close());

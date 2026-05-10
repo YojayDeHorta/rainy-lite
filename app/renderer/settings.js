@@ -735,4 +735,158 @@ async function initPersonalityTab() {
 
 void initPersonalityTab();
 
+const sessionsList = document.getElementById('sessions-list');
+const sessionsRefreshButton = document.getElementById('sessions-refresh-button');
+const sessionsStatus = document.getElementById('sessions-status');
+const memoriesList = document.getElementById('memories-list');
+const memoriesRefreshButton = document.getElementById('memories-refresh-button');
+const memoriesClearButton = document.getElementById('memories-clear-button');
+const memoriesStatus = document.getElementById('memories-status');
+
+function setSessionsStatus(text) {
+  if (sessionsStatus) sessionsStatus.textContent = text || '';
+}
+
+function setMemoriesStatus(text) {
+  if (memoriesStatus) memoriesStatus.textContent = text || '';
+}
+
+function formatDateTime(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function emptyRow(text) {
+  const row = document.createElement('div');
+  row.className = 'memory-row';
+  const body = document.createElement('div');
+  body.className = 'memory-meta';
+  body.textContent = text;
+  row.appendChild(body);
+  return row;
+}
+
+async function loadSessionsPanel() {
+  if (!sessionsList) return;
+  setSessionsStatus('Cargando...');
+  sessionsList.innerHTML = '';
+  try {
+    const res = await fetch(`${API_BASE_TTS}/api/chat/sessions`);
+    if (!res.ok) throw new Error('sessions');
+    const data = await res.json();
+    const sessions = Array.isArray(data?.sessions) ? data.sessions : [];
+    if (!sessions.length) {
+      sessionsList.appendChild(emptyRow('No hay conversaciones guardadas todavia.'));
+      setSessionsStatus('');
+      return;
+    }
+    for (const session of sessions) {
+      const row = document.createElement('div');
+      row.className = 'memory-row';
+      const body = document.createElement('div');
+      const title = document.createElement('div');
+      title.className = 'memory-title';
+      title.textContent = session.title || `Conversación #${session.id}`;
+      const meta = document.createElement('div');
+      meta.className = 'memory-meta';
+      meta.textContent = `Actualizada: ${formatDateTime(session.updated_at)}`;
+      const summary = document.createElement('div');
+      summary.className = 'memory-summary';
+      summary.textContent = session.summary || 'Sin resumen todavía.';
+      body.append(title, meta, summary);
+
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'btn-secondary';
+      deleteButton.textContent = 'Borrar';
+      deleteButton.addEventListener('click', async () => {
+        if (!window.confirm('¿Borrar esta conversación?')) return;
+        setSessionsStatus('Borrando...');
+        const del = await fetch(`${API_BASE_TTS}/api/chat/sessions/${session.id}`, { method: 'DELETE' });
+        if (!del.ok) {
+          setSessionsStatus('No se pudo borrar.');
+          return;
+        }
+        await loadSessionsPanel();
+      });
+
+      row.append(body, deleteButton);
+      sessionsList.appendChild(row);
+    }
+    setSessionsStatus('');
+  } catch (_) {
+    sessionsList.appendChild(emptyRow('No pude cargar conversaciones.'));
+    setSessionsStatus('');
+  }
+}
+
+async function loadMemoriesPanel() {
+  if (!memoriesList) return;
+  setMemoriesStatus('Cargando...');
+  memoriesList.innerHTML = '';
+  try {
+    const res = await fetch(`${API_BASE_TTS}/api/memory`);
+    if (!res.ok) throw new Error('memories');
+    const data = await res.json();
+    const items = Array.isArray(data?.items) ? data.items : [];
+    if (!items.length) {
+      memoriesList.appendChild(emptyRow('No hay memorias persistentes guardadas.'));
+      setMemoriesStatus('');
+      return;
+    }
+    for (const item of items) {
+      const row = document.createElement('div');
+      row.className = 'memory-row';
+      const body = document.createElement('div');
+      const content = document.createElement('div');
+      content.className = 'memory-title';
+      content.textContent = item.content || '';
+      const meta = document.createElement('div');
+      meta.className = 'memory-meta';
+      meta.textContent = item.created_at ? `Guardada: ${formatDateTime(item.created_at)}` : '';
+      body.append(content, meta);
+
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'btn-secondary';
+      deleteButton.textContent = 'Borrar';
+      deleteButton.addEventListener('click', async () => {
+        setMemoriesStatus('Borrando...');
+        const del = await fetch(`${API_BASE_TTS}/api/memory/${item.id}`, { method: 'DELETE' });
+        if (!del.ok) {
+          setMemoriesStatus('No se pudo borrar.');
+          return;
+        }
+        await loadMemoriesPanel();
+      });
+
+      row.append(body, deleteButton);
+      memoriesList.appendChild(row);
+    }
+    setMemoriesStatus('');
+  } catch (_) {
+    memoriesList.appendChild(emptyRow('No pude cargar memorias.'));
+    setMemoriesStatus('');
+  }
+}
+
+sessionsRefreshButton?.addEventListener('click', () => void loadSessionsPanel());
+memoriesRefreshButton?.addEventListener('click', () => void loadMemoriesPanel());
+memoriesClearButton?.addEventListener('click', async () => {
+  if (!window.confirm('¿Borrar todas las memorias persistentes?')) return;
+  setMemoriesStatus('Borrando...');
+  try {
+    const res = await fetch(`${API_BASE_TTS}/api/memory`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('clear');
+    await loadMemoriesPanel();
+  } catch (_) {
+    setMemoriesStatus('No se pudieron borrar las memorias.');
+  }
+});
+
+void loadSessionsPanel();
+void loadMemoriesPanel();
+
 void initAvatarModelSelector();
