@@ -71,6 +71,16 @@ let profile = {
   personalityCustom: '',
 };
 
+const THINKING_MESSAGES = [
+  'Estoy conectando neuronas',
+  'Mirando entre gotitas de datos',
+  'Dame un segundo, estoy pensando',
+  'Consultando a mis pequeñas nubes',
+  'Ordenando mis ideas bajo la lluvia',
+  'Buscando la respuesta bonita',
+  'Procesando sin quemar la tostadora',
+];
+
 function updateConversationActivity() {
   conversationLastActivityAt = Date.now();
 }
@@ -155,6 +165,23 @@ function addMessage(role, text) {
   el.textContent = stripTags(text);
   chatLog.appendChild(el);
   chatLog.scrollTop = chatLog.scrollHeight;
+  return el;
+}
+
+function addThinkingMessage() {
+  const base = THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)];
+  const el = document.createElement('div');
+  el.className = 'message assistant thinking-message';
+  const text = document.createElement('span');
+  text.textContent = base;
+  const dots = document.createElement('span');
+  dots.className = 'thinking-dots';
+  dots.setAttribute('aria-hidden', 'true');
+  dots.innerHTML = '<span>.</span><span>.</span><span>.</span>';
+  el.append(text, dots);
+  chatLog.appendChild(el);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return el;
 }
 
 function addHistorySeparator(label = 'Historial reciente') {
@@ -178,6 +205,28 @@ async function loadChatHistory() {
     }
   } catch (_) {
     // History is nice-to-have; chat still works without it.
+  }
+}
+
+async function loadSessionIntoChat(sessionId) {
+  const cleanSessionId = Number(sessionId) || 0;
+  if (!cleanSessionId) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/chat/sessions/${cleanSessionId}/messages`);
+    if (!res.ok) throw new Error('session');
+    const data = await res.json();
+    const messages = Array.isArray(data?.messages) ? data.messages : [];
+    chatLog.innerHTML = '';
+    addHistorySeparator(data?.session?.title || 'Conversación recuperada');
+    for (const item of messages) {
+      const role = item.role === 'assistant' ? 'assistant' : 'user';
+      addMessage(role, item.content || '');
+    }
+    subtitle.textContent = 'Conversación recuperada.';
+    stopConversationSession();
+    setAvatarState('idle');
+  } catch (_) {
+    subtitle.textContent = 'No pude recuperar esa conversación.';
   }
 }
 
@@ -287,6 +336,7 @@ async function sendMessage(text, options = {}) {
   if (!message) return;
 
   addMessage('user', message);
+  const thinkingEl = addThinkingMessage();
   input.value = '';
   subtitle.textContent = `${profile.botName || 'Asuka'} esta pensando...`;
   setAvatarState('thinking');
@@ -312,6 +362,7 @@ async function sendMessage(text, options = {}) {
     const action = parseAction(reply);
     const clean = stripTags(reply);
     subtitle.textContent = clean;
+    thinkingEl.remove();
     addMessage('assistant', reply);
     if (action) await executeAction(action);
     await window.rainyDesktop.speakOnAvatar({ text: clean, emotion });
@@ -322,6 +373,7 @@ async function sendMessage(text, options = {}) {
       stopConversationSession();
     }
   } catch (error) {
+    thinkingEl.remove();
     subtitle.textContent = 'Algo fallo hablando con mi backend local.';
     setAvatarState('idle');
     stopConversationSession();
@@ -630,6 +682,9 @@ window.rainyDesktop.onAvatarSpeechStatus((payload) => {
     updateConversationActivity();
     scheduleConversationAutorecord();
   }
+});
+window.rainyDesktop.onOpenChatSession((sessionId) => {
+  void loadSessionIntoChat(sessionId);
 });
 
 async function initApp() {

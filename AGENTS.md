@@ -106,7 +106,8 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - Keep `backend/prompts.py` action allowlist in sync with `executeAction()` and `renderer.js:actionLabel()`.
 - AI responses must start with one emotion tag and end with exactly one `[CONVERSATION: ...]` control line; `ai_core.py` strips conversation control before display/TTS.
 - Chat context uses memories + current session summary + recent session messages. `main.py` refreshes the session summary in the background every 16 messages.
-- Chat UI has a `Nuevo` button that calls `POST /api/chat/sessions` and clears the visible chat. Settings has a Memoria tab that lists/deletes sessions and memories.
+- Chat UI has a `Nuevo` button that calls `POST /api/chat/sessions` and clears the visible chat. Settings has a Memoria tab that lists/opens/deletes sessions and memories.
+- Session titles are generated in the background after 4 messages and refreshed every 16 messages. Opening an old session calls `POST /api/chat/sessions/{id}/activate`, then IPC `chat:open-session` sends `rainy:open-chat-session` to the chat renderer.
 - User messages go through `memory_extractor.py` for conservative memories such as `me gusta X`, `prefiero que X`, `recuerda que X`, and names. It intentionally ignores secrets/tokens/password-like content.
 - Spotify playback uses Web API search to get `spotify:track:ID`, then opens that URI with `shell.openExternal()`.
 - Windows Spotify dance detection polls Spotify window titles via PowerShell every 800ms; avatar enters `dancing` when a non-generic title is detected.

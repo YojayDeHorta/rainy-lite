@@ -127,6 +127,8 @@ Persistent memories are stored separately from chat history and are available th
 
 Use the chat titlebar button “Nuevo” to start a fresh conversation manually. The settings window includes a “Memoria” tab to review/delete recent sessions and persistent memories.
 
+After a few messages, Asuka renames the session automatically with a short topic-based title. In Settings → Memoria, use “Abrir” to recover an older session in the chat.
+
 ## Wake Word
 
 Wake word is disabled by default. Enable it in `.env`:

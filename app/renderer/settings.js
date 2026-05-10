@@ -797,6 +797,26 @@ async function loadSessionsPanel() {
       summary.textContent = session.summary || 'Sin resumen todavía.';
       body.append(title, meta, summary);
 
+      const actions = document.createElement('div');
+      actions.className = 'model-actions';
+      actions.style.marginTop = '0';
+
+      const openButton = document.createElement('button');
+      openButton.type = 'button';
+      openButton.className = 'btn-secondary';
+      openButton.textContent = 'Abrir';
+      openButton.addEventListener('click', async () => {
+        setSessionsStatus('Abriendo...');
+        const active = await fetch(`${API_BASE_TTS}/api/chat/sessions/${session.id}/activate`, { method: 'POST' });
+        if (!active.ok) {
+          setSessionsStatus('No se pudo abrir.');
+          return;
+        }
+        await window.rainyDesktop.openChatSession(session.id);
+        setSessionsStatus('Conversación abierta en el chat.');
+        await loadSessionsPanel();
+      });
+
       const deleteButton = document.createElement('button');
       deleteButton.type = 'button';
       deleteButton.className = 'btn-secondary';
@@ -812,7 +832,8 @@ async function loadSessionsPanel() {
         await loadSessionsPanel();
       });
 
-      row.append(body, deleteButton);
+      actions.append(openButton, deleteButton);
+      row.append(body, actions);
       sessionsList.appendChild(row);
     }
     setSessionsStatus('');

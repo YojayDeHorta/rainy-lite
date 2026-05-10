@@ -18,6 +18,7 @@ def init_db():
                 title TEXT,
                 summary TEXT NOT NULL DEFAULT '',
                 summary_message_count INTEGER NOT NULL DEFAULT 0,
+                title_message_count INTEGER NOT NULL DEFAULT 0,
                 started_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
@@ -37,6 +38,7 @@ def init_db():
         _ensure_column(conn, "chat_messages", "session_id", "INTEGER")
         _ensure_column(conn, "chat_sessions", "summary", "TEXT NOT NULL DEFAULT ''")
         _ensure_column(conn, "chat_sessions", "summary_message_count", "INTEGER NOT NULL DEFAULT 0")
+        _ensure_column(conn, "chat_sessions", "title_message_count", "INTEGER NOT NULL DEFAULT 0")
         _backfill_legacy_session(conn)
         conn.execute(
             """
@@ -64,8 +66,8 @@ def _create_session(conn, *, title: str | None = None):
     now = _now_iso()
     cur = conn.execute(
         """
-        INSERT INTO chat_sessions (title, summary, summary_message_count, started_at, updated_at)
-        VALUES (?, '', 0, ?, ?)
+        INSERT INTO chat_sessions (title, summary, summary_message_count, title_message_count, started_at, updated_at)
+        VALUES (?, '', 0, 0, ?, ?)
         """,
         (title or "Conversacion", now, now),
     )
@@ -88,8 +90,8 @@ def _backfill_legacy_session(conn):
     updated_at = last_row["created_at"] if last_row else started_at
     cur = conn.execute(
         """
-        INSERT INTO chat_sessions (title, summary, summary_message_count, started_at, updated_at)
-        VALUES (?, '', 0, ?, ?)
+        INSERT INTO chat_sessions (title, summary, summary_message_count, title_message_count, started_at, updated_at)
+        VALUES (?, '', 0, 0, ?, ?)
         """,
         ("Historial importado", started_at, updated_at),
     )
@@ -141,6 +143,14 @@ def delete_session(session_id: int):
     with connect() as conn:
         conn.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
         conn.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+
+
+def activate_session(session_id: int):
+    now = _now_iso()
+    with connect() as conn:
+        conn.execute("UPDATE chat_sessions SET updated_at = ? WHERE id = ?", (now, session_id))
+        row = conn.execute("SELECT * FROM chat_sessions WHERE id = ?", (session_id,)).fetchone()
+    return dict(row) if row else None
 
 
 def add_chat_message(role: str, content: str, session_id: int | None = None):
@@ -204,6 +214,21 @@ def update_session_summary(session_id: int, summary: str, message_count: int):
             WHERE id = ?
             """,
             (summary.strip(), int(message_count), _now_iso(), session_id),
+        )
+
+
+def update_session_title(session_id: int, title: str, message_count: int):
+    clean = " ".join((title or "").strip().split())[:80]
+    if not clean:
+        return
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE chat_sessions
+            SET title = ?, title_message_count = ?
+            WHERE id = ?
+            """,
+            (clean, int(message_count), session_id),
         )
 
 

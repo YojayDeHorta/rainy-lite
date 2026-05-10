@@ -50,6 +50,8 @@ app.mount("/temp", StaticFiles(directory=str(config.TEMP_DIR)), name="temp")
 
 memory.init_db()
 SUMMARY_EVERY_MESSAGES = 16
+TITLE_FIRST_AFTER_MESSAGES = 4
+TITLE_REFRESH_EVERY_MESSAGES = 16
 wakeword_service = wakeword.WakewordService(
     enabled=config.WAKEWORD_ENABLED,
     threshold=config.WAKEWORD_THRESHOLD,
@@ -141,21 +143,35 @@ async def chat(req: ChatRequest):
     response = generated.get("response") or ai_core.LOCAL_FALLBACK_REPLY
     conversation = generated.get("conversation") or {"continue": False, "reason": "uncertain"}
     memory.add_chat_message("assistant", response, session_id=session_id)
-    asyncio.create_task(update_session_summary_if_needed(session_id))
+    asyncio.create_task(update_session_metadata_if_needed(session_id))
     return {"response": response, "conversation": conversation, "session_id": session_id}
 
 
-async def update_session_summary_if_needed(session_id: int):
+async def update_session_metadata_if_needed(session_id: int):
     session = memory.get_session(session_id)
     if not session:
         return
     message_count = memory.count_session_messages(session_id)
+    messages = None
+    title = str(session.get("title") or "").strip().lower()
+    generic_title = title in {"", "conversacion", "conversación", "nueva conversacion", "nueva conversación"}
+    title_count = int(session.get("title_message_count") or 0)
+    should_title = message_count >= TITLE_FIRST_AFTER_MESSAGES and (
+        generic_title or message_count - title_count >= TITLE_REFRESH_EVERY_MESSAGES
+    )
+    if should_title:
+        messages = memory.get_session_messages_for_summary(session_id, limit=40)
+        new_title = await ai_core.generate_session_title(messages)
+        if new_title:
+            memory.update_session_title(session_id, new_title, message_count)
+
     summarized_at = int(session.get("summary_message_count") or 0)
     if message_count < SUMMARY_EVERY_MESSAGES:
         return
     if message_count - summarized_at < SUMMARY_EVERY_MESSAGES:
         return
-    messages = memory.get_session_messages_for_summary(session_id, limit=80)
+    if messages is None:
+        messages = memory.get_session_messages_for_summary(session_id, limit=80)
     summary = await ai_core.summarize_conversation(session.get("summary") or "", messages)
     if summary:
         memory.update_session_summary(session_id, summary, message_count)
@@ -188,6 +204,14 @@ def chat_session_messages(session_id: int):
 @app.post("/api/chat/sessions")
 def create_chat_session(req: SessionRequest):
     return {"session": memory.create_new_session(title=req.title)}
+
+
+@app.post("/api/chat/sessions/{session_id}/activate")
+def activate_chat_session(session_id: int):
+    session = memory.activate_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="session not found")
+    return {"session": session}
 
 
 @app.delete("/api/chat/sessions/{session_id}")

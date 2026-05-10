@@ -1099,6 +1099,19 @@ ipcMain.handle('tts:set-preferences', (_event, patch) => ({
   preferences: writeTtsPreference(patch || {}),
 }));
 
+ipcMain.handle('chat:open-session', (_event, sessionId) => {
+  if (!chatWindow || chatWindow.isDestroyed()) createChatWindow();
+  chatWindow.show();
+  const cleanSessionId = Number(sessionId) || 0;
+  const send = () => chatWindow?.webContents.send('rainy:open-chat-session', cleanSessionId);
+  if (chatWindow.webContents.isLoading()) {
+    chatWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+  return true;
+});
+
 ipcMain.handle('window:toggle-chat', () => {
   if (!chatWindow) createChatWindow();
   const next = !chatWindow.isVisible();

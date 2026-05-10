@@ -20,6 +20,12 @@ tareas pendientes y datos de contexto que ayuden en proximas respuestas.
 No inventes, no guardes secretos, tokens, contrasenas ni datos extremadamente sensibles.
 Maximo 1200 caracteres. Responde solo con el resumen en espanol.
 """.strip()
+TITLE_SYSTEM_PROMPT = """
+Ponle un titulo corto a esta conversacion.
+Debe ser concreto, en espanol, sin comillas, sin emoji, maximo 6 palabras.
+No uses titulos genericos como Conversacion o Nueva conversacion.
+Responde solo con el titulo.
+""".strip()
 
 
 def parse_conversation_control(text: str) -> dict:
@@ -247,6 +253,90 @@ async def summarize_conversation(existing_summary: str, messages: list[dict]) ->
         return existing_summary.strip()
 
     return existing_summary.strip()
+
+
+def _transcript_for_messages(messages: list[dict], limit: int = 16) -> str:
+    selected = messages[-limit:]
+    return "\n".join(
+        f"{('Usuario' if item.get('role') == 'user' else 'Asistente')}: {item.get('content', '').strip()}"
+        for item in selected
+        if item.get("content")
+    )
+
+
+def _clean_title(raw: str) -> str:
+    title = re.sub(r"[\[\]\"'`]+", "", raw or "").strip()
+    title = re.sub(r"\s+", " ", title)
+    title = re.sub(r"[.!?]+$", "", title).strip()
+    words = title.split()
+    if len(words) > 6:
+        title = " ".join(words[:6])
+    if not title or title.lower() in {"conversacion", "conversación", "nueva conversacion", "nueva conversación"}:
+        return ""
+    return title[:80]
+
+
+def fallback_session_title(messages: list[dict]) -> str:
+    first_user = next((m.get("content", "") for m in messages if m.get("role") == "user"), "")
+    cleaned = re.sub(r"\[ACTION:[^\]]+\]", "", first_user, flags=re.I)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,!¡¿?")
+    words = cleaned.split()
+    if not words:
+        return "Conversacion"
+    return " ".join(words[:6])[:80]
+
+
+async def generate_session_title(messages: list[dict]) -> str:
+    if not messages:
+        return ""
+    prompt = _transcript_for_messages(messages, limit=12)
+    if not prompt:
+        return ""
+
+    if config.PROXY_URL:
+        try:
+            return _clean_title(await _proxy_chat(prompt, [], TITLE_SYSTEM_PROMPT)) or fallback_session_title(messages)
+        except Exception:
+            return fallback_session_title(messages)
+
+    try:
+        if config.AI_PROVIDER == "groq" and config.GROQ_API_KEY:
+            from groq import Groq
+
+            def run_groq():
+                client = Groq(api_key=config.GROQ_API_KEY)
+                completion = client.chat.completions.create(
+                    model=config.GROQ_MODEL,
+                    messages=[
+                        {"role": "system", "content": TITLE_SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.2,
+                    max_completion_tokens=40,
+                )
+                return completion.choices[0].message.content or ""
+
+            return _clean_title(await asyncio.to_thread(run_groq)) or fallback_session_title(messages)
+        if config.AI_PROVIDER == "openai" and config.OPENAI_API_KEY:
+            from openai import OpenAI
+
+            def run_openai():
+                client = OpenAI(base_url=config.OPENAI_BASE_URL, api_key=config.OPENAI_API_KEY)
+                completion = client.chat.completions.create(
+                    model=config.OPENAI_MODEL,
+                    messages=[
+                        {"role": "system", "content": TITLE_SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.2,
+                )
+                return completion.choices[0].message.content or ""
+
+            return _clean_title(await asyncio.to_thread(run_openai)) or fallback_session_title(messages)
+    except Exception:
+        return fallback_session_title(messages)
+
+    return fallback_session_title(messages)
 
 
 async def generate_response_with_metadata(
