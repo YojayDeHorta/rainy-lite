@@ -7,6 +7,7 @@ Asuka Desktop is a Windows-first desktop AI companion. It uses Electron for the 
 - Separate floating avatar window and chat/control window.
 - First-run setup for assistant name, user name, personality, and VRM model.
 - Settings window for theme, microphone, personality, avatar pose/model, and Edge TTS voice.
+- Optional Discord Rich Presence configured from Settings with a Discord Application ID.
 - Memory/settings panel for recent sessions and persistent memories.
 - VRM avatar loader with bundled models in `assets/models/` and support for user-uploaded `.vrm` files.
 - Cursor tracking, blinking, micro-expressions, click reactions, lip sync, and Spotify dancing states.
@@ -153,6 +154,12 @@ If Bluetooth headphones switch to a bad hands-free microphone profile, pin a spe
 ```txt
 GET http://127.0.0.1:8765/api/wakeword/input-devices
 ```
+
+## Discord Rich Presence
+
+Discord integration is optional. Put your Discord Developer Portal Application ID in `.env` as `DISCORD_CLIENT_ID`, then each user can enable or disable Rich Presence from Settings → General. If the local Discord client is open, Asuka shows a Rich Presence state such as listening, thinking, speaking, or dancing with Spotify.
+
+No Discord token is required; the Application ID is public and safe to ship in `.env`.
 
 ## Build
 

@@ -42,4 +42,6 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   setMicDevice: (deviceId) => ipcRenderer.invoke('audio:set-mic-device', deviceId),
   getTtsPreferences: () => ipcRenderer.invoke('tts:get-preferences'),
   setTtsPreferences: (prefs) => ipcRenderer.invoke('tts:set-preferences', prefs),
+  getDiscordPreferences: () => ipcRenderer.invoke('discord:get-preferences'),
+  setDiscordPreferences: (prefs) => ipcRenderer.invoke('discord:set-preferences', prefs),
 });

@@ -37,6 +37,53 @@ const micDeviceSelect = document.getElementById('mic-device-select');
 const micRefreshButton = document.getElementById('mic-refresh-button');
 const micPermitButton = document.getElementById('mic-permit-button');
 const micHint = document.getElementById('mic-hint');
+const discordEnabledToggle = document.getElementById('discord-enabled-toggle');
+const discordSaveButton = document.getElementById('discord-save-button');
+const discordStatus = document.getElementById('discord-status');
+
+function setDiscordStatus(text) {
+  if (discordStatus) discordStatus.textContent = text || '';
+}
+
+async function initDiscordSettings() {
+  if (!discordEnabledToggle || !discordSaveButton) return;
+  try {
+    const prefs = await window.rainyDesktop.getDiscordPreferences();
+    discordEnabledToggle.checked = Boolean(prefs?.enabled);
+    if (!prefs?.configured) {
+      setDiscordStatus('Falta DISCORD_CLIENT_ID en el .env.');
+    } else if (prefs?.connected) {
+      setDiscordStatus('Conectado a Discord.');
+    } else {
+      setDiscordStatus('Desconectado. Discord debe estar abierto para mostrar el estado.');
+    }
+  } catch (_) {
+    setDiscordStatus('No pude leer la configuración de Discord.');
+  }
+
+  discordSaveButton.addEventListener('click', async () => {
+    setDiscordStatus('Guardando...');
+    try {
+      const result = await window.rainyDesktop.setDiscordPreferences({
+        enabled: discordEnabledToggle.checked,
+      });
+      const prefs = result?.preferences || {};
+      if (!prefs.enabled) {
+        setDiscordStatus('Discord Rich Presence desactivado.');
+      } else if (!prefs.configured) {
+        setDiscordStatus('Activado, pero falta DISCORD_CLIENT_ID en el .env.');
+      } else if (prefs.connected) {
+        setDiscordStatus('Conectado a Discord.');
+      } else {
+        setDiscordStatus('Guardado. Abre Discord y espera unos segundos si no aparece.');
+      }
+    } catch (_) {
+      setDiscordStatus('No pude guardar Discord.');
+    }
+  });
+}
+
+void initDiscordSettings();
 
 function micDisplayLabel(device) {
   const label = String(device?.label || '').trim();

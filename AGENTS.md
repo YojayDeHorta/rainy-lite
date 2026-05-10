@@ -41,6 +41,7 @@ cp .env.example .env   # fill API keys + API_SECRET
 
 ```
 app/main/main.js       -> Electron main: windows, setup/profile, IPC, system actions, backend spawn, Spotify monitor
+                        and Discord Rich Presence lifecycle
 app/main/preload.js    -> contextBridge exposing window.rainyDesktop.* APIs
 app/renderer/index.html + renderer.js
                         -> chat UI, voice recording, endpointing, wake-word polling, action parsing
@@ -93,6 +94,7 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - Local backend loads env from `RAINY_ENV_PATH`, then `RAINY_USER_DATA_DIR/.env`, then repo `.env`.
 - `config.py` reads env once at import; changing `.env` requires backend restart.
 - Electron userData stores `profile.json`, `avatar-model.json`, `mic-preferences.json`, and `tts-preferences.json`.
+- Electron userData stores `profile.json`, `avatar-model.json`, `mic-preferences.json`, `tts-preferences.json`, and `discord-preferences.json`.
 - Avatar pose/settings and theme are in renderer `localStorage` under legacy `rainy-*` keys.
 - SQLite lives under local data dir as `rainy.sqlite`; temp audio files are served from `/temp` and cleaned by `temp_cleanup.py`.
 - Chat history is session-based. `chat_sessions` stores title, summary, summary_message_count, started_at, updated_at; `chat_messages` stores `session_id`, role, content, created_at.
@@ -112,6 +114,7 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - Session summaries also go through `memory_extractor.extract_memories_from_session_summary()` after compaction to promote stable preferences/interests into persistent memories.
 - Spotify playback uses Web API search to get `spotify:track:ID`, then opens that URI with `shell.openExternal()`.
 - Windows Spotify dance detection polls Spotify window titles via PowerShell every 800ms; avatar enters `dancing` when a non-generic title is detected.
+- Discord Rich Presence uses `discord-rpc` from Electron main. `DISCORD_CLIENT_ID` comes from `.env`; Settings stores only per-user enabled/disabled state and silently reconnects if Discord is not open.
 - Media keys use PowerShell + `user32.dll keybd_event` on Windows, AppleScript on macOS, and `playerctl` on Linux.
 - PowerShell scripts should use `-EncodedCommand` with Base64 UTF-16LE to avoid escaping issues and flashing shells.
 - Custom VRM upload copies `.vrm` files up to 120 MB into `app.getPath('userData')/models`; only user-uploaded models can be deleted.

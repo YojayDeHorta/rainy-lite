@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
 const { spawn } = require('child_process');
+const DiscordRPC = require('discord-rpc');
 
 let chatWindow;
 let avatarWindow;
@@ -15,6 +16,11 @@ let spotifyCheckInFlight = false;
 let spotifyPlaying = false;
 let spotifyTitle = '';
 let currentAvatarModel = null;
+let currentAvatarState = 'idle';
+let discordClient = null;
+let discordConnected = false;
+let discordStartTimestamp = null;
+let discordReconnectTimer = null;
 
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT_DIR = app.isPackaged
@@ -24,6 +30,7 @@ const AVATAR_MODEL_PREFS = path.join(app.getPath('userData'), 'avatar-model.json
 const PROFILE_PREFS = path.join(app.getPath('userData'), 'profile.json');
 const MIC_PREFS = path.join(app.getPath('userData'), 'mic-preferences.json');
 const TTS_PREFS = path.join(app.getPath('userData'), 'tts-preferences.json');
+const DISCORD_PREFS = path.join(app.getPath('userData'), 'discord-preferences.json');
 const DEFAULT_AVATAR_MODEL = 'rainy.vrm';
 const PERSONALITY_CUSTOM_MAX = 600;
 const MAX_CUSTOM_VRM_SIZE_BYTES = 120 * 1024 * 1024;
@@ -252,6 +259,147 @@ function writeMicPreference(deviceId) {
   const clean = String(deviceId || '').trim();
   fs.writeFileSync(MIC_PREFS, JSON.stringify({ deviceId: clean }), 'utf8');
   return { deviceId: clean };
+}
+
+function readDiscordPreference() {
+  try {
+    const raw = fs.readFileSync(DISCORD_PREFS, 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      enabled: Boolean(parsed?.enabled),
+    };
+  } catch (_) {
+    return { enabled: false };
+  }
+}
+
+function writeDiscordPreference(prefs = {}) {
+  const prev = readDiscordPreference();
+  const next = {
+    enabled: prefs.enabled !== undefined ? Boolean(prefs.enabled) : prev.enabled,
+  };
+  fs.writeFileSync(DISCORD_PREFS, JSON.stringify(next), 'utf8');
+  return next;
+}
+
+function readEnvValue(key) {
+  const candidates = [
+    path.join(path.dirname(process.execPath), '.env'),
+    path.join(app.getPath('userData'), '.env'),
+    path.join(ROOT_DIR, '.env'),
+  ];
+  for (const envPath of candidates) {
+    try {
+      if (!fs.existsSync(envPath)) continue;
+      const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eq = trimmed.indexOf('=');
+        if (eq <= 0) continue;
+        if (trimmed.slice(0, eq).trim() !== key) continue;
+        return trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, '');
+      }
+    } catch (_) {
+    }
+  }
+  return process.env[key] || '';
+}
+
+function getDiscordClientId() {
+  return readEnvValue('DISCORD_CLIENT_ID').trim();
+}
+
+function getDiscordStatus() {
+  const prefs = readDiscordPreference();
+  return { ...prefs, configured: Boolean(getDiscordClientId()), connected: discordConnected };
+}
+
+function discordPresenceText() {
+  const profile = readProfilePreference();
+  const botName = profile.botName || 'Asuka';
+  if (spotifyPlaying) {
+    return { details: `${botName} Desktop`, state: 'Bailando con Spotify' };
+  }
+  if (currentAvatarState === 'listening') {
+    return { details: `${botName} Desktop`, state: 'Escuchando al usuario' };
+  }
+  if (currentAvatarState === 'thinking') {
+    return { details: `${botName} Desktop`, state: 'Pensando una respuesta' };
+  }
+  if (currentAvatarState === 'speaking') {
+    return { details: `${botName} Desktop`, state: 'Hablando con el usuario' };
+  }
+  return { details: `${botName} Desktop`, state: 'Acompañando en el escritorio' };
+}
+
+function updateDiscordPresence() {
+  if (!discordClient || !discordConnected) return;
+  const text = discordPresenceText();
+  discordClient.setActivity({
+    details: text.details,
+    state: text.state,
+    startTimestamp: discordStartTimestamp || Date.now(),
+    instance: false,
+  }).catch(() => {});
+}
+
+function stopDiscordPresence() {
+  if (discordReconnectTimer) {
+    clearTimeout(discordReconnectTimer);
+    discordReconnectTimer = null;
+  }
+  const client = discordClient;
+  discordClient = null;
+  discordConnected = false;
+  if (client) {
+    try {
+      client.clearActivity?.();
+      client.destroy?.();
+    } catch (_) {
+    }
+  }
+}
+
+function scheduleDiscordReconnect() {
+  if (discordReconnectTimer) return;
+  discordReconnectTimer = setTimeout(() => {
+    discordReconnectTimer = null;
+    startDiscordPresence();
+  }, 15000);
+}
+
+function startDiscordPresence() {
+  const prefs = readDiscordPreference();
+  const clientId = getDiscordClientId();
+  if (!prefs.enabled || !clientId) {
+    stopDiscordPresence();
+    return;
+  }
+  if (discordClient) return;
+
+  discordStartTimestamp = discordStartTimestamp || Date.now();
+  DiscordRPC.register(clientId);
+  const client = new DiscordRPC.Client({ transport: 'ipc' });
+  discordClient = client;
+
+  client.on('ready', () => {
+    discordConnected = true;
+    updateDiscordPresence();
+  });
+  client.on('disconnected', () => {
+    discordConnected = false;
+    discordClient = null;
+    scheduleDiscordReconnect();
+  });
+
+  client.login({ clientId }).catch(() => {
+    if (discordClient === client) {
+      discordClient = null;
+      discordConnected = false;
+      scheduleDiscordReconnect();
+    }
+  });
 }
 
 function listAvatarModels() {
@@ -557,6 +705,8 @@ function applyAvatarWindowScale(settings) {
 
 function updateAvatarState(state) {
   if (!avatarWindow) createAvatarWindow();
+  currentAvatarState = String(state || 'idle').toLowerCase();
+  updateDiscordPresence();
 
   const send = () => avatarWindow?.webContents.send('rainy:avatar-state', state);
   if (avatarWindow.webContents.isLoading()) {
@@ -569,6 +719,7 @@ function updateAvatarState(state) {
 function updateAvatarSpotifyPlayback(isPlaying) {
   if (!avatarWindow) createAvatarWindow();
   spotifyPlaying = Boolean(isPlaying);
+  updateDiscordPresence();
   const send = () => avatarWindow?.webContents.send('rainy:spotify-playback', { isPlaying: spotifyPlaying });
   if (avatarWindow.webContents.isLoading()) {
     avatarWindow.webContents.once('did-finish-load', send);
@@ -901,6 +1052,7 @@ function startNormalUi() {
   createChatWindow();
   startGlobalCursorTracking();
   startSpotifyMonitor();
+  startDiscordPresence();
 }
 
 app.setName('Asuka Desktop');
@@ -935,6 +1087,7 @@ app.on('will-quit', () => {
     backendProcess.kill();
     backendProcess = null;
   }
+  stopDiscordPresence();
 });
 
 ipcMain.handle('window:minimize', (event) => {
@@ -1098,6 +1251,15 @@ ipcMain.handle('tts:set-preferences', (_event, patch) => ({
   ok: true,
   preferences: writeTtsPreference(patch || {}),
 }));
+
+ipcMain.handle('discord:get-preferences', () => getDiscordStatus());
+
+ipcMain.handle('discord:set-preferences', (_event, patch) => {
+  const prefs = writeDiscordPreference(patch || {});
+  stopDiscordPresence();
+  if (prefs.enabled && prefs.clientId) startDiscordPresence();
+  return { ok: true, preferences: getDiscordStatus() };
+});
 
 ipcMain.handle('chat:open-session', (_event, sessionId) => {
   if (!chatWindow || chatWindow.isDestroyed()) createChatWindow();
