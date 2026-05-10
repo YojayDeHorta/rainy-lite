@@ -67,12 +67,12 @@ async function syncWakewordRuntime(enabled) {
     if (!res.ok) throw new Error('wakeword');
     const data = await res.json();
     if (wakewordIntegrationStatus) {
-      if (!data.enabled) wakewordIntegrationStatus.textContent = 'Wake word desactivada.';
-      else if (data.ready) wakewordIntegrationStatus.textContent = 'Wake word activa.';
-      else wakewordIntegrationStatus.textContent = data.error || 'Wake word activada, esperando inicialización.';
+      if (!data.enabled) wakewordIntegrationStatus.textContent = 'Activación por voz desactivada.';
+      else if (data.ready) wakewordIntegrationStatus.textContent = 'Activación por voz lista.';
+      else wakewordIntegrationStatus.textContent = 'Activación por voz preparándose.';
     }
   } catch (_) {
-    if (wakewordIntegrationStatus) wakewordIntegrationStatus.textContent = 'Guardado, se aplicará al reiniciar si el backend no responde.';
+    if (wakewordIntegrationStatus) wakewordIntegrationStatus.textContent = 'Se aplicará al volver a abrir la app.';
   }
 }
 
@@ -82,11 +82,11 @@ async function initDiscordSettings() {
     const prefs = await window.rainyDesktop.getDiscordPreferences();
     discordEnabledToggle.checked = Boolean(prefs?.enabled);
     if (!prefs?.configured) {
-      setDiscordStatus('Falta DISCORD_CLIENT_ID en el .env.');
+      setDiscordStatus('El estado de Discord todavía no está disponible.');
     } else if (prefs?.connected) {
       setDiscordStatus('Conectado a Discord.');
     } else {
-      setDiscordStatus('Desconectado. Discord debe estar abierto para mostrar el estado.');
+      setDiscordStatus('Listo para mostrarse cuando Discord esté abierto.');
     }
   } catch (_) {
     setDiscordStatus('No pude leer la configuración de Discord.');
@@ -101,13 +101,13 @@ async function saveDiscordSettings() {
       });
       const prefs = result?.preferences || {};
       if (!prefs.enabled) {
-        setDiscordStatus('Discord Rich Presence desactivado.');
+        setDiscordStatus('Estado de Discord desactivado.');
       } else if (!prefs.configured) {
-        setDiscordStatus('Activado, pero falta DISCORD_CLIENT_ID en el .env.');
+        setDiscordStatus('El estado de Discord todavía no está disponible.');
       } else if (prefs.connected) {
         setDiscordStatus('Conectado a Discord.');
       } else {
-        setDiscordStatus('Guardado. Abre Discord y espera unos segundos si no aparece.');
+        setDiscordStatus('Listo para mostrarse cuando Discord esté abierto.');
       }
     } catch (_) {
       setDiscordStatus('No pude guardar Discord.');

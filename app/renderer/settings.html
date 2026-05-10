@@ -78,13 +78,13 @@
         <h2>Integraciones</h2>
         <div class="setting-item">
           <div class="setting-label">
-            <span>Wake word</span>
+            <span>Activación por voz</span>
             <label class="switch">
               <input type="checkbox" id="wakeword-enabled-toggle">
               <span class="slider"></span>
             </label>
           </div>
-          <p class="mic-hint">Activa o desactiva la escucha por palabra clave sin tocar el .env.</p>
+          <p class="mic-hint">Permite llamar al bot con una palabra de activación.</p>
           <span id="wakeword-integration-status" class="model-status"></span>
         </div>
         <div class="setting-item">
@@ -95,16 +95,17 @@
               <span class="slider"></span>
             </label>
           </div>
-          <p class="mic-hint">Permite que Asuka busque y abra canciones en Spotify. Activado por defecto.</p>
+          <p class="mic-hint">Permite que el bot busque y reproduzca música en Spotify.</p>
         </div>
         <div class="setting-item">
           <div class="setting-label">
-            <span>Discord Rich Presence</span>
+            <span>Estado de Discord</span>
             <label class="switch">
               <input type="checkbox" id="discord-enabled-toggle">
               <span class="slider"></span>
             </label>
           </div>
+          <p class="mic-hint">Muestra al bot en tu estado de Discord mientras lo usas.</p>
           <p id="discord-status" class="mic-hint"></p>
         </div>
         <div class="model-actions">
