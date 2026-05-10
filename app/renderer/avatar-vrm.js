@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
 const MODEL_URL = '../../assets/models/ls01.vrm';
+const ANIMATION_BASE_URL = '../../assets/animations/';
 let activeModelUrl = MODEL_URL;
 
 let scene;
@@ -56,6 +57,16 @@ let dragFx = {
 let look = { x: 0, y: 0 };
 let saccade = { x: 0, y: 0, nextAt: 0 };
 let currentDanceIndex = 0;
+let vrmaMixer = null;
+let activeVrmaAction = null;
+let activeVrmaUntil = 0;
+let vrmaModulePromise = null;
+const vrmaAnimationCache = new Map();
+const missingVrmaAnimations = new Set();
+
+const vrmaReactionFiles = {
+  greet: 'greet.vrma',
+};
 
 const danceRoutines = [
   function sway(t) {
@@ -414,6 +425,7 @@ export async function setAvatarModel(modelPayload) {
   const previousUrl = activeModelUrl;
   activeModelUrl = nextUrl;
   try {
+    stopVrmaAnimation();
     const nextVrm = await loadVRM(activeModelUrl);
     if (previousVrm?.scene) scene.remove(previousVrm.scene);
     currentVrm = nextVrm;
@@ -460,11 +472,15 @@ export function setAvatarState(state) {
   }
 }
 
-export function triggerAvatarReaction(name) {
-  if (!clock) return;
-  const profile = contextualReactions[String(name || '').toLowerCase()];
-  if (!profile) return;
+export async function triggerAvatarReaction(name) {
+  if (!clock) return false;
+  const reactionName = String(name || '').toLowerCase();
+  if (await playVrmaReaction(reactionName)) return true;
+
+  const profile = contextualReactions[reactionName];
+  if (!profile) return false;
   startReaction(profile, clock.elapsedTime);
+  return true;
 }
 
 export function setAvatarLipSync(value) {
@@ -704,6 +720,101 @@ function startReaction(profile, now) {
   applyExpressions();
 }
 
+function getVrmaUrlForReaction(name) {
+  const fileName = vrmaReactionFiles[name];
+  if (!fileName) return '';
+  return `${ANIMATION_BASE_URL}${fileName}`;
+}
+
+async function getVrmaModule() {
+  if (!vrmaModulePromise) {
+    vrmaModulePromise = import('@pixiv/three-vrm-animation').catch(() => null);
+  }
+  return vrmaModulePromise;
+}
+
+async function loadVrmaAnimation(url) {
+  if (!url || missingVrmaAnimations.has(url)) return null;
+  if (vrmaAnimationCache.has(url)) return vrmaAnimationCache.get(url);
+
+  try {
+    const vrmaModule = await getVrmaModule();
+    if (!vrmaModule?.VRMAnimationLoaderPlugin) return null;
+    const loader = new GLTFLoader();
+    loader.register((parser) => new vrmaModule.VRMAnimationLoaderPlugin(parser));
+    const gltf = await loader.loadAsync(url);
+    const vrmAnimation = gltf.userData?.vrmAnimations?.[0] || null;
+    if (!vrmAnimation) throw new Error('VRMA loaded without VRM animation data.');
+    vrmaAnimationCache.set(url, vrmAnimation);
+    return vrmAnimation;
+  } catch (error) {
+    console.warn(`No pude cargar la animacion VRMA: ${url}`, error);
+    missingVrmaAnimations.add(url);
+    return null;
+  }
+}
+
+async function playVrmaReaction(name) {
+  if (!currentVrm?.scene) return false;
+  const url = getVrmaUrlForReaction(name);
+  if (!url) return false;
+
+  const vrmAnimation = await loadVrmaAnimation(url);
+  if (!vrmAnimation || !currentVrm?.scene) return false;
+
+  stopVrmaAnimation();
+  const vrmaModule = await getVrmaModule();
+  if (!vrmaModule?.createVRMAnimationClip) return false;
+  vrmaMixer = new THREE.AnimationMixer(currentVrm.scene);
+  const clip = vrmaModule.createVRMAnimationClip(vrmAnimation, currentVrm);
+  normalizeVrmaClipRootMotion(clip);
+  const action = vrmaMixer.clipAction(clip);
+  action.loop = THREE.LoopOnce;
+  action.clampWhenFinished = true;
+  action.reset().fadeIn(0.08).play();
+  activeVrmaAction = action;
+  activeVrmaUntil = clock.elapsedTime + Math.max(0.1, clip.duration);
+  return true;
+}
+
+function updateVrmaAnimation(delta, elapsed) {
+  if (!vrmaMixer || !activeVrmaAction) return;
+  vrmaMixer.update(delta);
+  if (elapsed < activeVrmaUntil) return;
+  stopVrmaAnimation();
+}
+
+function stopVrmaAnimation() {
+  if (activeVrmaAction) {
+    activeVrmaAction.stop();
+  }
+  if (vrmaMixer) {
+    vrmaMixer.stopAllAction();
+    vrmaMixer.uncacheRoot(currentVrm?.scene);
+  }
+  vrmaMixer = null;
+  activeVrmaAction = null;
+  activeVrmaUntil = 0;
+}
+
+function normalizeVrmaClipRootMotion(clip) {
+  if (!clip?.tracks?.length) return;
+  for (const track of clip.tracks) {
+    if (!(track instanceof THREE.VectorKeyframeTrack)) continue;
+    if (!String(track.name || '').endsWith('.position')) continue;
+    const values = track.values;
+    if (!values || values.length < 3) continue;
+    const offsetX = values[0];
+    const offsetY = values[1];
+    const offsetZ = values[2];
+    for (let i = 0; i < values.length; i += 3) {
+      values[i] -= offsetX;
+      values[i + 1] -= offsetY;
+      values[i + 2] -= offsetZ;
+    }
+  }
+}
+
 function loadVRM(url) {
   return new Promise((resolve, reject) => {
     const loader = new GLTFLoader();
@@ -754,6 +865,7 @@ function animate() {
   updateBlink(elapsed);
   updateLip(delta);
   updateDragVisuals(delta);
+  updateVrmaAnimation(delta, elapsed);
   currentVrm?.update(delta);
   renderer.render(scene, camera);
 }
