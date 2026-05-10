@@ -109,6 +109,7 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - Chat UI has a `Nuevo` button that calls `POST /api/chat/sessions` and clears the visible chat. Settings has a Memoria tab that lists/opens/deletes sessions and memories.
 - Session titles are generated in the background after 4 messages and refreshed every 16 messages. Opening an old session calls `POST /api/chat/sessions/{id}/activate`, then IPC `chat:open-session` sends `rainy:open-chat-session` to the chat renderer.
 - User messages go through `memory_extractor.py` for conservative memories such as `me gusta X`, `prefiero que X`, `recuerda que X`, and names. It intentionally ignores secrets/tokens/password-like content.
+- Session summaries also go through `memory_extractor.extract_memories_from_session_summary()` after compaction to promote stable preferences/interests into persistent memories.
 - Spotify playback uses Web API search to get `spotify:track:ID`, then opens that URI with `shell.openExternal()`.
 - Windows Spotify dance detection polls Spotify window titles via PowerShell every 800ms; avatar enters `dancing` when a non-generic title is detected.
 - Media keys use PowerShell + `user32.dll keybd_event` on Windows, AppleScript on macOS, and `playerctl` on Linux.

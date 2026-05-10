@@ -125,6 +125,8 @@ Every 16 messages, the backend refreshes a compact summary of the current sessio
 
 Persistent memories are stored separately from chat history and are available through `/api/memory`. Asuka conservatively extracts simple stable facts from user messages such as “me gusta X”, “prefiero que X”, “recuerda que X”, or “me llamo X”, while ignoring password/token/secret-like content.
 
+After a session summary is generated, the backend also extracts stable preferences from that summary into persistent memories, for example music tastes or recurring interests. These memories remain visible and deletable in Settings → Memoria.
+
 Use the chat titlebar button “Nuevo” to start a fresh conversation manually. The settings window includes a “Memoria” tab to review/delete recent sessions and persistent memories.
 
 After a few messages, Asuka renames the session automatically with a short topic-based title. In Settings → Memoria, use “Abrir” to recover an older session in the chat.

@@ -175,6 +175,8 @@ async def update_session_metadata_if_needed(session_id: int):
     summary = await ai_core.summarize_conversation(session.get("summary") or "", messages)
     if summary:
         memory.update_session_summary(session_id, summary, message_count)
+        for item in memory_extractor.extract_memories_from_session_summary(summary):
+            memory.add_memory(item)
 
 
 @app.get("/api/personality/presets")
