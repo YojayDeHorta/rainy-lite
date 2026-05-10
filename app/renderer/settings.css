@@ -37,8 +37,9 @@ body {
   cursor: pointer;
   font-size: 0.9rem;
   line-height: 1;
-  z-index: 20;
-  -webkit-app-region: no-drag;
+  z-index: 1000;
+  pointer-events: auto;
+  -webkit-app-region: no-drag !important;
   transition: all 0.2s;
 }
 
