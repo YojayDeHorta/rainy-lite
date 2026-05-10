@@ -31,6 +31,7 @@ def extract_memories_from_user_message(message: str) -> list[str]:
         (r"\bme gusta[n]? (.+)$", lambda v: f"Al usuario le gusta {v}"),
         (r"\bme encanta[n]? (.+)$", lambda v: f"Al usuario le encanta {v}"),
         (r"\bprefiero que (.+)$", lambda v: f"El usuario prefiere que {v}"),
+        (r"\bme gustar[ií]a que (.+)$", lambda v: f"El usuario prefiere que {v}"),
         (r"\bno me gusta[n]? (.+)$", lambda v: f"Al usuario no le gusta {v}"),
         (r"\bmi nombre es (.+)$", lambda v: f"El usuario se llama {v}"),
         (r"\bme llamo (.+)$", lambda v: f"El usuario se llama {v}"),
