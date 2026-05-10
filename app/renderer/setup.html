@@ -88,6 +88,16 @@
                   </div>
                 </div>
               </label>
+
+              <label class="privacy-consent">
+                <input id="privacy-consent-checkbox" type="checkbox" />
+                <span>
+                  Acepto la
+                  <button type="button" class="text-link" data-policy-modal="privacy">Politica de privacidad</button>
+                  y la
+                  <button type="button" class="text-link" data-policy-modal="services">Configuracion de servicios</button>.
+                </span>
+              </label>
             </div>
 
             <div class="form-footer">
@@ -117,6 +127,13 @@
 
       </div>
     </main>
+    <div id="policy-modal" class="policy-modal-backdrop" hidden>
+      <section class="policy-modal" role="dialog" aria-modal="true" aria-labelledby="policy-modal-title">
+        <button id="policy-modal-close" type="button" class="policy-close" title="Cerrar">x</button>
+        <h2 id="policy-modal-title"></h2>
+        <div id="policy-modal-body" class="policy-modal-body"></div>
+      </section>
+    </div>
     <script src="setup.js" type="module"></script>
   </body>
 </html>

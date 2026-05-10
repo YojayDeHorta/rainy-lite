@@ -126,7 +126,6 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 ## Gotchas
 
 - `.venv/`, `node_modules/`, `dist/`, local SQLite, `temp/`, root `.env`, and `proxy/.env` are gitignored.
-- Portable packaging now requires a root `.env` at build time because `build.extraFiles` copies it beside the `.exe`; remove that entry for public builds or use a non-secret `.env`.
 - `.env.example` recommends proxy mode, but `config.py` still supports local dev keys for Gemini/Groq/OpenAI/Ollama/Spotify if `PROXY_URL` is empty.
 - Do not commit API keys or generated SQLite/temp audio files.
 - `requests` is the repo's HTTP client in backend/proxy; avoid adding `httpx` or `aiohttp` without a concrete reason.

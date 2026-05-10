@@ -48,6 +48,8 @@ const DEFAULT_PROFILE = {
   setupCompleted: false,
   personalityPreset: 'calida_nocturna',
   personalityCustom: '',
+  privacyAccepted: false,
+  privacyAcceptedAt: '',
 };
 
 function normalizePersonalityForSave(candidate, existing = {}) {
@@ -248,6 +250,8 @@ function readProfilePreference() {
       setupCompleted: Boolean(parsed?.setupCompleted),
       personalityPreset,
       personalityCustom,
+      privacyAccepted: Boolean(parsed?.privacyAccepted),
+      privacyAcceptedAt: String(parsed?.privacyAcceptedAt || ''),
     };
   } catch (_) {
     return { ...DEFAULT_PROFILE };
@@ -275,6 +279,10 @@ function writeProfilePreference(profile) {
     setupCompleted: Boolean(profile?.setupCompleted),
     personalityPreset,
     personalityCustom,
+    privacyAccepted: Boolean(profile?.privacyAccepted),
+    privacyAcceptedAt: profile?.privacyAccepted
+      ? String(profile?.privacyAcceptedAt || new Date().toISOString())
+      : '',
   };
   fs.writeFileSync(PROFILE_PREFS, JSON.stringify(clean), 'utf8');
   return clean;
@@ -1493,6 +1501,8 @@ ipcMain.handle('profile:save', (_event, payload) => {
     setupCompleted: true,
     personalityPreset: personalityNorm.personalityPreset,
     personalityCustom: personalityNorm.personalityCustom,
+    privacyAccepted: Boolean(payload?.privacyAccepted),
+    privacyAcceptedAt: payload?.privacyAcceptedAt || new Date().toISOString(),
   });
   try {
     writeAvatarModelPreference(selected.name);
@@ -1518,6 +1528,8 @@ ipcMain.handle('profile:patch', (_event, patch) => {
     userName: existing.userName,
     model: existing.model,
     setupCompleted: existing.setupCompleted,
+    privacyAccepted: existing.privacyAccepted,
+    privacyAcceptedAt: existing.privacyAcceptedAt,
     personalityPreset:
       patch && patch.personalityPreset !== undefined && patch.personalityPreset !== null
         ? patch.personalityPreset

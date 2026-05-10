@@ -27,6 +27,32 @@ const statusEl = document.getElementById('status');
 const rollButton = document.getElementById('bot-name-roll');
 const previewEl = document.getElementById('vrm-preview');
 const previewStatusEl = document.getElementById('preview-status');
+const privacyConsentCheckbox = document.getElementById('privacy-consent-checkbox');
+const policyModal = document.getElementById('policy-modal');
+const policyModalTitle = document.getElementById('policy-modal-title');
+const policyModalBody = document.getElementById('policy-modal-body');
+const policyModalClose = document.getElementById('policy-modal-close');
+
+const POLICY_TEXT = {
+  privacy: {
+    title: 'Politica de privacidad',
+    paragraphs: [
+      'La aplicacion guarda informacion local para funcionar, como tu perfil, preferencias, conversaciones, memorias y configuracion.',
+      'Algunas funciones pueden procesar texto o audio para responder, transcribir, ejecutar acciones solicitadas o mejorar la experiencia del asistente.',
+      'La aplicacion no esta pensada para recopilar datos con fines publicitarios. Puedes revisar y borrar conversaciones o memorias desde Configuracion cuando corresponda.',
+      'Evita compartir contrasenas, claves privadas, tokens u otra informacion sensible dentro de conversaciones o configuraciones.',
+    ],
+  },
+  services: {
+    title: 'Configuracion de servicios',
+    paragraphs: [
+      'Algunas funciones pueden depender de servicios externos configurados por el usuario, por la distribucion o por el entorno donde se ejecute la aplicacion.',
+      'Esto puede incluir respuestas del asistente, transcripcion de voz, busqueda de musica, estado de presencia, voz, acciones integradas u otras funciones opcionales.',
+      'Cuando una funcion externa esta activa, la aplicacion puede enviar el contenido necesario para completar esa accion. Las funciones disponibles dependen de la configuracion instalada.',
+      'Puedes cambiar opciones relacionadas desde Configuracion cuando esten disponibles.',
+    ],
+  },
+};
 
 const BOT_NAME_POOL = [
   'Luna', 'Yuki', 'Hana', 'Mika', 'Neko', 'Sora', 'Kira', 'Mio', 'Rin', 'Aoi',
@@ -127,7 +153,26 @@ function validateForm() {
   const model = modelSelect.value;
   const preset = personalityPresetSelect?.value || '';
   const customOk = preset !== 'custom' || personalityCustomInput?.value.trim();
-  continueButton.disabled = !(bot && user && model && customOk);
+  const privacyOk = privacyConsentCheckbox?.checked;
+  continueButton.disabled = !(bot && user && model && customOk && privacyOk);
+}
+
+function openPolicyModal(kind) {
+  const content = POLICY_TEXT[kind];
+  if (!content || !policyModal || !policyModalTitle || !policyModalBody) return;
+  policyModalTitle.textContent = content.title;
+  policyModalBody.innerHTML = '';
+  for (const text of content.paragraphs) {
+    const p = document.createElement('p');
+    p.textContent = text;
+    policyModalBody.appendChild(p);
+  }
+  policyModal.hidden = false;
+  policyModalClose?.focus();
+}
+
+function closePolicyModal() {
+  if (policyModal) policyModal.hidden = true;
 }
 
 function getModelUrl(name) {
@@ -201,6 +246,9 @@ async function loadSetupData() {
   if (personalityCustomInput) {
     personalityCustomInput.value = String(profile?.personalityCustom || '').slice(0, PERSONALITY_CUSTOM_MAX);
   }
+  if (privacyConsentCheckbox) {
+    privacyConsentCheckbox.checked = Boolean(profile?.privacyAccepted);
+  }
   syncPersonalityCustomVisibility();
   updatePersonalityCharCount();
 
@@ -221,6 +269,8 @@ continueButton.addEventListener('click', async () => {
     model: modelSelect.value,
     personalityPreset: personalityPresetSelect?.value || 'calida_nocturna',
     personalityCustom: personalityCustomInput?.value.trim() || '',
+    privacyAccepted: Boolean(privacyConsentCheckbox?.checked),
+    privacyAcceptedAt: new Date().toISOString(),
   };
   setStatus('Guardando configuración...');
   continueButton.disabled = true;
@@ -252,6 +302,17 @@ userNameInput.addEventListener('input', validateForm);
 modelSelect.addEventListener('change', () => {
   validateForm();
   void refreshPreview();
+});
+privacyConsentCheckbox?.addEventListener('change', validateForm);
+document.querySelectorAll('[data-policy-modal]').forEach((button) => {
+  button.addEventListener('click', () => openPolicyModal(button.dataset.policyModal));
+});
+policyModalClose?.addEventListener('click', closePolicyModal);
+policyModal?.addEventListener('click', (event) => {
+  if (event.target === policyModal) closePolicyModal();
+});
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && policyModal && !policyModal.hidden) closePolicyModal();
 });
 
 window.addEventListener('beforeunload', () => {
