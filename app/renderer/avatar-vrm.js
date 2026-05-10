@@ -785,15 +785,15 @@ function updateIdlePose(elapsed) {
   }
   if (rightUpperArm) {
     rightUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion;
-    rightUpperArm.rotation.z = -1.22 + armAbRad - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing + reactionArmWave * 0.85;
-    rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion - reactionArmWave * 0.28;
+    rightUpperArm.rotation.z = -1.22 + armAbRad - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing - reactionArmWave * 1.05;
+    rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion + reactionArmWave * 0.22;
   }
   if (leftLowerArm) {
     leftLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 0.55) * 0.014 * motion + danceForearm;
     leftLowerArm.rotation.y = 0.04 + Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion;
   }
   if (rightLowerArm) {
-    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion - danceForearm - reactionArmWave * 0.75;
+    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion - danceForearm + reactionArmWave * 0.95;
     rightLowerArm.rotation.y = -0.04 - Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion;
   }
   if (leftHand) {
@@ -802,8 +802,8 @@ function updateIdlePose(elapsed) {
     leftHand.rotation.z = 0.05 + Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion + danceHandZ;
   }
   if (rightHand) {
-    rightHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 1.6) * 0.01 * motion + reactionArmWave * 0.55;
-    rightHand.rotation.y = -0.07 - Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion + reactionArmWave * 1.15;
+    rightHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 1.6) * 0.01 * motion - reactionArmWave * 0.35;
+    rightHand.rotation.y = -0.07 - Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion - reactionArmWave * 0.85;
     rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion - danceHandZ + reactionArmWave * Math.sin(elapsed * 18) * 0.42;
   }
   applyRelaxedFingers(elapsed, motion);
