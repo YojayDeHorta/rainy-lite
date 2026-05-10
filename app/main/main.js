@@ -1,4 +1,4 @@
-const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, net, screen, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, net, screen, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -9,6 +9,7 @@ let chatWindow;
 let avatarWindow;
 let settingsWindow;
 let setupWindow;
+let tray;
 let backendProcess;
 let cursorTrackingId;
 let spotifyMonitorId;
@@ -32,6 +33,7 @@ const PROFILE_PREFS = path.join(app.getPath('userData'), 'profile.json');
 const MIC_PREFS = path.join(app.getPath('userData'), 'mic-preferences.json');
 const TTS_PREFS = path.join(app.getPath('userData'), 'tts-preferences.json');
 const DISCORD_PREFS = path.join(app.getPath('userData'), 'discord-preferences.json');
+const INTEGRATION_PREFS = path.join(app.getPath('userData'), 'integration-preferences.json');
 const DEFAULT_AVATAR_MODEL = 'rainy.vrm';
 const PERSONALITY_CUSTOM_MAX = 600;
 const MAX_CUSTOM_VRM_SIZE_BYTES = 120 * 1024 * 1024;
@@ -114,6 +116,11 @@ function startBackend() {
   const candidates = getPythonLaunchCandidates(BACKEND_ROOT_DIR);
   const userDataDir = app.getPath('userData');
   const portableEnvPath = path.join(path.dirname(process.execPath), '.env');
+  const integrationPrefs = readIntegrationPreference();
+  const integrationEnv = {};
+  if (integrationPrefs.wakewordEnabled !== null) {
+    integrationEnv.WAKEWORD_ENABLED = integrationPrefs.wakewordEnabled ? '1' : '0';
+  }
 
   const tryLaunch = (index) => {
     if (index >= candidates.length) {
@@ -131,6 +138,7 @@ function startBackend() {
           PYTHONUNBUFFERED: '1',
           RAINY_USER_DATA_DIR: userDataDir,
           RAINY_ENV_PATH: portableEnvPath,
+          ...integrationEnv,
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       },
@@ -281,6 +289,29 @@ function writeMicPreference(deviceId) {
   const clean = String(deviceId || '').trim();
   fs.writeFileSync(MIC_PREFS, JSON.stringify({ deviceId: clean }), 'utf8');
   return { deviceId: clean };
+}
+
+function readIntegrationPreference() {
+  try {
+    const raw = fs.readFileSync(INTEGRATION_PREFS, 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      wakewordEnabled: parsed?.wakewordEnabled === undefined ? null : Boolean(parsed.wakewordEnabled),
+      spotifyActionsEnabled: parsed?.spotifyActionsEnabled === undefined ? true : Boolean(parsed.spotifyActionsEnabled),
+    };
+  } catch (_) {
+    return { wakewordEnabled: null, spotifyActionsEnabled: true };
+  }
+}
+
+function writeIntegrationPreference(prefs = {}) {
+  const prev = readIntegrationPreference();
+  const next = {
+    wakewordEnabled: prefs.wakewordEnabled === undefined ? prev.wakewordEnabled : Boolean(prefs.wakewordEnabled),
+    spotifyActionsEnabled: prefs.spotifyActionsEnabled === undefined ? prev.spotifyActionsEnabled : Boolean(prefs.spotifyActionsEnabled),
+  };
+  fs.writeFileSync(INTEGRATION_PREFS, JSON.stringify(next), 'utf8');
+  return next;
 }
 
 function readDiscordPreference() {
@@ -668,6 +699,56 @@ function toggleWindow(win) {
   win.isVisible() ? win.hide() : win.show();
 }
 
+function showChatWindow() {
+  if (!chatWindow || chatWindow.isDestroyed()) createChatWindow();
+  chatWindow.show();
+  chatWindow.focus();
+}
+
+function showAvatarWindow() {
+  if (!avatarWindow || avatarWindow.isDestroyed()) createAvatarWindow();
+  avatarWindow.show();
+}
+
+function createTray() {
+  if (tray) return;
+  const iconPath = fs.existsSync(APP_ICON_PNG) ? APP_ICON_PNG : undefined;
+  if (!iconPath) return;
+
+  tray = new Tray(iconPath);
+  tray.setToolTip('Asuka Desktop');
+
+  const refreshMenu = () => {
+    const chatVisible = Boolean(chatWindow && !chatWindow.isDestroyed() && chatWindow.isVisible());
+    const avatarVisible = Boolean(avatarWindow && !avatarWindow.isDestroyed() && avatarWindow.isVisible());
+    const menu = Menu.buildFromTemplate([
+      {
+        label: chatVisible ? 'Ocultar chat' : 'Mostrar chat',
+        click: () => toggleWindow(chatWindow || createChatWindow()),
+      },
+      {
+        label: avatarVisible ? 'Ocultar avatar' : 'Mostrar avatar',
+        click: () => toggleWindow(avatarWindow || createAvatarWindow()),
+      },
+      { type: 'separator' },
+      {
+        label: 'Abrir configuracion',
+        click: () => createSettingsWindow(),
+      },
+      { type: 'separator' },
+      {
+        label: 'Salir',
+        click: () => app.quit(),
+      },
+    ]);
+    tray.setContextMenu(menu);
+  };
+
+  tray.on('click', () => showChatWindow());
+  tray.on('right-click', refreshMenu);
+  refreshMenu();
+}
+
 function sendToAvatar(payload) {
   if (!avatarWindow) createAvatarWindow();
   if (!avatarWindow.isVisible()) avatarWindow.show();
@@ -863,12 +944,14 @@ async function executeAction(action) {
   }
 
   if (type === 'SPOTIFY_SEARCH') {
+    if (!readIntegrationPreference().spotifyActionsEnabled) throw new Error('Las acciones de Spotify estan desactivadas en Integraciones.');
     if (!payload) throw new Error('Falta la busqueda de Spotify.');
     await openSpotifySearch(payload);
     return { ok: true, message: `Busqueda abierta en Spotify: ${payload}` };
   }
 
   if (type === 'SPOTIFY_SEARCH_AND_PLAY') {
+    if (!readIntegrationPreference().spotifyActionsEnabled) throw new Error('Las acciones de Spotify estan desactivadas en Integraciones.');
     if (!payload) throw new Error('Falta la busqueda de Spotify.');
     const track = await searchSpotifyTrack(payload);
     await shell.openExternal(track.uri);
@@ -1082,6 +1165,7 @@ app.setName('Asuka Desktop');
 
 app.whenReady().then(() => {
   startBackend();
+  createTray();
   if (isSetupCompleted()) startNormalUi();
   else createSetupWindow();
 
@@ -1110,6 +1194,8 @@ app.on('will-quit', () => {
     backendProcess.kill();
     backendProcess = null;
   }
+  tray?.destroy();
+  tray = null;
   stopDiscordPresence();
 });
 
@@ -1280,9 +1366,16 @@ ipcMain.handle('discord:get-preferences', () => getDiscordStatus());
 ipcMain.handle('discord:set-preferences', (_event, patch) => {
   const prefs = writeDiscordPreference(patch || {});
   stopDiscordPresence();
-  if (prefs.enabled && prefs.clientId) startDiscordPresence();
+  if (prefs.enabled && getDiscordClientId()) startDiscordPresence();
   return { ok: true, preferences: getDiscordStatus() };
 });
+
+ipcMain.handle('integrations:get-preferences', () => readIntegrationPreference());
+
+ipcMain.handle('integrations:set-preferences', (_event, patch) => ({
+  ok: true,
+  preferences: writeIntegrationPreference(patch || {}),
+}));
 
 ipcMain.handle('chat:open-session', (_event, sessionId) => {
   if (!chatWindow || chatWindow.isDestroyed()) createChatWindow();

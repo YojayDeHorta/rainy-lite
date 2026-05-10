@@ -47,4 +47,6 @@ contextBridge.exposeInMainWorld('rainyDesktop', {
   setTtsPreferences: (prefs) => ipcRenderer.invoke('tts:set-preferences', prefs),
   getDiscordPreferences: () => ipcRenderer.invoke('discord:get-preferences'),
   setDiscordPreferences: (prefs) => ipcRenderer.invoke('discord:set-preferences', prefs),
+  getIntegrationPreferences: () => ipcRenderer.invoke('integrations:get-preferences'),
+  setIntegrationPreferences: (prefs) => ipcRenderer.invoke('integrations:set-preferences', prefs),
 });

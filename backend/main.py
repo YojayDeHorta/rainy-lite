@@ -36,6 +36,10 @@ class SessionRequest(BaseModel):
     title: str | None = None
 
 
+class WakewordEnabledRequest(BaseModel):
+    enabled: bool
+
+
 app = FastAPI(title="Asuka Desktop Local API")
 
 app.add_middleware(
@@ -117,6 +121,13 @@ def wakeword_consume():
     if not status.ready:
         return {"triggered": False, "ready": False, "enabled": True, "error": status.error}
     return {"triggered": wakeword_service.consume(), "ready": True, "enabled": True}
+
+
+@app.post("/api/wakeword/enabled")
+def wakeword_set_enabled(req: WakewordEnabledRequest):
+    wakeword_service.set_enabled(req.enabled)
+    status = wakeword_service.status()
+    return {"enabled": status.enabled, "ready": status.ready, "error": status.error}
 
 
 @app.post("/api/chat")

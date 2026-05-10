@@ -20,6 +20,7 @@
     <aside class="sidebar">
       <div class="brand">Configuración</div>
       <button class="tab-button active" data-tab="general">General</button>
+      <button class="tab-button" data-tab="integrations">Integraciones</button>
       <button class="tab-button" data-tab="personality">Personalidad</button>
       <button class="tab-button" data-tab="memory">Memoria</button>
       <button class="tab-button" data-tab="avatar">Avatar</button>
@@ -63,19 +64,6 @@
           <p id="avatar-window-status" class="mic-hint"></p>
         </div>
         <div class="setting-item">
-          <div class="setting-label">
-            <span>Discord Rich Presence</span>
-            <label class="switch">
-              <input type="checkbox" id="discord-enabled-toggle">
-              <span class="slider"></span>
-            </label>
-          </div>
-          <div class="model-actions">
-            <button type="button" id="discord-save-button" class="btn-secondary">Guardar Discord</button>
-          </div>
-          <p id="discord-status" class="mic-hint"></p>
-        </div>
-        <div class="setting-item">
           <div class="setting-label">Microfono para voz</div>
           <select id="mic-device-select" class="model-select"></select>
           <div class="model-actions mic-actions">
@@ -83,6 +71,45 @@
             <button type="button" id="mic-permit-button" class="btn-secondary">Permitir y refrescar</button>
           </div>
           <p id="mic-hint" class="mic-hint"></p>
+        </div>
+      </section>
+
+      <section id="tab-integrations" class="tab-content">
+        <h2>Integraciones</h2>
+        <div class="setting-item">
+          <div class="setting-label">
+            <span>Wake word</span>
+            <label class="switch">
+              <input type="checkbox" id="wakeword-enabled-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="mic-hint">Activa o desactiva la escucha por palabra clave sin tocar el .env.</p>
+          <span id="wakeword-integration-status" class="model-status"></span>
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">
+            <span>Acciones de Spotify</span>
+            <label class="switch">
+              <input type="checkbox" id="spotify-actions-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="mic-hint">Permite que Asuka busque y abra canciones en Spotify. Activado por defecto.</p>
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">
+            <span>Discord Rich Presence</span>
+            <label class="switch">
+              <input type="checkbox" id="discord-enabled-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p id="discord-status" class="mic-hint"></p>
+        </div>
+        <div class="model-actions">
+          <button type="button" id="integrations-save-button" class="btn-secondary">Guardar integraciones</button>
+          <span id="integrations-status" class="model-status"></span>
         </div>
       </section>
 

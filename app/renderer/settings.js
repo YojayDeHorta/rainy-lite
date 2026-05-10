@@ -6,6 +6,7 @@ const settingsSectionTitle = document.getElementById('settings-section-title');
 
 const tabTitles = {
   general: 'General',
+  integrations: 'Integraciones',
   personality: 'Personalidad',
   memory: 'Memoria e historial',
   avatar: 'Ajustes del Avatar',
@@ -42,13 +43,41 @@ const avatarWindowStatus = document.getElementById('avatar-window-status');
 const discordEnabledToggle = document.getElementById('discord-enabled-toggle');
 const discordSaveButton = document.getElementById('discord-save-button');
 const discordStatus = document.getElementById('discord-status');
+const wakewordEnabledToggle = document.getElementById('wakeword-enabled-toggle');
+const spotifyActionsToggle = document.getElementById('spotify-actions-toggle');
+const integrationsSaveButton = document.getElementById('integrations-save-button');
+const integrationsStatus = document.getElementById('integrations-status');
+const wakewordIntegrationStatus = document.getElementById('wakeword-integration-status');
 
 function setDiscordStatus(text) {
   if (discordStatus) discordStatus.textContent = text || '';
 }
 
+function setIntegrationsStatus(text) {
+  if (integrationsStatus) integrationsStatus.textContent = text || '';
+}
+
+async function syncWakewordRuntime(enabled) {
+  try {
+    const res = await fetch('http://127.0.0.1:8765/api/wakeword/enabled', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) throw new Error('wakeword');
+    const data = await res.json();
+    if (wakewordIntegrationStatus) {
+      if (!data.enabled) wakewordIntegrationStatus.textContent = 'Wake word desactivada.';
+      else if (data.ready) wakewordIntegrationStatus.textContent = 'Wake word activa.';
+      else wakewordIntegrationStatus.textContent = data.error || 'Wake word activada, esperando inicialización.';
+    }
+  } catch (_) {
+    if (wakewordIntegrationStatus) wakewordIntegrationStatus.textContent = 'Guardado, se aplicará al reiniciar si el backend no responde.';
+  }
+}
+
 async function initDiscordSettings() {
-  if (!discordEnabledToggle || !discordSaveButton) return;
+  if (!discordEnabledToggle) return;
   try {
     const prefs = await window.rainyDesktop.getDiscordPreferences();
     discordEnabledToggle.checked = Boolean(prefs?.enabled);
@@ -62,8 +91,9 @@ async function initDiscordSettings() {
   } catch (_) {
     setDiscordStatus('No pude leer la configuración de Discord.');
   }
+}
 
-  discordSaveButton.addEventListener('click', async () => {
+async function saveDiscordSettings() {
     setDiscordStatus('Guardando...');
     try {
       const result = await window.rainyDesktop.setDiscordPreferences({
@@ -82,10 +112,42 @@ async function initDiscordSettings() {
     } catch (_) {
       setDiscordStatus('No pude guardar Discord.');
     }
+}
+
+async function initIntegrationSettings() {
+  if (!wakewordEnabledToggle || !spotifyActionsToggle || !integrationsSaveButton) return;
+  try {
+    const prefs = await window.rainyDesktop.getIntegrationPreferences();
+    if (prefs?.wakewordEnabled === null || prefs?.wakewordEnabled === undefined) {
+      const res = await fetch('http://127.0.0.1:8765/api/wakeword/status');
+      const data = res.ok ? await res.json() : {};
+      wakewordEnabledToggle.checked = Boolean(data.enabled);
+    } else {
+      wakewordEnabledToggle.checked = Boolean(prefs.wakewordEnabled);
+    }
+    spotifyActionsToggle.checked = prefs?.spotifyActionsEnabled !== false;
+  } catch (_) {
+    spotifyActionsToggle.checked = true;
+  }
+
+  integrationsSaveButton.addEventListener('click', async () => {
+    setIntegrationsStatus('Guardando...');
+    try {
+      await window.rainyDesktop.setIntegrationPreferences({
+        wakewordEnabled: wakewordEnabledToggle.checked,
+        spotifyActionsEnabled: spotifyActionsToggle.checked,
+      });
+      await syncWakewordRuntime(wakewordEnabledToggle.checked);
+      await saveDiscordSettings();
+      setIntegrationsStatus('Guardado.');
+    } catch (_) {
+      setIntegrationsStatus('No pude guardar integraciones.');
+    }
   });
 }
 
 void initDiscordSettings();
+void initIntegrationSettings();
 
 function setAvatarWindowStatus(text) {
   if (avatarWindowStatus) avatarWindowStatus.textContent = text || '';

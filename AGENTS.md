@@ -40,13 +40,14 @@ cp .env.example .env   # fill API keys + API_SECRET
 ## Architecture
 
 ```
-app/main/main.js       -> Electron main: windows, setup/profile, IPC, system actions, backend spawn, Spotify monitor
+app/main/main.js       -> Electron main: windows, tray icon, setup/profile, IPC, system actions, backend spawn, Spotify monitor
                         and Discord Rich Presence lifecycle
 app/main/preload.js    -> contextBridge exposing window.rainyDesktop.* APIs
 app/renderer/index.html + renderer.js
                         -> chat UI, voice recording, endpointing, wake-word polling, action parsing
 app/renderer/avatar.*  -> transparent avatar window, VRM animation, lip sync, wake-word indicator, Spotify dancing
 app/renderer/settings.*-> settings window: theme, mic, personality, memory/sessions, avatar pose/model, TTS prefs
+                        and integrations toggles
 app/renderer/setup.*   -> first-run setup: bot/user names, personality, VRM model preview
 app/renderer/setup-vrm-preview.js
                         -> shared Three.js/VRM preview used by setup/settings
@@ -114,6 +115,7 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - Session summaries also go through `memory_extractor.extract_memories_from_session_summary()` after compaction to promote stable preferences/interests into persistent memories.
 - Spotify playback uses Web API search to get `spotify:track:ID`, then opens that URI with `shell.openExternal()`.
 - Windows Spotify dance detection polls Spotify window titles via PowerShell every 800ms; avatar enters `dancing` when a non-generic title is detected.
+- Integrations toggles live in Settings → Integraciones. Electron stores `wakewordEnabled` and `spotifyActionsEnabled` in `integration-preferences.json`; Spotify actions are blocked in `executeAction()` when disabled.
 - Discord Rich Presence uses `discord-rpc` from Electron main. `DISCORD_CLIENT_ID` comes from `.env`; Settings stores only per-user enabled/disabled state and silently reconnects if Discord is not open.
 - Media keys use PowerShell + `user32.dll keybd_event` on Windows, AppleScript on macOS, and `playerctl` on Linux.
 - PowerShell scripts should use `-EncodedCommand` with Base64 UTF-16LE to avoid escaping issues and flashing shells.

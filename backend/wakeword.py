@@ -145,6 +145,26 @@ class WakewordService:
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=1.5)
 
+    def set_enabled(self, enabled: bool):
+        next_enabled = bool(enabled)
+        if next_enabled == self._enabled:
+            return
+        self._enabled = next_enabled
+        if not next_enabled:
+            self.stop()
+            self._ready = False
+            self._backend = "disabled"
+            self._error = ""
+            while True:
+                try:
+                    self._events.get_nowait()
+                except queue.Empty:
+                    break
+            return
+        self._ready = False
+        self._error = ""
+        self.start()
+
     def status(self) -> WakewordStatus:
         return WakewordStatus(
             enabled=self._enabled,
