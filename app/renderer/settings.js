@@ -37,6 +37,8 @@ const micDeviceSelect = document.getElementById('mic-device-select');
 const micRefreshButton = document.getElementById('mic-refresh-button');
 const micPermitButton = document.getElementById('mic-permit-button');
 const micHint = document.getElementById('mic-hint');
+const avatarAlwaysOnTopToggle = document.getElementById('avatar-always-on-top-toggle');
+const avatarWindowStatus = document.getElementById('avatar-window-status');
 const discordEnabledToggle = document.getElementById('discord-enabled-toggle');
 const discordSaveButton = document.getElementById('discord-save-button');
 const discordStatus = document.getElementById('discord-status');
@@ -84,6 +86,32 @@ async function initDiscordSettings() {
 }
 
 void initDiscordSettings();
+
+function setAvatarWindowStatus(text) {
+  if (avatarWindowStatus) avatarWindowStatus.textContent = text || '';
+}
+
+async function initAvatarWindowSettings() {
+  if (!avatarAlwaysOnTopToggle) return;
+  try {
+    avatarAlwaysOnTopToggle.checked = Boolean(await window.rainyDesktop.getAvatarAlwaysOnTop());
+  } catch (_) {
+    setAvatarWindowStatus('No pude leer el estado de la ventana del avatar.');
+  }
+
+  avatarAlwaysOnTopToggle.addEventListener('change', async () => {
+    setAvatarWindowStatus('Aplicando...');
+    try {
+      const result = await window.rainyDesktop.setAvatarAlwaysOnTop(avatarAlwaysOnTopToggle.checked);
+      avatarAlwaysOnTopToggle.checked = Boolean(result?.enabled);
+      setAvatarWindowStatus(result?.enabled ? 'El avatar queda encima de otras ventanas.' : 'El avatar puede quedar detras de otras ventanas.');
+    } catch (_) {
+      setAvatarWindowStatus('No pude cambiar la ventana del avatar.');
+    }
+  });
+}
+
+void initAvatarWindowSettings();
 
 function micDisplayLabel(device) {
   const label = String(device?.label || '').trim();

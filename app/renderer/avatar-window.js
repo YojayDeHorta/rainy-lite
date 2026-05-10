@@ -217,9 +217,5 @@ chatToggleButton?.addEventListener('click', async () => {
   const next = await window.rainyDesktop.toggleChat();
   chatToggleButton.title = next ? 'Cerrar chat' : 'Abrir chat';
 });
-document.getElementById('pin-button').addEventListener('click', async () => {
-  const active = await window.rainyDesktop.toggleAlwaysOnTop();
-  document.getElementById('pin-button').textContent = active ? 'Pin' : 'Free';
-});
 
 initAvatar();

@@ -13,12 +13,12 @@
           <div class="brand">
             <span class="status-dot" id="status-dot"></span>
             <span>Chat</span>
+            <button id="new-chat-button" class="brand-action" title="Nueva conversacion">+</button>
           </div>
           <div class="window-actions">
-            <button id="new-chat-button" title="Nueva conversación">Nuevo</button>
             <button id="settings-button" title="Configurar avatar">⚙</button>
-            <button id="pin-button" title="Siempre encima">Pin</button>
             <button id="min-button" title="Minimizar">_</button>
+            <button id="maximize-button" title="Agrandar chat">□</button>
             <button id="close-button" title="Ocultar">x</button>
           </div>
         </header>
@@ -36,6 +36,17 @@
         </footer>
       </section>
     </main>
+
+    <div id="new-chat-modal" class="modal-backdrop" hidden>
+      <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="new-chat-title">
+        <h2 id="new-chat-title">Empezar un nuevo chat?</h2>
+        <p>La conversacion actual queda guardada en memoria, pero la ventana se limpiara para empezar de cero.</p>
+        <div class="modal-actions">
+          <button id="new-chat-cancel-button" type="button">Cancelar</button>
+          <button id="new-chat-confirm-button" type="button" class="danger-action">Nuevo chat</button>
+        </div>
+      </section>
+    </div>
 
     <script src="renderer.js" type="module"></script>
   </body>

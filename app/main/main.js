@@ -27,6 +27,7 @@ const BACKEND_ROOT_DIR = app.isPackaged
   ? path.join(process.resourcesPath, 'app.asar.unpacked')
   : ROOT_DIR;
 const AVATAR_MODEL_PREFS = path.join(app.getPath('userData'), 'avatar-model.json');
+const AVATAR_WINDOW_PREFS = path.join(app.getPath('userData'), 'avatar-window-preferences.json');
 const PROFILE_PREFS = path.join(app.getPath('userData'), 'profile.json');
 const MIC_PREFS = path.join(app.getPath('userData'), 'mic-preferences.json');
 const TTS_PREFS = path.join(app.getPath('userData'), 'tts-preferences.json');
@@ -242,6 +243,27 @@ function isSetupCompleted() {
 
 function writeAvatarModelPreference(model) {
   fs.writeFileSync(AVATAR_MODEL_PREFS, JSON.stringify({ model }), 'utf8');
+}
+
+function readAvatarWindowPreference() {
+  try {
+    const raw = fs.readFileSync(AVATAR_WINDOW_PREFS, 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      alwaysOnTop: parsed?.alwaysOnTop === undefined ? true : Boolean(parsed.alwaysOnTop),
+    };
+  } catch (_) {
+    return { alwaysOnTop: true };
+  }
+}
+
+function writeAvatarWindowPreference(prefs = {}) {
+  const prev = readAvatarWindowPreference();
+  const next = {
+    alwaysOnTop: prefs.alwaysOnTop !== undefined ? Boolean(prefs.alwaysOnTop) : prev.alwaysOnTop,
+  };
+  fs.writeFileSync(AVATAR_WINDOW_PREFS, JSON.stringify(next), 'utf8');
+  return next;
 }
 
 function readMicPreference() {
@@ -550,12 +572,13 @@ function createAvatarWindow() {
   if (avatarWindow && !avatarWindow.isDestroyed()) {
     return avatarWindow;
   }
+  const windowPrefs = readAvatarWindowPreference();
   avatarWindow = new BrowserWindow(baseWindowOptions({
     width: AVATAR_BASE_WINDOW.width,
     height: AVATAR_BASE_WINDOW.height,
     minWidth: 150,
     minHeight: 240,
-    alwaysOnTop: true,
+    alwaysOnTop: windowPrefs.alwaysOnTop,
     skipTaskbar: false,
   }));
 
@@ -1282,6 +1305,17 @@ ipcMain.handle('window:toggle-chat', () => {
   return next;
 });
 
+ipcMain.handle('window:toggle-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return false;
+  if (win.isMaximized()) {
+    win.unmaximize();
+    return false;
+  }
+  win.maximize();
+  return true;
+});
+
 ipcMain.handle('window:toggle-always-on-top', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win) return false;
@@ -1307,6 +1341,18 @@ ipcMain.handle('window:set-position', (event, position) => {
 
 ipcMain.handle('avatar:speak', (_event, payload) => {
   sendToAvatar(payload);
+});
+
+ipcMain.handle('avatar:get-always-on-top', () => {
+  if (!avatarWindow || avatarWindow.isDestroyed()) createAvatarWindow();
+  return Boolean(avatarWindow?.isAlwaysOnTop());
+});
+
+ipcMain.handle('avatar:set-always-on-top', (_event, enabled) => {
+  if (!avatarWindow || avatarWindow.isDestroyed()) createAvatarWindow();
+  avatarWindow.setAlwaysOnTop(Boolean(enabled));
+  writeAvatarWindowPreference({ alwaysOnTop: Boolean(enabled) });
+  return { enabled: Boolean(avatarWindow.isAlwaysOnTop()) };
 });
 
 ipcMain.handle('avatar:wakeword-triggered', () => {

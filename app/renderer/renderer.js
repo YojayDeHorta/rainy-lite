@@ -8,6 +8,10 @@ const subtitle = document.getElementById('subtitle');
 const statusDot = document.getElementById('status-dot');
 const settingsButton = document.getElementById('settings-button');
 const newChatButton = document.getElementById('new-chat-button');
+const newChatModal = document.getElementById('new-chat-modal');
+const newChatCancelButton = document.getElementById('new-chat-cancel-button');
+const newChatConfirmButton = document.getElementById('new-chat-confirm-button');
+const maximizeButton = document.getElementById('maximize-button');
 const titleLabel = document.querySelector('.brand span:last-child');
 
 const AVATAR_SETTINGS_KEY = 'rainy-avatar-settings-v1';
@@ -246,6 +250,19 @@ async function startNewChatSession() {
   } catch (_) {
     subtitle.textContent = 'No pude crear una conversación nueva.';
   }
+}
+
+function openNewChatModal() {
+  if (!newChatModal) {
+    void startNewChatSession();
+    return;
+  }
+  newChatModal.hidden = false;
+  newChatConfirmButton?.focus();
+}
+
+function closeNewChatModal() {
+  if (newChatModal) newChatModal.hidden = true;
 }
 
 function parseAction(text) {
@@ -650,14 +667,26 @@ input.addEventListener('keydown', (event) => {
 });
 voiceButton.addEventListener('click', toggleRecording);
 newChatButton?.addEventListener('click', () => {
+  openNewChatModal();
+});
+newChatCancelButton?.addEventListener('click', closeNewChatModal);
+newChatConfirmButton?.addEventListener('click', () => {
+  closeNewChatModal();
   void startNewChatSession();
+});
+newChatModal?.addEventListener('click', (event) => {
+  if (event.target === newChatModal) closeNewChatModal();
+});
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && newChatModal && !newChatModal.hidden) closeNewChatModal();
 });
 
 document.getElementById('min-button').addEventListener('click', () => window.rainyDesktop.minimize());
 document.getElementById('close-button').addEventListener('click', () => window.rainyDesktop.close());
-document.getElementById('pin-button').addEventListener('click', async () => {
-  const active = await window.rainyDesktop.toggleAlwaysOnTop();
-  document.getElementById('pin-button').textContent = active ? 'Pin' : 'Free';
+maximizeButton?.addEventListener('click', async () => {
+  const maximized = await window.rainyDesktop.toggleMaximize();
+  maximizeButton.textContent = maximized ? '❐' : '□';
+  maximizeButton.title = maximized ? 'Restaurar chat' : 'Agrandar chat';
 });
 
 window.rainyDesktop.onToggleVoice(() => toggleRecording());
