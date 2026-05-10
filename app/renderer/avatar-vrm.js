@@ -95,7 +95,7 @@ const superRareDanceVrmaProfiles = [
 const IDLE_VRMA_MIN_DELAY = 50;
 const IDLE_VRMA_MAX_DELAY = 75;
 const RARE_DANCE_VRMA_CHANCE = 0.28;
-const SUPER_RARE_DANCE_VRMA_CHANCE = 0.05;
+const SUPER_RARE_DANCE_VRMA_CHANCE = 0.02;
 
 const danceRoutines = [
   function sway(t) {
@@ -492,6 +492,7 @@ export function setAvatarState(state) {
   }
   if (prev === 'dancing' && avatarState !== 'dancing') {
     if (activeVrmaAction) stopVrmaAnimation();
+    scheduleNextIdleVrma();
   }
   if (avatarState === 'listening') activeExpression = 'surprised';
   if (avatarState === 'thinking') activeExpression = 'thinking';

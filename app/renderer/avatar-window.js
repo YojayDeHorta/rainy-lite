@@ -15,6 +15,8 @@ let requestedState = 'idle';
 let appliedState = 'idle';
 let wakewordIndicatorActive = false;
 let wakewordBeepPending = false;
+let startupGreetingLocked = false;
+let startupGreetingUnlockTimer = null;
 
 const startupSpeakLines = [
   '¿Me extrañaste, {usuario}? Porque yo ya estaba lista para volver.',
@@ -47,6 +49,19 @@ const startupSpeakLines = [
   'Estoy lista para hacerte compañía. Tú trabaja tranquilo, yo pongo ambiente.',
   'Tu copiloto favorita está online. Abróchate el cinturón emocional.',
   'Aquí estoy, brillante como siempre. Y modestísima, por supuesto.',
+];
+
+const setupWelcomeSpeakLines = [
+  'Listo, {usuario}. Ya quedamos oficialmente configurados.',
+  'Perfecto, {usuario}. Desde ahora soy {nombreBot}, tu compañía de escritorio.',
+  'Configuración guardada. {nombreBot} entra en servicio con mucho estilo.',
+  'Ya está, {usuario}. Prometo recordar este inicio con cariño digital.',
+  'Bien, equipo formado. Tú, yo, y este escritorio con mejor compañía.',
+  'Primera misión completada. {nombreBot} ya está lista para acompañarte.',
+  'Gracias por darme nombre, {usuario}. Ahora sí me siento en casa.',
+  'Todo listo. A partir de ahora, este rincón de pantalla es mío.',
+  'Configuración terminada. Me quedo cerca por si necesitas una chispa.',
+  'He nacido oficialmente como {nombreBot}. Suena dramático, pero me gusta.',
 ];
 
 function playWakewordBeep() {
@@ -112,7 +127,8 @@ function syncWakewordIndicator() {
 
 function resolveAvatarState() {
   let next = 'idle';
-  if (isSpeaking) next = 'speaking';
+  if (startupGreetingLocked) next = 'idle';
+  else if (isSpeaking) next = 'speaking';
   else if (requestedState === 'listening' || requestedState === 'thinking') next = requestedState;
   else if (spotifyPlaying) next = 'dancing';
   if (next !== appliedState) {
@@ -134,6 +150,16 @@ function setEmotion(emotion) {
   setAvatarEmotion(clean);
 }
 
+function lockStartupGreeting(durationMs = 9000) {
+  startupGreetingLocked = true;
+  if (startupGreetingUnlockTimer) clearTimeout(startupGreetingUnlockTimer);
+  startupGreetingUnlockTimer = setTimeout(() => {
+    startupGreetingLocked = false;
+    startupGreetingUnlockTimer = null;
+    resolveAvatarState();
+  }, durationMs);
+}
+
 function fillStartupLineTemplate(template, profile = {}) {
   const userName = String(profile?.userName || 'Usuario').trim() || 'Usuario';
   const botName = String(profile?.botName || 'Asuka').trim() || 'Asuka';
@@ -142,15 +168,16 @@ function fillStartupLineTemplate(template, profile = {}) {
     .replaceAll('{nombreBot}', botName);
 }
 
-async function speakStartupLine() {
+async function speakStartupLine(kind = 'normal') {
+  const lines = kind === 'setup' ? setupWelcomeSpeakLines : startupSpeakLines;
   try {
     const profile = await window.rainyDesktop.getProfile?.();
-    const line = startupSpeakLines[Math.floor(Math.random() * startupSpeakLines.length)];
+    const line = lines[Math.floor(Math.random() * lines.length)];
     const text = fillStartupLineTemplate(line, profile);
     setEmotion('happy');
     speak(text, { preserveState: true });
   } catch (_) {
-    const line = startupSpeakLines[Math.floor(Math.random() * startupSpeakLines.length)];
+    const line = lines[Math.floor(Math.random() * lines.length)];
     speak(fillStartupLineTemplate(line), { preserveState: true });
   }
 }
@@ -288,8 +315,11 @@ window.rainyDesktop.getPerformancePreferences?.().then((prefs) => {
 
 initAvatar().then((ok) => {
   if (!ok) return;
+  lockStartupGreeting();
   void triggerAvatarReaction('greet');
   setTimeout(() => {
-    void speakStartupLine();
+    window.rainyDesktop.consumeAvatarStartupGreetingKind?.()
+      .then((kind) => speakStartupLine(kind))
+      .catch(() => speakStartupLine());
   }, 250);
 });

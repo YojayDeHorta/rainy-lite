@@ -23,6 +23,7 @@ let discordClient = null;
 let discordConnected = false;
 let discordStartTimestamp = null;
 let discordReconnectTimer = null;
+let pendingSetupWelcomeGreeting = false;
 
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT_DIR = app.isPackaged
@@ -107,6 +108,7 @@ const PERFORMANCE_PROFILES = {
     spotifyInactiveIntervalMs: 10000,
   },
 };
+const DEFAULT_PERFORMANCE_PROFILE = 'fluid';
 const PERFORMANCE_IDLE_AFTER_MS = 5 * 60 * 1000;
 
 function getVenvPython(rootDir) {
@@ -372,14 +374,15 @@ function resetAvatarWindowBounds() {
 
 function normalizePerformanceProfileId(value) {
   const id = String(value || '').trim().toLowerCase();
-  return PERFORMANCE_PROFILES[id] ? id : 'normal';
+  return PERFORMANCE_PROFILES[id] ? id : DEFAULT_PERFORMANCE_PROFILE;
 }
 
 function readPerformancePreference() {
+  const defaultProfile = normalizePerformanceProfileId(DEFAULT_PERFORMANCE_PROFILE);
   const fallback = {
-    profile: 'normal',
+    profile: defaultProfile,
     profiles: Object.values(PERFORMANCE_PROFILES),
-    effective: PERFORMANCE_PROFILES.normal,
+    effective: PERFORMANCE_PROFILES[defaultProfile],
   };
   try {
     const raw = fs.readFileSync(PERFORMANCE_PREFS, 'utf8');
@@ -1486,6 +1489,7 @@ ipcMain.handle('profile:save', (_event, payload) => {
   }
   currentAvatarModel = selected.name;
   const existing = readProfilePreference();
+  const isFirstSetupCompletion = !existing.setupCompleted;
   const personalityCandidate = {
     personalityPreset: payload?.personalityPreset ?? existing.personalityPreset,
     personalityCustom: payload?.personalityCustom ?? existing.personalityCustom,
@@ -1511,6 +1515,9 @@ ipcMain.handle('profile:save', (_event, payload) => {
   broadcastAvatarModel(selected.name);
   if (setupWindow && !setupWindow.isDestroyed()) {
     setupWindow.close();
+  }
+  if (isFirstSetupCompletion) {
+    pendingSetupWelcomeGreeting = true;
   }
   if (!avatarWindow || !chatWindow) {
     startNormalUi();
@@ -1686,6 +1693,14 @@ ipcMain.handle('window:set-position', (event, position) => {
 ipcMain.handle('avatar:speak', (_event, payload) => {
   markUserActivity();
   sendToAvatar(payload);
+});
+
+ipcMain.handle('avatar:consume-startup-greeting-kind', () => {
+  if (pendingSetupWelcomeGreeting) {
+    pendingSetupWelcomeGreeting = false;
+    return 'setup';
+  }
+  return 'normal';
 });
 
 ipcMain.handle('avatar:get-always-on-top', () => {
