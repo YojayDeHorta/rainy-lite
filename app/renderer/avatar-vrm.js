@@ -303,7 +303,7 @@ const reactionProfiles = [
 ];
 
 const contextualReactions = {
-  greet: { id: 'greet_wave', duration: 1.45, expression: 'happy', headPitch: 0.08, headRoll: 0.06, bodyLift: 0.025, bodySway: 0.04, chestPitch: 0.02, armWave: 1, frequency: 3.2 },
+  greet: { id: 'greet_bounce', duration: 1.25, expression: 'happy', headPitch: 0.12, headRoll: 0.05, bodyLift: 0.095, bodySway: 0.045, chestPitch: 0.04, frequency: 2.7 },
   listen: { id: 'listen_bow', duration: 0.85, expression: 'surprised', headPitch: 0.16, neckPitch: 0.08, chestPitch: 0.035, frequency: 1.6 },
   think: { id: 'think_glance', duration: 0.9, expression: 'thinking', headRoll: 0.12, bodySway: 0.045, frequency: 1.3 },
   speak: { id: 'speak_focus', duration: 0.7, expression: 'happy', headPitch: 0.06, neckPitch: 0.04, chestPitch: 0.025, frequency: 1.8 },
@@ -765,6 +765,12 @@ function updateIdlePose(elapsed) {
   const dragTiltZ = dragFx.tiltZ;
   const armHangRad = THREE.MathUtils.degToRad(avatarSettings.armHangDeg || 0);
   const armAbRad = THREE.MathUtils.degToRad(avatarSettings.armAbductionDeg || 0);
+  const reactionArmWaveSide = reactionFx.profile?.armWaveSide === 'left' ? 'left' : 'right';
+  const leftArmWave = reactionArmWaveSide === 'left' ? reactionArmWave : 0;
+  const rightArmWave = reactionArmWaveSide === 'right' ? reactionArmWave : 0;
+  const leftChestWave = reactionFx.profile?.armWaveStyle === 'chest' ? leftArmWave : 0;
+  const leftBigWave = leftArmWave - leftChestWave;
+  const leftChestWristWave = leftChestWave * Math.sin(elapsed * 16);
 
   if (head) {
     head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
@@ -779,32 +785,57 @@ function updateIdlePose(elapsed) {
     hips.rotation.z = danceHipsZ;
   }
   if (leftUpperArm) {
-    leftUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64) * 0.012 * motion;
-    leftUpperArm.rotation.z = 1.22 - armAbRad + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045 + danceArmSwing;
-    leftUpperArm.rotation.y = -0.02 + Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion;
+    let x = 0.24 + armHangRad + Math.sin(elapsed * 0.64) * 0.012 * motion - leftBigWave * 0.85;
+    let z = 1.22 - armAbRad + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045 + danceArmSwing - leftBigWave * 0.58;
+    let y = -0.02 + Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion - leftBigWave * 0.72;
+    if (leftChestWave) {
+      x = THREE.MathUtils.lerp(x, -0.42, leftChestWave);
+      z = THREE.MathUtils.lerp(z, 0.08, leftChestWave);
+      y = THREE.MathUtils.lerp(y, -1.08, leftChestWave);
+    }
+    leftUpperArm.rotation.x = x;
+    leftUpperArm.rotation.z = z;
+    leftUpperArm.rotation.y = y;
   }
   if (rightUpperArm) {
-    rightUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion - reactionArmWave * 0.85;
-    rightUpperArm.rotation.z = -1.22 + armAbRad - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing + reactionArmWave * 0.58;
-    rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion + reactionArmWave * 0.72;
+    rightUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion - rightArmWave * 0.85;
+    rightUpperArm.rotation.z = -1.22 + armAbRad - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing + rightArmWave * 0.58;
+    rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion + rightArmWave * 0.72;
   }
   if (leftLowerArm) {
-    leftLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 0.55) * 0.014 * motion + danceForearm;
-    leftLowerArm.rotation.y = 0.04 + Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion;
+    let x = -0.62 + Math.sin(elapsed * 0.9 + 0.55) * 0.014 * motion + danceForearm - leftBigWave * 0.35;
+    let y = 0.04 + Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion - leftBigWave * 0.16;
+    let z = 0;
+    if (leftChestWave) {
+      x = THREE.MathUtils.lerp(x, -1.85, leftChestWave);
+      y = THREE.MathUtils.lerp(y, -0.18, leftChestWave);
+      z = THREE.MathUtils.lerp(z, -0.18, leftChestWave);
+    }
+    leftLowerArm.rotation.x = x;
+    leftLowerArm.rotation.y = y;
+    leftLowerArm.rotation.z = z;
   }
   if (rightLowerArm) {
-    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion - danceForearm - reactionArmWave * 0.35;
-    rightLowerArm.rotation.y = -0.04 - Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion + reactionArmWave * 0.42;
+    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion - danceForearm - rightArmWave * 0.35;
+    rightLowerArm.rotation.y = -0.04 - Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion + rightArmWave * 0.42;
   }
   if (leftHand) {
-    leftHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 0.5) * 0.01 * motion;
-    leftHand.rotation.y = 0.07 + Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion;
-    leftHand.rotation.z = 0.05 + Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion + danceHandZ;
+    let x = -0.22 + Math.sin(elapsed * 0.92 + 0.5) * 0.01 * motion + leftBigWave * 0.2;
+    let y = 0.07 + Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion + leftBigWave * 0.28;
+    let z = 0.05 + Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion + danceHandZ + leftBigWave * Math.sin(elapsed * 18) * 0.22;
+    if (leftChestWave) {
+      x = THREE.MathUtils.lerp(x, -0.16, leftChestWave);
+      y = THREE.MathUtils.lerp(y, 0.24, leftChestWave);
+      z = THREE.MathUtils.lerp(z, 0.16 + leftChestWristWave * 0.12, leftChestWave);
+    }
+    leftHand.rotation.x = x;
+    leftHand.rotation.y = y;
+    leftHand.rotation.z = z;
   }
   if (rightHand) {
-    rightHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 1.6) * 0.01 * motion + reactionArmWave * 0.2;
-    rightHand.rotation.y = -0.07 - Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion - reactionArmWave * 1.05;
-    rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion - danceHandZ - reactionArmWave * Math.sin(elapsed * 18) * 0.42;
+    rightHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 1.6) * 0.01 * motion + rightArmWave * 0.2;
+    rightHand.rotation.y = -0.07 - Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion - rightArmWave * 1.05;
+    rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion - danceHandZ - rightArmWave * Math.sin(elapsed * 18) * 0.42;
   }
   applyRelaxedFingers(elapsed, motion);
 }
