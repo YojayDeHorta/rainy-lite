@@ -70,12 +70,12 @@ const vrmaReactionFiles = {
   greet: 'greet.vrma',
 };
 const idleVrmaProfiles = [
-  { file: 'idle1.vrma', loopFor: 6 },
-  { file: 'idle2.vrma' },
-  { file: 'idle3.vrma' },
+  { file: 'Idle1-left-right.vrma', loopFor: 6 },
+  { file: 'idle2-heart.vrma' },
+  { file: 'idle3-yawn.vrma' },
 ];
-const IDLE_VRMA_MIN_DELAY = 10;
-const IDLE_VRMA_MAX_DELAY = 22;
+const IDLE_VRMA_MIN_DELAY = 50;
+const IDLE_VRMA_MAX_DELAY = 75;
 
 const danceRoutines = [
   function sway(t) {
@@ -930,6 +930,10 @@ function animate() {
 
 function updateIdlePose(elapsed) {
   if (!currentVrm?.humanoid) return;
+  if (activeVrmaAction) {
+    updateLookTarget(elapsed, 0);
+    return;
+  }
   const stateMotion = avatarState === 'speaking' ? 1.35 : avatarState === 'listening' ? 1.15 : avatarState === 'thinking' ? 0.65 : avatarState === 'dancing' ? 1.55 : 1;
   const motion = avatarSettings.motion * stateMotion;
   updateLookTarget(elapsed, motion);
