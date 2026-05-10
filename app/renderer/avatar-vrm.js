@@ -403,7 +403,6 @@ export async function initAvatar() {
     root?.classList.add('vrm-loaded');
     clock = new THREE.Clock();
     
-    updateIdlePose(0);
     currentVrm.scene.updateMatrixWorld(true);
     if (currentVrm.springBoneManager) currentVrm.springBoneManager.reset();
     

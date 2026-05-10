@@ -233,5 +233,5 @@ window.rainyDesktop.getPerformancePreferences?.().then((prefs) => {
 }).catch(() => {});
 
 initAvatar().then((ok) => {
-  if (ok) setTimeout(() => triggerAvatarReaction('greet'), 450);
+  if (ok) void triggerAvatarReaction('greet');
 });
