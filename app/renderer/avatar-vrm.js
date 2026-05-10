@@ -301,6 +301,18 @@ const reactionProfiles = [
     frequency: 1.5,
   },
 ];
+
+const contextualReactions = {
+  greet: { id: 'greet_wave', duration: 1.15, expression: 'happy', headPitch: 0.1, headRoll: 0.08, bodyLift: 0.035, bodySway: 0.08, chestPitch: 0.025, frequency: 2.4 },
+  listen: { id: 'listen_bow', duration: 0.85, expression: 'surprised', headPitch: 0.16, neckPitch: 0.08, chestPitch: 0.035, frequency: 1.6 },
+  think: { id: 'think_glance', duration: 0.9, expression: 'thinking', headRoll: 0.12, bodySway: 0.045, frequency: 1.3 },
+  speak: { id: 'speak_focus', duration: 0.7, expression: 'happy', headPitch: 0.06, neckPitch: 0.04, chestPitch: 0.025, frequency: 1.8 },
+  spotify: { id: 'spotify_pop', duration: 0.8, expression: 'happy', bodyLift: 0.09, bodySway: 0.07, chestPitch: 0.035, frequency: 3.4 },
+  success: { id: 'success_nod', duration: 0.72, expression: 'happy', headPitch: 0.13, headRoll: 0.04, neckPitch: 0.08, frequency: 2.5 },
+  confused: { id: 'confused_tilt', duration: 0.9, expression: 'thinking', headRoll: 0.18, headPitch: 0.03, bodySway: 0.05, frequency: 1.7 },
+  reset: { id: 'reset_shake', duration: 0.75, expression: 'surprised', headRoll: 0.12, bodySway: 0.05, frequency: 4.4 },
+  wakeword: { id: 'wakeword_attention', duration: 0.75, expression: 'surprised', headPitch: 0.1, bodyLift: 0.035, chestPitch: 0.03, frequency: 2.6 },
+};
 let reactionFx = {
   profile: null,
   startAt: 0,
@@ -435,6 +447,19 @@ export function setAvatarState(state) {
   if (avatarState === 'thinking') activeExpression = 'thinking';
   if (avatarState === 'dancing') activeExpression = 'happy';
   applyExpressions();
+  if (prev !== avatarState) {
+    if (avatarState === 'listening') triggerAvatarReaction('listen');
+    if (avatarState === 'thinking') triggerAvatarReaction('think');
+    if (avatarState === 'speaking') triggerAvatarReaction('speak');
+    if (avatarState === 'dancing') triggerAvatarReaction('spotify');
+  }
+}
+
+export function triggerAvatarReaction(name) {
+  if (!clock) return;
+  const profile = contextualReactions[String(name || '').toLowerCase()];
+  if (!profile) return;
+  startReaction(profile, clock.elapsedTime);
 }
 
 export function setAvatarLipSync(value) {

@@ -244,6 +244,7 @@ async function startNewChatSession() {
     if (!res.ok) throw new Error('session');
     chatLog.innerHTML = '';
     addHistorySeparator('Nueva conversación');
+    window.rainyDesktop.triggerAvatarReaction?.('reset');
     subtitle.textContent = 'Nueva conversación lista.';
     stopConversationSession();
     setAvatarState('idle');
@@ -315,6 +316,12 @@ async function executeAction(action) {
   card.classList.remove('running');
   card.classList.toggle('failed', !response.ok);
   result.textContent = response.message || (response.ok ? 'Accion completada.' : 'No se pudo ejecutar.');
+  if (response.ok) {
+    const reaction = action.type.startsWith('SPOTIFY_') ? 'spotify' : 'success';
+    window.rainyDesktop.triggerAvatarReaction?.(reaction);
+  } else {
+    window.rainyDesktop.triggerAvatarReaction?.('confused');
+  }
 }
 
 function stripTags(text) {

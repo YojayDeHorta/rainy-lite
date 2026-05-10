@@ -1,4 +1,4 @@
-import { initAvatar, setAvatarEmotion, setAvatarLipSync, setAvatarModel, setAvatarState, updateAvatarSettings, updateGlobalCursor } from './avatar-vrm.js';
+import { initAvatar, setAvatarEmotion, setAvatarLipSync, setAvatarModel, setAvatarState, triggerAvatarReaction, updateAvatarSettings, updateGlobalCursor } from './avatar-vrm.js';
 
 const API_BASE = 'http://127.0.0.1:8765';
 
@@ -198,6 +198,7 @@ window.rainyDesktop.onSpotifyPlayback((payload) => {
   resolveAvatarState();
 });
 window.rainyDesktop.onSpotifyTrackChanged(() => {
+  triggerAvatarReaction('spotify');
   if (appliedState === 'dancing') {
     setAvatarState('idle');
     setAvatarState('dancing');
@@ -207,6 +208,10 @@ window.rainyDesktop.onGlobalCursor((payload) => updateGlobalCursor(payload));
 
 window.rainyDesktop.onAvatarWakewordTriggered(() => {
   wakewordBeepPending = true;
+  triggerAvatarReaction('wakeword');
+});
+window.rainyDesktop.onAvatarReaction((name) => {
+  triggerAvatarReaction(name);
 });
 window.rainyDesktop.onAvatarModel(async (payload) => {
   await setAvatarModel(payload);
@@ -218,4 +223,6 @@ chatToggleButton?.addEventListener('click', async () => {
   chatToggleButton.title = next ? 'Cerrar chat' : 'Abrir chat';
 });
 
-initAvatar();
+initAvatar().then((ok) => {
+  if (ok) setTimeout(() => triggerAvatarReaction('greet'), 450);
+});

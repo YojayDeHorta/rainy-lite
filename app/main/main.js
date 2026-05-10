@@ -1213,6 +1213,18 @@ function sendToAvatarWakeword() {
   }
 }
 
+function sendAvatarReaction(name) {
+  if (!avatarWindow) createAvatarWindow();
+  const clean = String(name || '').trim();
+  if (!clean) return;
+  const send = () => avatarWindow?.webContents.send('rainy:avatar-reaction', clean);
+  if (avatarWindow.webContents.isLoading()) {
+    avatarWindow.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+}
+
 ipcMain.handle('window:close', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win === setupWindow) {
@@ -1450,6 +1462,11 @@ ipcMain.handle('avatar:set-always-on-top', (_event, enabled) => {
 
 ipcMain.handle('avatar:wakeword-triggered', () => {
   sendToAvatarWakeword();
+  return true;
+});
+
+ipcMain.handle('avatar:reaction', (_event, name) => {
+  sendAvatarReaction(name);
   return true;
 });
 
