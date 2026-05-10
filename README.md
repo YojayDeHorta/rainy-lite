@@ -13,7 +13,7 @@ Asuka Desktop is a Windows-first desktop AI companion. It uses Electron for the 
 - TTS with `edge-tts` running locally.
 - Voice input with STT through proxy or local Groq Whisper.
 - Optional wake word using OpenWakeWord.
-- SQLite memory/chat storage.
+- SQLite chat sessions, recent-history loading, automatic session summaries, and persistent memory storage.
 - Windows portable build with `electron-builder`.
 
 ## Setup
@@ -109,6 +109,23 @@ assets/models/*.vrm
 User-uploaded models are copied to Electron's user data folder under `models/`. Custom uploads are capped at 120 MB and can be deleted from settings; bundled models are read-only.
 
 The settings window can correct model yaw, pitch, arm hang, arm abduction, scale, camera distance, light, and motion intensity. These values are stored locally.
+
+## History And Memory
+
+Asuka stores chat locally in SQLite. On startup, the chat window reloads the current session's recent messages so the conversation is visible again.
+
+Sessions are split automatically:
+
+- A new session starts on a new day.
+- A new session starts after more than 8 hours of inactivity.
+
+Every 16 messages, the backend refreshes a compact summary of the current session. Future replies use:
+
+- persistent memories
+- current session summary
+- recent messages from the current session
+
+Persistent memories are stored separately from chat history and are available through `/api/memory`, but automatic memory extraction is intentionally conservative and not part of this first pass.
 
 ## Wake Word
 

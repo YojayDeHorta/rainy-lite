@@ -32,6 +32,10 @@ class MemoryRequest(BaseModel):
     content: str
 
 
+class SessionRequest(BaseModel):
+    title: str | None = None
+
+
 app = FastAPI(title="Asuka Desktop Local API")
 
 app.add_middleware(
@@ -45,6 +49,7 @@ app.add_middleware(
 app.mount("/temp", StaticFiles(directory=str(config.TEMP_DIR)), name="temp")
 
 memory.init_db()
+SUMMARY_EVERY_MESSAGES = 16
 wakeword_service = wakeword.WakewordService(
     enabled=config.WAKEWORD_ENABLED,
     threshold=config.WAKEWORD_THRESHOLD,
@@ -118,8 +123,10 @@ async def chat(req: ChatRequest):
     if not message:
         raise HTTPException(status_code=400, detail="message is required")
 
-    history = memory.get_chat_history()
-    memory.add_chat_message("user", message)
+    session = memory.get_or_create_current_session()
+    session_id = session["id"]
+    history = memory.get_chat_history(session_id=session_id)
+    memory.add_chat_message("user", message, session_id=session_id)
     generated = await ai_core.generate_response_with_metadata(
         message,
         history,
@@ -127,11 +134,29 @@ async def chat(req: ChatRequest):
         user_name=req.user_name,
         personality_preset=req.personality_preset,
         personality_custom=req.personality_custom,
+        session_summary=session.get("summary") or "",
     )
     response = generated.get("response") or ai_core.LOCAL_FALLBACK_REPLY
     conversation = generated.get("conversation") or {"continue": False, "reason": "uncertain"}
-    memory.add_chat_message("assistant", response)
-    return {"response": response, "conversation": conversation}
+    memory.add_chat_message("assistant", response, session_id=session_id)
+    asyncio.create_task(update_session_summary_if_needed(session_id))
+    return {"response": response, "conversation": conversation, "session_id": session_id}
+
+
+async def update_session_summary_if_needed(session_id: int):
+    session = memory.get_session(session_id)
+    if not session:
+        return
+    message_count = memory.count_session_messages(session_id)
+    summarized_at = int(session.get("summary_message_count") or 0)
+    if message_count < SUMMARY_EVERY_MESSAGES:
+        return
+    if message_count - summarized_at < SUMMARY_EVERY_MESSAGES:
+        return
+    messages = memory.get_session_messages_for_summary(session_id, limit=80)
+    summary = await ai_core.summarize_conversation(session.get("summary") or "", messages)
+    if summary:
+        memory.update_session_summary(session_id, summary, message_count)
 
 
 @app.get("/api/personality/presets")
@@ -141,7 +166,26 @@ def personality_presets():
 
 @app.get("/api/chat/history")
 def chat_history():
-    return memory.get_chat_history(limit=50)
+    session = memory.get_or_create_current_session()
+    return {"session": session, "messages": memory.get_chat_history(limit=50, session_id=session["id"])}
+
+
+@app.get("/api/chat/sessions")
+def chat_sessions():
+    return {"sessions": memory.list_sessions(limit=30)}
+
+
+@app.get("/api/chat/sessions/{session_id}/messages")
+def chat_session_messages(session_id: int):
+    session = memory.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="session not found")
+    return {"session": session, "messages": memory.get_chat_history(limit=100, session_id=session_id)}
+
+
+@app.post("/api/chat/sessions")
+def create_chat_session(req: SessionRequest):
+    return {"session": memory.create_new_session(title=req.title)}
 
 
 @app.delete("/api/chat/history")

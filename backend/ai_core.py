@@ -13,6 +13,13 @@ CONVERSATION_CONTROL_RE = re.compile(
 )
 ACTION_TAG_RE = re.compile(r"\[ACTION:\s*\w+(?:\s+\"[\s\S]*?\")?\s*\]", re.I)
 GOODBYE_RE = re.compile(r"\b(adios|adiós|chao|hasta luego|nos vemos|bye|gracias(,)? eso es todo)\b", re.I)
+SUMMARY_SYSTEM_PROMPT = """
+Resume la conversacion para usarla como contexto futuro de un asistente de escritorio.
+Conserva solo informacion util: temas tratados, decisiones, preferencias estables del usuario,
+tareas pendientes y datos de contexto que ayuden en proximas respuestas.
+No inventes, no guardes secretos, tokens, contrasenas ni datos extremadamente sensibles.
+Maximo 1200 caracteres. Responde solo con el resumen en espanol.
+""".strip()
 
 
 def parse_conversation_control(text: str) -> dict:
@@ -56,24 +63,45 @@ def _messages_for_chat(
     user_name: str | None = None,
     personality_preset: str | None = None,
     personality_custom: str | None = None,
+    session_summary: str | None = None,
 ):
     memories = get_memories()
-    memory_block = ""
-    if memories:
-        memory_block = "\nMemorias del usuario:\n" + "\n".join(f"- {item}" for item in memories)
+    system_text = build_contextual_system_prompt(
+        bot_name,
+        user_name,
+        personality_preset=personality_preset,
+        personality_custom=personality_custom,
+        memories=memories,
+        session_summary=session_summary,
+    )
+    messages = [{"role": "system", "content": system_text}]
+    for item in history[-20:]:
+        role = "assistant" if item["role"] == "assistant" else "user"
+        messages.append({"role": role, "content": item["content"]})
+    messages.append({"role": "user", "content": message})
+    return messages
 
+
+def build_contextual_system_prompt(
+    bot_name: str | None = None,
+    user_name: str | None = None,
+    personality_preset: str | None = None,
+    personality_custom: str | None = None,
+    memories: list[str] | None = None,
+    session_summary: str | None = None,
+) -> str:
     system_text = build_system_prompt(
         bot_name,
         user_name,
         personality_preset=personality_preset,
         personality_custom=personality_custom,
     )
-    messages = [{"role": "system", "content": system_text + memory_block}]
-    for item in history[-20:]:
-        role = "assistant" if item["role"] == "assistant" else "user"
-        messages.append({"role": role, "content": item["content"]})
-    messages.append({"role": "user", "content": message})
-    return messages
+    blocks = [system_text]
+    if memories:
+        blocks.append("Memorias del usuario:\n" + "\n".join(f"- {item}" for item in memories))
+    if session_summary and session_summary.strip():
+        blocks.append("Resumen de la sesion actual:\n" + session_summary.strip())
+    return "\n\n".join(blocks)
 
 
 async def generate_response(
@@ -83,6 +111,7 @@ async def generate_response(
     user_name: str | None = None,
     personality_preset: str | None = None,
     personality_custom: str | None = None,
+    session_summary: str | None = None,
 ):
     provider = config.AI_PROVIDER
     if provider == "gemini" and config.GEMINI_KEY:
@@ -94,6 +123,7 @@ async def generate_response(
                 user_name,
                 personality_preset=personality_preset,
                 personality_custom=personality_custom,
+                session_summary=session_summary,
             )
         )
     if provider == "groq" and config.GROQ_API_KEY:
@@ -105,6 +135,7 @@ async def generate_response(
                 user_name,
                 personality_preset=personality_preset,
                 personality_custom=personality_custom,
+                session_summary=session_summary,
             )
         )
     if provider == "openai" and config.OPENAI_API_KEY:
@@ -116,6 +147,7 @@ async def generate_response(
                 user_name,
                 personality_preset=personality_preset,
                 personality_custom=personality_custom,
+                session_summary=session_summary,
             )
         )
     if provider == "ollama":
@@ -127,6 +159,7 @@ async def generate_response(
                 user_name,
                 personality_preset=personality_preset,
                 personality_custom=personality_custom,
+                session_summary=session_summary,
             )
         )
     return LOCAL_FALLBACK_REPLY
@@ -153,6 +186,69 @@ async def _proxy_chat(message: str, history: list[dict], system_prompt: str) -> 
     return await asyncio.to_thread(run)
 
 
+async def summarize_conversation(existing_summary: str, messages: list[dict]) -> str:
+    if not messages:
+        return existing_summary.strip()
+
+    transcript = "\n".join(
+        f"{('Usuario' if item.get('role') == 'user' else 'Asistente')}: {item.get('content', '').strip()}"
+        for item in messages
+        if item.get("content")
+    )
+    prompt = (
+        f"Resumen anterior:\n{existing_summary.strip() or '(sin resumen previo)'}\n\n"
+        f"Mensajes recientes:\n{transcript}"
+    )
+
+    if config.PROXY_URL:
+        try:
+            return (await _proxy_chat(prompt, [], SUMMARY_SYSTEM_PROMPT)).strip()[:1600]
+        except Exception:
+            return existing_summary.strip()
+
+    if config.AI_PROVIDER == "local":
+        return existing_summary.strip()
+
+    try:
+        if config.AI_PROVIDER == "groq" and config.GROQ_API_KEY:
+            from groq import Groq
+
+            def run_groq():
+                client = Groq(api_key=config.GROQ_API_KEY)
+                completion = client.chat.completions.create(
+                    model=config.GROQ_MODEL,
+                    messages=[
+                        {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.2,
+                    max_completion_tokens=500,
+                )
+                return completion.choices[0].message.content or ""
+
+            return (await asyncio.to_thread(run_groq)).strip()[:1600]
+        if config.AI_PROVIDER == "openai" and config.OPENAI_API_KEY:
+            from openai import OpenAI
+
+            def run_openai():
+                client = OpenAI(base_url=config.OPENAI_BASE_URL, api_key=config.OPENAI_API_KEY)
+                completion = client.chat.completions.create(
+                    model=config.OPENAI_MODEL,
+                    messages=[
+                        {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.2,
+                )
+                return completion.choices[0].message.content or ""
+
+            return (await asyncio.to_thread(run_openai)).strip()[:1600]
+    except Exception:
+        return existing_summary.strip()
+
+    return existing_summary.strip()
+
+
 async def generate_response_with_metadata(
     message: str,
     history: list[dict],
@@ -160,16 +256,17 @@ async def generate_response_with_metadata(
     user_name: str | None = None,
     personality_preset: str | None = None,
     personality_custom: str | None = None,
+    session_summary: str | None = None,
 ):
     if config.PROXY_URL:
-        system_prompt = build_system_prompt(
-            bot_name, user_name,
+        system_prompt = build_contextual_system_prompt(
+            bot_name,
+            user_name,
             personality_preset=personality_preset,
             personality_custom=personality_custom,
+            memories=get_memories(),
+            session_summary=session_summary,
         )
-        memories = get_memories()
-        if memories:
-            system_prompt += "\nMemorias del usuario:\n" + "\n".join(f"- {item}" for item in memories)
         try:
             raw_response = await _proxy_chat(message, history, system_prompt)
         except Exception:
@@ -190,13 +287,14 @@ async def generate_response_with_metadata(
     provider = config.AI_PROVIDER
     raw_response = ""
     if provider == "gemini" and config.GEMINI_KEY:
-        raw_response = await _generate_gemini(
+            raw_response = await _generate_gemini(
             message,
             history,
             bot_name,
             user_name,
             personality_preset=personality_preset,
             personality_custom=personality_custom,
+            session_summary=session_summary,
         )
     elif provider == "groq" and config.GROQ_API_KEY:
         raw_response = await _generate_groq(
@@ -206,6 +304,7 @@ async def generate_response_with_metadata(
             user_name,
             personality_preset=personality_preset,
             personality_custom=personality_custom,
+            session_summary=session_summary,
         )
     elif provider == "openai" and config.OPENAI_API_KEY:
         raw_response = await _generate_openai(
@@ -215,6 +314,7 @@ async def generate_response_with_metadata(
             user_name,
             personality_preset=personality_preset,
             personality_custom=personality_custom,
+            session_summary=session_summary,
         )
     elif provider == "ollama":
         raw_response = await _generate_ollama(
@@ -224,6 +324,7 @@ async def generate_response_with_metadata(
             user_name,
             personality_preset=personality_preset,
             personality_custom=personality_custom,
+            session_summary=session_summary,
         )
 
     if not raw_response:
@@ -248,6 +349,7 @@ async def _generate_gemini(
     user_name: str | None = None,
     personality_preset: str | None = None,
     personality_custom: str | None = None,
+    session_summary: str | None = None,
 ):
     import google.generativeai as genai
 
@@ -255,11 +357,13 @@ async def _generate_gemini(
         genai.configure(api_key=config.GEMINI_KEY)
         model = genai.GenerativeModel(
             config.AI_MODEL,
-            system_instruction=build_system_prompt(
+            system_instruction=build_contextual_system_prompt(
                 bot_name,
                 user_name,
                 personality_preset=personality_preset,
                 personality_custom=personality_custom,
+                memories=get_memories(),
+                session_summary=session_summary,
             ),
         )
         gemini_history = []
@@ -280,6 +384,7 @@ async def _generate_groq(
     user_name: str | None = None,
     personality_preset: str | None = None,
     personality_custom: str | None = None,
+    session_summary: str | None = None,
 ):
     from groq import Groq
 
@@ -294,6 +399,7 @@ async def _generate_groq(
                 user_name,
                 personality_preset=personality_preset,
                 personality_custom=personality_custom,
+                session_summary=session_summary,
             ),
             temperature=config.AI_TEMPERATURE,
             max_completion_tokens=800,
@@ -310,6 +416,7 @@ async def _generate_openai(
     user_name: str | None = None,
     personality_preset: str | None = None,
     personality_custom: str | None = None,
+    session_summary: str | None = None,
 ):
     from openai import OpenAI
 
@@ -324,6 +431,7 @@ async def _generate_openai(
                 user_name,
                 personality_preset=personality_preset,
                 personality_custom=personality_custom,
+                session_summary=session_summary,
             ),
             temperature=config.AI_TEMPERATURE,
         )
@@ -339,6 +447,7 @@ async def _generate_ollama(
     user_name: str | None = None,
     personality_preset: str | None = None,
     personality_custom: str | None = None,
+    session_summary: str | None = None,
 ):
     def run():
         response = requests.post(
@@ -352,6 +461,7 @@ async def _generate_ollama(
                     user_name,
                     personality_preset=personality_preset,
                     personality_custom=personality_custom,
+                    session_summary=session_summary,
                 ),
                 "stream": False,
                 "options": {"temperature": config.AI_TEMPERATURE},

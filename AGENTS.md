@@ -59,7 +59,7 @@ backend/               -> local FastAPI backend, spawned by Electron
   tts.py               -> edge-tts synthesis, always local
   wakeword.py          -> OpenWakeWord listener, diagnostics, input-device selection
   temp_cleanup.py      -> sweeps old tts_*/stt_* files from temp
-  memory.py            -> SQLite chat history + memory, always local
+  memory.py            -> SQLite chat sessions, messages, summaries, and memory, always local
 proxy/                 -> remote FastAPI proxy for deployed/distributed builds
   main.py              -> /api/chat, /api/stt, /api/spotify/search with API-secret auth + rate limiting
   config.py            -> proxy .env settings and API keys
@@ -95,6 +95,8 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - Electron userData stores `profile.json`, `avatar-model.json`, `mic-preferences.json`, and `tts-preferences.json`.
 - Avatar pose/settings and theme are in renderer `localStorage` under legacy `rainy-*` keys.
 - SQLite lives under local data dir as `rainy.sqlite`; temp audio files are served from `/temp` and cleaned by `temp_cleanup.py`.
+- Chat history is session-based. `chat_sessions` stores title, summary, summary_message_count, started_at, updated_at; `chat_messages` stores `session_id`, role, content, created_at.
+- Current-session selection creates a new session when the latest one is from another day or idle for more than 8 hours.
 
 ## Key Facts
 
@@ -103,6 +105,7 @@ Auth: local backend sends `x-api-key: PROXY_SECRET`; proxy validates against `AP
 - Actions execute without confirmation. The AI emits `[ACTION: TYPE "payload"]`; `renderer.js` parses it and calls `main.js:executeAction()`.
 - Keep `backend/prompts.py` action allowlist in sync with `executeAction()` and `renderer.js:actionLabel()`.
 - AI responses must start with one emotion tag and end with exactly one `[CONVERSATION: ...]` control line; `ai_core.py` strips conversation control before display/TTS.
+- Chat context uses memories + current session summary + recent session messages. `main.py` refreshes the session summary in the background every 16 messages.
 - Spotify playback uses Web API search to get `spotify:track:ID`, then opens that URI with `shell.openExternal()`.
 - Windows Spotify dance detection polls Spotify window titles via PowerShell every 800ms; avatar enters `dancing` when a non-generic title is detected.
 - Media keys use PowerShell + `user32.dll keybd_event` on Windows, AppleScript on macOS, and `playerctl` on Linux.

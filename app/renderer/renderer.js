@@ -156,6 +156,30 @@ function addMessage(role, text) {
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+function addHistorySeparator(label = 'Historial reciente') {
+  const el = document.createElement('div');
+  el.className = 'history-separator';
+  el.textContent = label;
+  chatLog.appendChild(el);
+}
+
+async function loadChatHistory() {
+  try {
+    const res = await fetch(`${API_BASE}/api/chat/history`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const messages = Array.isArray(data) ? data : data.messages || [];
+    if (!messages.length) return;
+    addHistorySeparator();
+    for (const item of messages) {
+      const role = item.role === 'assistant' ? 'assistant' : 'user';
+      addMessage(role, item.content || '');
+    }
+  } catch (_) {
+    // History is nice-to-have; chat still works without it.
+  }
+}
+
 function parseAction(text) {
   const match = (text || '').match(/\[ACTION:\s*(\w+)(?:\s+"([\s\S]*?)")?\]/i);
   if (!match) return null;
@@ -586,7 +610,12 @@ window.rainyDesktop.onAvatarSpeechStatus((payload) => {
   }
 });
 
-initAvatarSettings();
-void initProfile();
-setAvatarState('idle');
-waitForBackend();
+async function initApp() {
+  initAvatarSettings();
+  await initProfile();
+  setAvatarState('idle');
+  const backendReady = await waitForBackend();
+  if (backendReady) await loadChatHistory();
+}
+
+void initApp();
