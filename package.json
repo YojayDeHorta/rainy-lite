@@ -48,7 +48,6 @@
     ],
     "win": {
       "icon": "build/asuka.ico",
-      "signAndEditExecutable": false,
       "target": [
         {
           "target": "portable",
