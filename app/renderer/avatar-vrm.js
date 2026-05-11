@@ -73,12 +73,12 @@ const vrmaReactionFiles = {
   greet: 'greet.vrma',
 };
 const idleVrmaProfiles = [
-  { file: 'Idle1-left-right.vrma', loopFor: 6 },
-  { file: 'idle2-heart.vrma' },
-  { file: 'idle3-yawn.vrma' },
-  { file: 'idle4-break.vrma' },
-  { file: 'idle5-idle-happy.vrma' },
-  { file: 'idle6-penguin.vrma' },
+  { file: 'idle/Idle1-left-right.vrma', loopFor: 6 },
+  { file: 'idle/idle2-heart.vrma' },
+  { file: 'idle/idle3-yawn.vrma' },
+  { file: 'idle/idle4-break.vrma' },
+  { file: 'idle/idle5-idle-happy.vrma' },
+  { file: 'idle/idle6-penguin.vrma' },
 ];
 const IDLE_VRMA_ENABLED = true;
 const PROCEDURAL_IDLE_PREVIEW_MODE = false;
@@ -90,20 +90,20 @@ const proceduralIdleProfiles = [
   { id: 'cozy_shrug', duration: 4.0, expression: 'thinking' },
 ];
 const normalDanceVrmaProfiles = [
-  { file: 'dance-left-right.vrma' },
+  { file: 'dance/dance-left-right.vrma' },
 ];
 const rareDanceVrmaProfiles = [
-  { file: 'dance1-doodle.vrma' },
-  { file: 'dance2-toothless.vrma' },
-  { file: 'dance3-poke.vrma' },
-  { file: 'dance4-smug.vrma' },
-  { file: 'dance6-dare.vrma' },
-  { file: 'dance7-popular.vrma' },
-  { file: 'dance8-california.vrma' },
-  { file: 'dance9-defaultGMOD.vrma' },
+  { file: 'dance/dance1-doodle.vrma' },
+  { file: 'dance/dance2-toothless.vrma' },
+  { file: 'dance/dance3-poke.vrma' },
+  { file: 'dance/dance4-smug.vrma' },
+  { file: 'dance/dance6-dare.vrma' },
+  { file: 'dance/dance7-popular.vrma' },
 ];
 const superRareDanceVrmaProfiles = [
-  { file: 'dance5-arona.vrma' },
+  { file: 'dance/dance5-arona.vrma' },
+  { file: 'dance/dance8-california.vrma' },
+  { file: 'dance/dance9-defaultGMOD.vrma' },
 ];
 const IDLE_VRMA_MIN_DELAY = 50;
 const IDLE_VRMA_MAX_DELAY = 75;
