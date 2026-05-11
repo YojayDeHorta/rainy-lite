@@ -63,6 +63,8 @@ let activeVrmaUntil = 0;
 let vrmaModulePromise = null;
 let nextIdleVrmaAt = 0;
 let lastIdleVrmaFile = '';
+let lastProceduralIdleId = '';
+let activeProceduralIdle = null;
 let lastDanceVrmaFile = '';
 const vrmaAnimationCache = new Map();
 const missingVrmaAnimations = new Set();
@@ -77,6 +79,15 @@ const idleVrmaProfiles = [
   { file: 'idle4-break.vrma' },
   { file: 'idle5-idle-happy.vrma' },
   { file: 'idle6-penguin.vrma' },
+];
+const IDLE_VRMA_ENABLED = true;
+const PROCEDURAL_IDLE_PREVIEW_MODE = false;
+const proceduralIdleProfiles = [
+  { id: 'look_around', duration: 5.4, expression: 'thinking' },
+  { id: 'shy_fidget', duration: 4.8, expression: 'shy' },
+  { id: 'happy_bob', duration: 3.6, expression: 'happy' },
+  { id: 'curious_peek', duration: 4.2, expression: 'thinking' },
+  { id: 'cozy_shrug', duration: 4.0, expression: 'thinking' },
 ];
 const normalDanceVrmaProfiles = [
   { file: 'dance-left-right.vrma' },
@@ -437,7 +448,7 @@ export async function initAvatar() {
     
     scheduleBlink();
     scheduleMicroExpression();
-    scheduleNextIdleVrma(4, 8);
+    scheduleNextIdleVrma(PROCEDURAL_IDLE_PREVIEW_MODE ? 1 : 4, PROCEDURAL_IDLE_PREVIEW_MODE ? 2 : 8);
     animate();
     return true;
   } catch (error) {
@@ -784,6 +795,84 @@ function pickIdleVrmaFile() {
   return pool[Math.floor(Math.random() * pool.length)] || null;
 }
 
+function pickProceduralIdleProfile() {
+  if (!proceduralIdleProfiles.length) return null;
+  const pool = proceduralIdleProfiles.length > 1
+    ? proceduralIdleProfiles.filter((profile) => profile.id !== lastProceduralIdleId)
+    : proceduralIdleProfiles;
+  return pool[Math.floor(Math.random() * pool.length)] || null;
+}
+
+function startProceduralIdle(profile, elapsed) {
+  if (!profile) return false;
+  activeProceduralIdle = {
+    profile,
+    startAt: elapsed,
+    endAt: elapsed + Math.max(0.1, Number(profile.duration) || 1),
+  };
+  lastProceduralIdleId = profile.id || '';
+  if (profile.expression) {
+    activeExpression = profile.expression;
+    applyExpressions();
+  }
+  return true;
+}
+
+function updateProceduralIdle(elapsed) {
+  if (!activeProceduralIdle) return null;
+  const profile = activeProceduralIdle.profile;
+  if (avatarState !== 'idle' || reactionFx.profile || activeVrmaAction || dragFx.isDragging || elapsed >= activeProceduralIdle.endAt) {
+    activeProceduralIdle = null;
+    if (avatarState === 'idle' && !reactionFx.profile) {
+      activeExpression = 'neutral';
+      applyExpressions();
+    }
+    return null;
+  }
+  const progress = clampNumber((elapsed - activeProceduralIdle.startAt) / Math.max(0.001, activeProceduralIdle.endAt - activeProceduralIdle.startAt), 0, 1, 0);
+  return getProceduralIdlePose(profile.id, progress, elapsed);
+}
+
+function getProceduralIdlePose(id, progress, elapsed) {
+  if (id === 'look_around') {
+    const right = idleWindow(progress, 0.05, 0.2, 0.45, 0.6);
+    const left = idleWindow(progress, 0.48, 0.63, 0.82, 0.96);
+    const curiosity = Math.sin(progress * Math.PI);
+    return { headX: -0.025 * curiosity + (right + left) * 0.025, headY: right * 0.46 - left * 0.32, headZ: right * 0.035 - left * 0.028, neckX: -(right + left) * 0.025, spineZ: right * 0.015 - left * 0.012, chestX: curiosity * 0.012 };
+  }
+  if (id === 'shy_fidget') {
+    const hold = idleWindow(progress, 0.08, 0.28, 0.72, 0.94);
+    const fidget = Math.sin(elapsed * 12) * hold;
+    return { headX: hold * 0.1, headZ: hold * 0.075 + fidget * 0.016, neckX: hold * 0.055, spineZ: fidget * 0.018, chestX: hold * 0.075, hipsY: -hold * 0.018, leftUpperArmX: -hold * 0.33, leftUpperArmY: -hold * 0.46, leftUpperArmZ: -hold * 0.42, rightUpperArmX: -hold * 0.33, rightUpperArmY: hold * 0.46, rightUpperArmZ: hold * 0.42, leftLowerArmX: -hold * 0.52, leftLowerArmY: -hold * 0.13, rightLowerArmX: -hold * 0.52, rightLowerArmY: hold * 0.13, leftHandZ: hold * 0.12 + fidget * 0.05, rightHandZ: -hold * 0.12 - fidget * 0.05 };
+  }
+  if (id === 'happy_bob') {
+    const envelope = Math.sin(progress * Math.PI);
+    const bounce = Math.max(0, Math.sin(progress * Math.PI * 5)) * envelope;
+    const sway = Math.sin(progress * Math.PI * 4) * envelope;
+    return { headX: -bounce * 0.035 + sway * 0.018, headZ: sway * 0.055, neckX: -bounce * 0.02, spineZ: sway * 0.035, chestX: bounce * 0.045, hipsY: bounce * 0.05, leftUpperArmZ: sway * 0.07 + bounce * 0.04, rightUpperArmZ: -sway * 0.07 - bounce * 0.04, leftLowerArmX: bounce * 0.035, rightLowerArmX: bounce * 0.035, leftHandZ: sway * 0.045, rightHandZ: -sway * 0.045 };
+  }
+  if (id === 'curious_peek') {
+    const peek = idleWindow(progress, 0.08, 0.28, 0.64, 0.92);
+    const settle = Math.sin(progress * Math.PI * 2) * peek;
+    return { headX: -peek * 0.035, headY: peek * 0.24, headZ: -peek * 0.11 + settle * 0.012, neckX: -peek * 0.025, spineZ: -peek * 0.07, chestX: peek * 0.025, hipsY: peek * 0.015, leftUpperArmZ: -peek * 0.035, rightUpperArmZ: -peek * 0.05, leftHandZ: -peek * 0.025, rightHandZ: -peek * 0.035 };
+  }
+  if (id === 'cozy_shrug') {
+    const lift = idleWindow(progress, 0.08, 0.3, 0.7, 0.95);
+    const settle = Math.sin(progress * Math.PI * 2.5) * lift;
+    return { headX: -lift * 0.03, headZ: -lift * 0.085 + settle * 0.012, neckX: -lift * 0.02, spineZ: settle * 0.02, chestX: lift * 0.03, hipsY: lift * 0.012, leftUpperArmX: -lift * 0.08, rightUpperArmX: -lift * 0.08, leftUpperArmZ: -lift * 0.11, rightUpperArmZ: lift * 0.11 };
+  }
+  return null;
+}
+
+function idleWindow(value, fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd) {
+  return idleSmoothStep(fadeInStart, fadeInEnd, value) * (1 - idleSmoothStep(fadeOutStart, fadeOutEnd, value));
+}
+
+function idleSmoothStep(edge0, edge1, value) {
+  const t = clampNumber((value - edge0) / Math.max(0.001, edge1 - edge0), 0, 1, 0);
+  return t * t * (3 - 2 * t);
+}
+
 function pickDanceVrmaFile(profiles) {
   const available = profiles.filter((profile) => !missingVrmaAnimations.has(getVrmaUrl(profile.file)));
   if (!available.length) return null;
@@ -908,8 +997,20 @@ async function playVrmaFromUrl(url, options = {}) {
 
 async function maybePlayIdleVrma(elapsed) {
   if (!nextIdleVrmaAt || elapsed < nextIdleVrmaAt) return;
-  if (avatarState !== 'idle' || reactionFx.profile || activeVrmaAction || dragFx.isDragging) {
-    scheduleNextIdleVrma();
+  if (avatarState !== 'idle' || reactionFx.profile || activeVrmaAction || activeProceduralIdle || dragFx.isDragging) {
+    scheduleNextIdleVrma(PROCEDURAL_IDLE_PREVIEW_MODE ? 2 : IDLE_VRMA_MIN_DELAY, PROCEDURAL_IDLE_PREVIEW_MODE ? 4 : IDLE_VRMA_MAX_DELAY);
+    return;
+  }
+
+  if (PROCEDURAL_IDLE_PREVIEW_MODE || !IDLE_VRMA_ENABLED || Math.random() < 0.35) {
+    if (startProceduralIdle(pickProceduralIdleProfile(), elapsed)) {
+      scheduleNextIdleVrma(PROCEDURAL_IDLE_PREVIEW_MODE ? 2 : IDLE_VRMA_MIN_DELAY, PROCEDURAL_IDLE_PREVIEW_MODE ? 4 : IDLE_VRMA_MAX_DELAY);
+      return;
+    }
+  }
+
+  if (!IDLE_VRMA_ENABLED) {
+    scheduleNextIdleVrma(PROCEDURAL_IDLE_PREVIEW_MODE ? 2 : IDLE_VRMA_MIN_DELAY, PROCEDURAL_IDLE_PREVIEW_MODE ? 4 : IDLE_VRMA_MAX_DELAY);
     return;
   }
 
@@ -1052,6 +1153,7 @@ function updateIdlePose(elapsed) {
   const listeningTilt = avatarState === 'listening' ? 0.035 : 0;
   const dancing = avatarState === 'dancing' ? 1 : 0;
   const d = dancing ? danceRoutines[currentDanceIndex](elapsed) : { head: 0, headZ: 0, spine: 0, chest: 0, armSwing: 0, forearm: 0, hipsY: 0, hipsZ: 0, handZ: 0 };
+  const p = updateProceduralIdle(elapsed) || {};
   const danceHead = d.head * dancing;
   const danceSpine = d.spine * dancing;
   const danceChest = d.chest * dancing;
@@ -1073,21 +1175,21 @@ function updateIdlePose(elapsed) {
   const leftChestWristWave = leftChestWave * Math.sin(elapsed * 16);
 
   if (head) {
-    head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion;
-    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.03 + reactionHeadPitch + dragTiltX * 0.55 + danceHead;
-    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionHeadRoll + dragTiltZ * 0.6 + danceHeadZ;
+    head.rotation.y = look.x * 0.42 + Math.sin(elapsed * 0.62) * 0.035 * motion + (p.headY || 0);
+    head.rotation.x = look.y * 0.25 + Math.sin(elapsed * 0.88) * 0.018 * motion - reactionPulse * 0.03 + reactionHeadPitch + dragTiltX * 0.55 + danceHead + (p.headX || 0);
+    head.rotation.z = listeningTilt + Math.sin(elapsed * 0.48) * 0.024 * motion + reactionHeadRoll + dragTiltZ * 0.6 + danceHeadZ + (p.headZ || 0);
   }
-  if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025 + reactionNeckPitch + dragTiltX * 0.4;
-  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionSpineRoll + dragTiltZ * 0.45 + danceSpine;
-  if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018 + reactionChestPitch + danceChest;
+  if (neck) neck.rotation.x = look.y * 0.18 + Math.sin(elapsed * 0.76) * 0.012 * motion + speakingPulse * 0.025 + reactionNeckPitch + dragTiltX * 0.4 + (p.neckX || 0);
+  if (spine) spine.rotation.z = Math.sin(elapsed * 0.54) * 0.018 * motion + reactionSpineRoll + dragTiltZ * 0.45 + danceSpine + (p.spineZ || 0);
+  if (chest) chest.rotation.x = Math.sin(elapsed * 1.25) * 0.01 * motion + speakingPulse * 0.018 + reactionChestPitch + danceChest + (p.chestX || 0);
   if (hips) {
-    hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + reactionHipsLift + danceHipsY;
+    hips.position.y = Math.sin(elapsed * 1.15) * 0.008 * motion + reactionHipsLift + danceHipsY + (p.hipsY || 0);
     hips.rotation.z = danceHipsZ;
   }
   if (leftUpperArm) {
-    let x = 0.24 + armHangRad + Math.sin(elapsed * 0.64) * 0.012 * motion - leftBigWave * 0.85;
-    let z = 1.22 - armAbRad + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045 + danceArmSwing - leftBigWave * 0.58;
-    let y = -0.02 + Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion - leftBigWave * 0.72;
+    let x = 0.24 + armHangRad + Math.sin(elapsed * 0.64) * 0.012 * motion - leftBigWave * 0.85 + (p.leftUpperArmX || 0);
+    let z = 1.22 - armAbRad + Math.sin(elapsed * 0.76) * 0.02 * motion + reactionPulse * 0.045 + danceArmSwing - leftBigWave * 0.58 + (p.leftUpperArmZ || 0);
+    let y = -0.02 + Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion - leftBigWave * 0.72 + (p.leftUpperArmY || 0);
     if (leftChestWave) {
       x = THREE.MathUtils.lerp(x, -0.42, leftChestWave);
       z = THREE.MathUtils.lerp(z, 0.08, leftChestWave);
@@ -1098,13 +1200,13 @@ function updateIdlePose(elapsed) {
     leftUpperArm.rotation.y = y;
   }
   if (rightUpperArm) {
-    rightUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion - rightArmWave * 0.85;
-    rightUpperArm.rotation.z = -1.22 + armAbRad - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing + rightArmWave * 0.58;
-    rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion + rightArmWave * 0.72;
+    rightUpperArm.rotation.x = 0.24 + armHangRad + Math.sin(elapsed * 0.64 + 0.4) * 0.012 * motion - rightArmWave * 0.85 + (p.rightUpperArmX || 0);
+    rightUpperArm.rotation.z = -1.22 + armAbRad - Math.sin(elapsed * 0.76) * 0.02 * motion - reactionPulse * 0.045 - danceArmSwing + rightArmWave * 0.58 + (p.rightUpperArmZ || 0);
+    rightUpperArm.rotation.y = 0.02 - Math.sin(elapsed * 0.52 + 0.35) * 0.012 * motion + rightArmWave * 0.72 + (p.rightUpperArmY || 0);
   }
   if (leftLowerArm) {
-    let x = -0.62 + Math.sin(elapsed * 0.9 + 0.55) * 0.014 * motion + danceForearm - leftBigWave * 0.35;
-    let y = 0.04 + Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion - leftBigWave * 0.16;
+    let x = -0.62 + Math.sin(elapsed * 0.9 + 0.55) * 0.014 * motion + danceForearm - leftBigWave * 0.35 + (p.leftLowerArmX || 0);
+    let y = 0.04 + Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion - leftBigWave * 0.16 + (p.leftLowerArmY || 0);
     let z = 0;
     if (leftChestWave) {
       x = THREE.MathUtils.lerp(x, -1.85, leftChestWave);
@@ -1116,13 +1218,13 @@ function updateIdlePose(elapsed) {
     leftLowerArm.rotation.z = z;
   }
   if (rightLowerArm) {
-    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion - danceForearm - rightArmWave * 0.35;
-    rightLowerArm.rotation.y = -0.04 - Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion + rightArmWave * 0.42;
+    rightLowerArm.rotation.x = -0.62 + Math.sin(elapsed * 0.9 + 1.9) * 0.014 * motion - danceForearm - rightArmWave * 0.35 + (p.rightLowerArmX || 0);
+    rightLowerArm.rotation.y = -0.04 - Math.sin(elapsed * 0.7 + 0.3) * 0.01 * motion + rightArmWave * 0.42 + (p.rightLowerArmY || 0);
   }
   if (leftHand) {
     let x = -0.22 + Math.sin(elapsed * 0.92 + 0.5) * 0.01 * motion + leftBigWave * 0.2;
     let y = 0.07 + Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion + leftBigWave * 0.28;
-    let z = 0.05 + Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion + danceHandZ + leftBigWave * Math.sin(elapsed * 18) * 0.22;
+    let z = 0.05 + Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion + danceHandZ + leftBigWave * Math.sin(elapsed * 18) * 0.22 + (p.leftHandZ || 0);
     if (leftChestWave) {
       x = THREE.MathUtils.lerp(x, -0.16, leftChestWave);
       y = THREE.MathUtils.lerp(y, 0.24, leftChestWave);
@@ -1135,7 +1237,7 @@ function updateIdlePose(elapsed) {
   if (rightHand) {
     rightHand.rotation.x = -0.22 + Math.sin(elapsed * 0.92 + 1.6) * 0.01 * motion + rightArmWave * 0.2;
     rightHand.rotation.y = -0.07 - Math.sin(elapsed * 0.62 + 0.9) * 0.006 * motion - rightArmWave * 1.05;
-    rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion - danceHandZ - rightArmWave * Math.sin(elapsed * 18) * 0.42;
+    rightHand.rotation.z = -0.05 - Math.sin(elapsed * 0.58 + 0.2) * 0.008 * motion - danceHandZ - rightArmWave * Math.sin(elapsed * 18) * 0.42 + (p.rightHandZ || 0);
   }
   applyRelaxedFingers(elapsed, motion);
 }
@@ -1186,7 +1288,7 @@ function updateLookTarget(elapsed, motion) {
 }
 
 function updateAutoExpression(elapsed) {
-  if (reactionFx.profile || avatarState !== 'idle') return;
+  if (reactionFx.profile || activeProceduralIdle || avatarState !== 'idle') return;
 
   if (microExpressionUntil && elapsed > microExpressionUntil) {
     microExpressionUntil = 0;
