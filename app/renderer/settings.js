@@ -185,15 +185,10 @@ async function initIntegrationSettings() {
   if (!wakewordEnabledToggle || !spotifyActionsToggle || !integrationsSaveButton) return;
   try {
     const prefs = await window.rainyDesktop.getIntegrationPreferences();
-    if (prefs?.wakewordEnabled === null || prefs?.wakewordEnabled === undefined) {
-      const res = await fetch('http://127.0.0.1:8765/api/wakeword/status');
-      const data = res.ok ? await res.json() : {};
-      wakewordEnabledToggle.checked = Boolean(data.enabled);
-    } else {
-      wakewordEnabledToggle.checked = Boolean(prefs.wakewordEnabled);
-    }
+    wakewordEnabledToggle.checked = Boolean(prefs?.wakewordEnabled);
     spotifyActionsToggle.checked = prefs?.spotifyActionsEnabled !== false;
   } catch (_) {
+    wakewordEnabledToggle.checked = false;
     spotifyActionsToggle.checked = true;
   }
 

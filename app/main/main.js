@@ -158,9 +158,7 @@ function startBackend() {
   const portableEnvPath = path.join(path.dirname(process.execPath), '.env');
   const integrationPrefs = readIntegrationPreference();
   const integrationEnv = {};
-  if (integrationPrefs.wakewordEnabled !== null) {
-    integrationEnv.WAKEWORD_ENABLED = integrationPrefs.wakewordEnabled ? '1' : '0';
-  }
+  integrationEnv.WAKEWORD_ENABLED = integrationPrefs.wakewordEnabled ? '1' : '0';
 
   const tryLaunch = (index) => {
     if (index >= candidates.length) {
@@ -445,11 +443,11 @@ function readIntegrationPreference() {
     const raw = fs.readFileSync(INTEGRATION_PREFS, 'utf8');
     const parsed = JSON.parse(raw);
     return {
-      wakewordEnabled: parsed?.wakewordEnabled === undefined ? null : Boolean(parsed.wakewordEnabled),
-      spotifyActionsEnabled: parsed?.spotifyActionsEnabled === undefined ? true : Boolean(parsed.spotifyActionsEnabled),
+      wakewordEnabled: parsed?.wakewordEnabled === undefined ? false : Boolean(parsed?.wakewordEnabled),
+      spotifyActionsEnabled: parsed?.spotifyActionsEnabled === undefined ? true : Boolean(parsed?.spotifyActionsEnabled),
     };
   } catch (_) {
-    return { wakewordEnabled: null, spotifyActionsEnabled: true };
+    return { wakewordEnabled: false, spotifyActionsEnabled: true };
   }
 }
 
