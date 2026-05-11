@@ -99,6 +99,8 @@ const rareDanceVrmaProfiles = [
   { file: 'dance4-smug.vrma' },
   { file: 'dance6-dare.vrma' },
   { file: 'dance7-popular.vrma' },
+  { file: 'dance8-california.vrma' },
+  { file: 'dance9-defaultGMOD.vrma' },
 ];
 const superRareDanceVrmaProfiles = [
   { file: 'dance5-arona.vrma' },
