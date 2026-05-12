@@ -114,6 +114,8 @@ const ANGRY_CLICK_WINDOW_MS = 5000;
 const ANGRY_CLICK_THRESHOLD = 10;
 const ANGRY_REACTION_DURATION = 3.8;
 const ANGRY_REACTION_SCALE = 1.18;
+const VIBING_EYE_OPEN_SECONDS = 5;
+const VIBING_EYE_CLOSED_SECONDS = 5;
 
 let annoyedFx = {
   active: false,
@@ -406,6 +408,7 @@ const expressionMap = {
   angry: [{ name: 'angry', weight: 0.9 }],
   surprised: [{ name: 'surprised', weight: 0.88 }, { name: 'happy', weight: 0.08 }],
   confused: [{ name: 'surprised', weight: 0.34 }, { name: 'sad', weight: 0.24 }, { name: 'relaxed', weight: 0.18 }],
+  vibing: [{ name: 'happy', weight: 0.34 }, { name: 'relaxed', weight: 0.18 }],
   thinking: [{ name: 'relaxed', weight: 0.55 }, { name: 'sad', weight: 0.18 }],
   shy: [{ name: 'relaxed', weight: 0.5 }, { name: 'happy', weight: 0.32 }],
 };
@@ -524,7 +527,8 @@ export function setAvatarState(state) {
   }
   if (avatarState === 'listening') activeExpression = 'surprised';
   if (avatarState === 'thinking') activeExpression = 'thinking';
-  if (avatarState === 'dancing') activeExpression = 'happy';
+  if (avatarState === 'dancing') activeExpression = 'vibing';
+  if (prev === 'dancing' && avatarState === 'idle') activeExpression = 'neutral';
   applyExpressions();
   if (prev !== avatarState) {
     if (avatarState === 'listening') triggerAvatarReaction('listen');
@@ -1460,7 +1464,7 @@ function updateDragVisuals(delta) {
 
 function updateBlink(elapsed) {
   if (avatarState === 'dancing') {
-    setExpressionValue('blink', 0);
+    updateVibingBlink(elapsed);
     return;
   }
 
@@ -1470,6 +1474,19 @@ function updateBlink(elapsed) {
   }
   const blinkValue = elapsed < blinkUntil ? 1 : 0;
   setExpressionValue('blink', blinkValue);
+}
+
+function updateVibingBlink(elapsed) {
+  const cycleDuration = VIBING_EYE_OPEN_SECONDS + VIBING_EYE_CLOSED_SECONDS;
+  const phase = elapsed % cycleDuration;
+  if (phase >= VIBING_EYE_OPEN_SECONDS) {
+    setExpressionValue('blink', 0.72);
+    return;
+  }
+
+  const blinkPhase = phase % 2.15;
+  const blinkValue = blinkPhase < 0.11 ? Math.sin((blinkPhase / 0.11) * Math.PI) * 0.72 : 0;
+  setExpressionValue('blink', Math.min(0.72, blinkValue));
 }
 
 function scheduleBlink(now = 0) {
