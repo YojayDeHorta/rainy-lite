@@ -27,6 +27,7 @@ let activeExpression = 'neutral';
 let avatarState = 'idle';
 let blinkUntil = 0;
 let nextBlinkAt = 0;
+let suppressBlinkUntil = 0;
 let nextMicroExpressionAt = 0;
 let microExpressionUntil = 0;
 let pointer = { x: 0, y: 0, active: false };
@@ -116,6 +117,10 @@ const ANGRY_REACTION_DURATION = 3.8;
 const ANGRY_REACTION_SCALE = 1.18;
 const VIBING_EYE_OPEN_SECONDS = 5;
 const VIBING_EYE_CLOSED_SECONDS = 5;
+const MAX_BLINK_VALUE = 0.72;
+const STARTUP_BLINK_SUPPRESS_SECONDS = 8;
+const CLICK_BLINK_SUPPRESS_SECONDS = 2.5;
+const POST_REACTION_BLINK_SUPPRESS_SECONDS = 1.8;
 
 let annoyedFx = {
   active: false,
@@ -228,7 +233,7 @@ const reactionProfiles = [
     type: 'body',
     weight: 1.15,
     duration: 0.78,
-    expression: 'happy',
+    expression: 'bright',
     bodyLift: 0.055,
     bodySway: 0.045,
     chestPitch: 0.028,
@@ -250,7 +255,7 @@ const reactionProfiles = [
     type: 'combo',
     weight: 1.1,
     duration: 0.92,
-    expression: 'happy',
+    expression: 'bright',
     headPitch: 0.11,
     headRoll: 0.08,
     neckPitch: 0.06,
@@ -293,7 +298,7 @@ const reactionProfiles = [
     type: 'combo',
     weight: 0.7,
     duration: 0.45,
-    expression: 'surprised',
+    expression: 'bright',
     bodyLift: 0.18,
     bodySway: 0.02,
     frequency: 2.8,
@@ -390,6 +395,7 @@ let reactionFx = {
   profile: null,
   startAt: 0,
   endAt: 0,
+  keepEyesOpen: false,
   intensity: 0,
   headPitch: 0,
   headRoll: 0,
@@ -403,14 +409,15 @@ let reactionFx = {
 
 const expressionMap = {
   neutral: [],
-  happy: [{ name: 'happy', weight: 0.82 }],
+  bright: [{ name: 'surprised', weight: 0.22 }, { name: 'happy', weight: 0.16 }],
+  happy: [{ name: 'happy', weight: 0.62 }, { name: 'surprised', weight: 0.04 }],
   sad: [{ name: 'sad', weight: 0.85 }, { name: 'relaxed', weight: 0.22 }],
   angry: [{ name: 'angry', weight: 0.9 }],
   surprised: [{ name: 'surprised', weight: 0.88 }, { name: 'happy', weight: 0.08 }],
   confused: [{ name: 'surprised', weight: 0.34 }, { name: 'sad', weight: 0.24 }, { name: 'relaxed', weight: 0.18 }],
-  vibing: [{ name: 'happy', weight: 0.34 }, { name: 'relaxed', weight: 0.18 }],
+  vibing: [{ name: 'happy', weight: 0.38 }, { name: 'surprised', weight: 0.03 }, { name: 'relaxed', weight: 0.1 }],
   thinking: [{ name: 'relaxed', weight: 0.55 }, { name: 'sad', weight: 0.18 }],
-  shy: [{ name: 'relaxed', weight: 0.5 }, { name: 'happy', weight: 0.32 }],
+  shy: [{ name: 'relaxed', weight: 0.38 }, { name: 'happy', weight: 0.28 }, { name: 'surprised', weight: 0.03 }],
 };
 
 export async function initAvatar() {
@@ -462,6 +469,7 @@ export async function initAvatar() {
     }
     root?.classList.add('vrm-loaded');
     clock = new THREE.Clock();
+    suppressBlinkUntil = STARTUP_BLINK_SUPPRESS_SECONDS;
     
     currentVrm.scene.updateMatrixWorld(true);
     if (currentVrm.springBoneManager) currentVrm.springBoneManager.reset();
@@ -547,6 +555,7 @@ export async function triggerAvatarReaction(name) {
 
   const profile = contextualReactions[reactionName];
   if (!profile) return false;
+  forceEyesOpen();
   startReaction(profile, clock.elapsedTime);
   scheduleNextIdleVrma();
   return true;
@@ -770,11 +779,15 @@ function setDraggingVisual(active) {
 
 function triggerReaction() {
   if (!clock) return;
-  startReaction(pickReactionProfile(), clock.elapsedTime);
+  startReaction(pickReactionProfile(), clock.elapsedTime, {
+    cleanStart: true,
+    keepEyesOpen: true,
+  });
 }
 
 function registerAvatarClick() {
   const now = performance.now();
+  forceEyesOpen();
   avatarClickTimes = avatarClickTimes
     .filter((time) => now - time <= ANGRY_CLICK_WINDOW_MS)
     .concat(now);
@@ -789,7 +802,7 @@ function registerAvatarClick() {
 function triggerAnnoyedReaction() {
   if (!clock) return;
   if (activeVrmaAction) stopVrmaAnimation();
-  reactionFx.profile = null;
+  finishReaction(true, true);
   activeProceduralIdle = null;
   activeExpression = 'angry';
   annoyedFx.active = true;
@@ -810,13 +823,40 @@ function pickReactionProfile() {
   return reactionProfiles[0];
 }
 
-function startReaction(profile, now) {
+function startReaction(profile, now, options = {}) {
   if (!profile) return;
+  if (options.cleanStart) finishReaction(true, true);
+  resetFaceExpressions();
+  if (options.keepEyesOpen || profile.expression === 'bright') {
+    forceEyesOpen(POST_REACTION_BLINK_SUPPRESS_SECONDS);
+  }
   reactionFx.profile = profile;
   reactionFx.startAt = now;
   reactionFx.endAt = now + profile.duration;
+  reactionFx.keepEyesOpen = Boolean(options.keepEyesOpen);
   activeExpression = profile.expression || 'happy';
   applyExpressions();
+}
+
+function finishReaction(recoverEyes = false, resetMotion = false) {
+  reactionFx.profile = null;
+  reactionFx.keepEyesOpen = false;
+  if (resetMotion) {
+    reactionFx.intensity = 0;
+    reactionFx.headPitch = 0;
+    reactionFx.headRoll = 0;
+    reactionFx.neckPitch = 0;
+    reactionFx.spineRoll = 0;
+    reactionFx.chestPitch = 0;
+    reactionFx.hipsLift = 0;
+    reactionFx.armWave = 0;
+  }
+  reactionFx.modelYaw = 0;
+  syncVrmSceneRotation();
+  if (recoverEyes) {
+    resetFaceExpressions();
+    forceEyesOpen(POST_REACTION_BLINK_SUPPRESS_SECONDS);
+  }
 }
 
 function getVrmaUrlForReaction(name) {
@@ -875,8 +915,7 @@ function updateProceduralIdle(elapsed) {
   if (avatarState !== 'idle' || reactionFx.profile || activeVrmaAction || dragFx.isDragging || elapsed >= activeProceduralIdle.endAt) {
     activeProceduralIdle = null;
     if (avatarState === 'idle' && !reactionFx.profile) {
-      activeExpression = 'neutral';
-      applyExpressions();
+      resetFaceExpressions();
     }
     return null;
   }
@@ -1028,11 +1067,17 @@ async function playVrmaFromUrl(url, options = {}) {
   if (!vrmAnimation || !currentVrm?.scene) return false;
 
   stopVrmaAnimation();
+  resetFaceExpressions();
+  if (avatarState === 'dancing') {
+    activeExpression = 'vibing';
+    applyExpressions();
+  }
   const vrmaModule = await getVrmaModule();
   if (!vrmaModule?.createVRMAnimationClip) return false;
   vrmaMixer = new THREE.AnimationMixer(currentVrm.scene);
   const clip = vrmaModule.createVRMAnimationClip(vrmAnimation, currentVrm);
   normalizeVrmaClipRootMotion(clip);
+  removeVrmaFacialTracks(clip);
   const action = vrmaMixer.clipAction(clip);
   const loopFor = Math.max(0, Number(options.loopFor) || 0);
   const loopUntilStopped = Boolean(options.loopUntilStopped);
@@ -1112,6 +1157,31 @@ function normalizeVrmaClipRootMotion(clip) {
       values[i + 2] -= offsetZ;
     }
   }
+}
+
+function removeVrmaFacialTracks(clip) {
+  if (!clip?.tracks?.length) return;
+  const facialTokens = [
+    'expression',
+    'blendshape',
+    'morphtarget',
+    'blink',
+    'happy',
+    'sad',
+    'angry',
+    'surprised',
+    'relaxed',
+    'aa',
+    'ih',
+    'ou',
+    'ee',
+    'oh',
+  ];
+  clip.tracks = clip.tracks.filter((track) => {
+    const name = String(track?.name || '').toLowerCase();
+    return !facialTokens.some((token) => name.includes(token));
+  });
+  clip.resetDuration();
 }
 
 function loadVRM(url) {
@@ -1375,6 +1445,11 @@ function updateReaction(elapsed, delta) {
   }
 
   const profile = reactionFx.profile;
+  if (reactionFx.keepEyesOpen) {
+    setExpressionValue('blink', 0);
+    setExpressionValue('blinkLeft', 0);
+    setExpressionValue('blinkRight', 0);
+  }
   const progress = clampNumber((elapsed - reactionFx.startAt) / Math.max(0.001, profile.duration), 0, 1, 1);
   const envelope = Math.sin(progress * Math.PI);
   const phase = elapsed * profile.frequency * Math.PI * 2;
@@ -1406,13 +1481,7 @@ function updateReaction(elapsed, delta) {
   syncVrmSceneRotation();
 
   if (elapsed >= reactionFx.endAt) {
-    reactionFx.profile = null;
-    reactionFx.modelYaw = 0;
-    syncVrmSceneRotation();
-    if (avatarState === 'idle') {
-      activeExpression = 'neutral';
-      applyExpressions();
-    }
+    finishReaction(avatarState === 'idle');
   }
 }
 
@@ -1430,8 +1499,7 @@ function updateAnnoyedReaction(elapsed) {
   annoyedFx.active = false;
   annoyedFx.scale = 1;
   if (activeExpression === 'angry') {
-    activeExpression = 'neutral';
-    applyExpressions();
+    resetFaceExpressions();
   }
   applyModelSettings();
 }
@@ -1463,6 +1531,10 @@ function updateDragVisuals(delta) {
 }
 
 function updateBlink(elapsed) {
+  if (elapsed < suppressBlinkUntil) {
+    setExpressionValue('blink', 0);
+    return;
+  }
   if (avatarState === 'dancing') {
     updateVibingBlink(elapsed);
     return;
@@ -1480,13 +1552,13 @@ function updateVibingBlink(elapsed) {
   const cycleDuration = VIBING_EYE_OPEN_SECONDS + VIBING_EYE_CLOSED_SECONDS;
   const phase = elapsed % cycleDuration;
   if (phase >= VIBING_EYE_OPEN_SECONDS) {
-    setExpressionValue('blink', 0.72);
+    setExpressionValue('blink', MAX_BLINK_VALUE);
     return;
   }
 
   const blinkPhase = phase % 2.15;
-  const blinkValue = blinkPhase < 0.11 ? Math.sin((blinkPhase / 0.11) * Math.PI) * 0.72 : 0;
-  setExpressionValue('blink', Math.min(0.72, blinkValue));
+  const blinkValue = blinkPhase < 0.11 ? Math.sin((blinkPhase / 0.11) * Math.PI) * MAX_BLINK_VALUE : 0;
+  setExpressionValue('blink', blinkValue);
 }
 
 function scheduleBlink(now = 0) {
@@ -1515,9 +1587,33 @@ function applyExpressions() {
   }
 }
 
+function resetFaceExpressions() {
+  activeExpression = 'neutral';
+  microExpressionUntil = 0;
+  blinkUntil = 0;
+  if (clock) nextBlinkAt = clock.elapsedTime + 1.2;
+  for (const name of ['happy', 'sad', 'angry', 'surprised', 'relaxed', 'blink', 'blinkLeft', 'blinkRight']) {
+    setExpressionValue(name, 0);
+  }
+}
+
+function forceEyesOpen(durationSeconds = CLICK_BLINK_SUPPRESS_SECONDS) {
+  blinkUntil = 0;
+  if (clock) {
+    suppressBlinkUntil = Math.max(suppressBlinkUntil, clock.elapsedTime + durationSeconds);
+    nextBlinkAt = Math.max(nextBlinkAt, suppressBlinkUntil + 0.8);
+  }
+  setExpressionValue('blink', 0);
+  setExpressionValue('blinkLeft', 0);
+  setExpressionValue('blinkRight', 0);
+}
+
 function setExpressionValue(name, value) {
   try {
-    currentVrm?.expressionManager?.setValue(name, value);
+    const safeValue = String(name || '').toLowerCase().includes('blink')
+      ? clampNumber(value, 0, MAX_BLINK_VALUE, 0)
+      : value;
+    currentVrm?.expressionManager?.setValue(name, safeValue);
   } catch (_) {
     // VRM models do not always expose the same expression presets.
   }
