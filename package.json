@@ -58,6 +58,9 @@
       ]
     },
     "nsis": {
+      "include": "build/installer.nsh",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
       "installerIcon": "build/asuka.ico",
       "uninstallerIcon": "build/asuka.ico",
       "installerHeaderIcon": "build/asuka.ico",
