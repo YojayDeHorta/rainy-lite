@@ -211,14 +211,68 @@ button {
   margin-top: 6px;
 }
 
+.avatar-face.happy .mouth {
+  width: 38px;
+  height: 14px;
+  border-radius: 0 0 999px 999px;
+}
+
 .avatar-face.sad {
-  filter: saturate(0.75);
+  filter: saturate(0.65) brightness(0.92);
+}
+
+.avatar-face.sad .eyes span {
+  height: 14px;
+  margin-top: 4px;
+  transform: rotate(-8deg);
+}
+
+.avatar-face.sad .eyes span:last-child {
+  transform: rotate(8deg);
+}
+
+.avatar-face.sad .mouth {
+  width: 28px;
+  height: 8px;
+  margin-top: 32px;
+  border-radius: 999px 999px 0 0;
+}
+
+.avatar-face.surprised .eyes span {
+  width: 18px;
+  height: 24px;
 }
 
 .avatar-face.surprised .mouth {
   width: 24px;
   height: 24px;
   border-radius: 50%;
+}
+
+.avatar-face.thinking .eyes span:last-child {
+  height: 4px;
+  margin-top: 8px;
+}
+
+.avatar-face.thinking .mouth {
+  width: 20px;
+  height: 6px;
+  margin-left: auto;
+  margin-right: 42px;
+  border-radius: 999px;
+}
+
+.avatar-face.shy .eyes span {
+  height: 8px;
+  margin-top: 5px;
+}
+
+.avatar-face.shy .mouth {
+  width: 26px;
+  height: 10px;
+  margin-left: auto;
+  margin-right: 44px;
+  border-radius: 0 0 999px 999px;
 }
 
 @keyframes breathe {

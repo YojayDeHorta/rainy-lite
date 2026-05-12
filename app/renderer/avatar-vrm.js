@@ -57,6 +57,7 @@ let dragFx = {
 let look = { x: 0, y: 0 };
 let saccade = { x: 0, y: 0, nextAt: 0 };
 let currentDanceIndex = 0;
+let avatarClickTimes = [];
 let vrmaMixer = null;
 let activeVrmaAction = null;
 let activeVrmaUntil = 0;
@@ -109,6 +110,18 @@ const IDLE_VRMA_MIN_DELAY = 50;
 const IDLE_VRMA_MAX_DELAY = 75;
 const RARE_DANCE_VRMA_CHANCE = 0.28;
 const SUPER_RARE_DANCE_VRMA_CHANCE = 0.02;
+const ANGRY_CLICK_WINDOW_MS = 5000;
+const ANGRY_CLICK_THRESHOLD = 10;
+const ANGRY_REACTION_DURATION = 3.8;
+const ANGRY_REACTION_SCALE = 1.18;
+
+let annoyedFx = {
+  active: false,
+  startAt: 0,
+  endAt: 0,
+  scale: 1,
+  cooldownUntil: 0,
+};
 
 const danceRoutines = [
   function sway(t) {
@@ -387,12 +400,14 @@ let reactionFx = {
 };
 
 const expressionMap = {
-  neutral: 'neutral',
-  happy: 'happy',
-  sad: 'sad',
-  surprised: 'surprised',
-  thinking: 'relaxed',
-  shy: 'happy',
+  neutral: [],
+  happy: [{ name: 'happy', weight: 0.82 }],
+  sad: [{ name: 'sad', weight: 0.85 }, { name: 'relaxed', weight: 0.22 }],
+  angry: [{ name: 'angry', weight: 0.9 }],
+  surprised: [{ name: 'surprised', weight: 0.88 }, { name: 'happy', weight: 0.08 }],
+  confused: [{ name: 'surprised', weight: 0.34 }, { name: 'sad', weight: 0.24 }, { name: 'relaxed', weight: 0.18 }],
+  thinking: [{ name: 'relaxed', weight: 0.55 }, { name: 'sad', weight: 0.18 }],
+  shy: [{ name: 'relaxed', weight: 0.5 }, { name: 'happy', weight: 0.32 }],
 };
 
 export async function initAvatar() {
@@ -626,7 +641,7 @@ function syncVrmSceneRotation() {
 function applyModelSettings() {
   if (!currentVrm?.scene) return;
   currentVrm.scene.position.set(avatarSettings.x, avatarSettings.y, 0);
-  currentVrm.scene.scale.setScalar(avatarSettings.scale);
+  currentVrm.scene.scale.setScalar(avatarSettings.scale * annoyedFx.scale);
   syncVrmSceneRotation();
 }
 
@@ -700,6 +715,7 @@ function bindAvatarInteraction(target) {
 
   target.addEventListener('pointerdown', async (event) => {
     if (event.button !== 0) return;
+    if (annoyedFx.active) return;
     notifyAvatarInteraction();
     const position = await window.rainyDesktop?.getWindowPosition?.() || { x: 0, y: 0 };
     drag = {
@@ -717,16 +733,18 @@ function bindAvatarInteraction(target) {
   });
 
   target.addEventListener('pointerup', (event) => {
+    if (annoyedFx.active) return;
     if (drag.pointerId !== event.pointerId) return;
     const wasDragging = drag.dragging;
     drag.pointerId = null;
     drag.dragging = false;
     setDraggingVisual(false);
     target.releasePointerCapture?.(event.pointerId);
-    if (!wasDragging) triggerReaction();
+    if (!wasDragging && !registerAvatarClick()) triggerReaction();
   });
 
   target.addEventListener('pointercancel', (event) => {
+    if (annoyedFx.active) return;
     if (drag.pointerId !== event.pointerId) return;
     drag.pointerId = null;
     drag.dragging = false;
@@ -749,6 +767,33 @@ function setDraggingVisual(active) {
 function triggerReaction() {
   if (!clock) return;
   startReaction(pickReactionProfile(), clock.elapsedTime);
+}
+
+function registerAvatarClick() {
+  const now = performance.now();
+  avatarClickTimes = avatarClickTimes
+    .filter((time) => now - time <= ANGRY_CLICK_WINDOW_MS)
+    .concat(now);
+  if (avatarClickTimes.length < ANGRY_CLICK_THRESHOLD || now < annoyedFx.cooldownUntil) {
+    return false;
+  }
+  avatarClickTimes = [];
+  triggerAnnoyedReaction();
+  return true;
+}
+
+function triggerAnnoyedReaction() {
+  if (!clock) return;
+  if (activeVrmaAction) stopVrmaAnimation();
+  reactionFx.profile = null;
+  activeProceduralIdle = null;
+  activeExpression = 'angry';
+  annoyedFx.active = true;
+  annoyedFx.startAt = clock.elapsedTime;
+  annoyedFx.endAt = clock.elapsedTime + ANGRY_REACTION_DURATION;
+  annoyedFx.cooldownUntil = performance.now() + 6500;
+  applyExpressions();
+  scheduleNextIdleVrma();
 }
 
 function pickReactionProfile() {
@@ -1110,6 +1155,7 @@ function animate() {
   const elapsed = clock.elapsedTime;
 
   updateReaction(elapsed, delta);
+  updateAnnoyedReaction(elapsed);
   updateIdlePose(elapsed);
   updateAutoExpression(elapsed);
   updateBlink(elapsed);
@@ -1290,7 +1336,7 @@ function updateLookTarget(elapsed, motion) {
 }
 
 function updateAutoExpression(elapsed) {
-  if (reactionFx.profile || activeProceduralIdle || avatarState !== 'idle') return;
+  if (reactionFx.profile || activeProceduralIdle || annoyedFx.active || avatarState !== 'idle') return;
 
   if (microExpressionUntil && elapsed > microExpressionUntil) {
     microExpressionUntil = 0;
@@ -1299,7 +1345,7 @@ function updateAutoExpression(elapsed) {
   }
 
   if (!microExpressionUntil && elapsed > nextMicroExpressionAt) {
-    const expressions = ['happy', 'shy', 'thinking'];
+    const expressions = ['happy', 'sad', 'surprised', 'confused', 'thinking', 'shy', 'neutral'];
     activeExpression = expressions[Math.floor(Math.random() * expressions.length)];
     microExpressionUntil = elapsed + 0.85 + Math.random() * 0.75;
     scheduleMicroExpression(elapsed);
@@ -1366,6 +1412,26 @@ function updateReaction(elapsed, delta) {
   }
 }
 
+function updateAnnoyedReaction(elapsed) {
+  if (!annoyedFx.active) return;
+  const duration = Math.max(0.001, annoyedFx.endAt - annoyedFx.startAt);
+  const progress = clampNumber((elapsed - annoyedFx.startAt) / duration, 0, 1, 0);
+  let hold = 1;
+  if (progress < 0.18) hold = progress / 0.18;
+  else if (progress > 0.78) hold = 1 - ((progress - 0.78) / 0.22);
+  annoyedFx.scale = 1 + (ANGRY_REACTION_SCALE - 1) * clampNumber(hold, 0, 1, 0);
+  applyModelSettings();
+
+  if (elapsed < annoyedFx.endAt) return;
+  annoyedFx.active = false;
+  annoyedFx.scale = 1;
+  if (activeExpression === 'angry') {
+    activeExpression = 'neutral';
+    applyExpressions();
+  }
+  applyModelSettings();
+}
+
 function updateLip(delta) {
   currentLip += (targetLip - currentLip) * Math.min(1, delta * 18);
   setExpressionValue('aa', currentLip);
@@ -1417,14 +1483,18 @@ function scheduleMicroExpression(now = 0) {
 
 function applyExpressions() {
   if (!currentVrm?.expressionManager) return;
-  for (const name of ['happy', 'sad', 'angry', 'surprised', 'relaxed']) {
+  const allBlendNames = ['happy', 'sad', 'angry', 'surprised', 'relaxed'];
+  for (const name of allBlendNames) {
     setExpressionValue(name, 0);
   }
 
-  const expression = expressionMap[activeExpression] || 'neutral';
-  if (expression !== 'neutral') {
-    const amount = expression === 'relaxed' ? 0.38 : avatarState === 'speaking' ? 0.55 : 0.72;
-    setExpressionValue(expression, amount);
+  const layers = expressionMap[activeExpression];
+  if (!layers || !layers.length) return;
+
+  const speaking = avatarState === 'speaking';
+  const scale = speaking ? 0.6 : 1.0;
+  for (const layer of layers) {
+    setExpressionValue(layer.name, Math.min(1, layer.weight * scale));
   }
 }
 
