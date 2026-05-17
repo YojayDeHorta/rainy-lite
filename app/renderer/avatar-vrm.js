@@ -669,10 +669,30 @@ function resizeRenderer(container) {
   if (!renderer || !camera || !container) return;
   const width = Math.max(1, container.clientWidth);
   const height = Math.max(1, container.clientHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, avatarPixelRatioCap));
+  renderer.setPixelRatio(avatarPixelRatioCap);
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+}
+
+function improveTextureQuality(root) {
+  if (!root || !renderer) return;
+  const maxAnisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy?.() || 1);
+  root.traverse((object) => {
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      if (!material) continue;
+      for (const key of ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap']) {
+        const texture = material[key];
+        if (!texture) continue;
+        texture.generateMipmaps = true;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.anisotropy = maxAnisotropy;
+        texture.needsUpdate = true;
+      }
+    }
+  });
 }
 
 function notifyAvatarInteraction() {
@@ -1197,6 +1217,7 @@ function loadVRM(url) {
 
           const vrm = gltf.userData.vrm;
           if (!vrm) throw new Error('File loaded, but no VRM data was found.');
+          improveTextureQuality(vrm.scene);
           if (!currentVrm) {
             currentVrm = vrm;
             applyModelSettings();
