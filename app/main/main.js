@@ -113,7 +113,7 @@ const PERFORMANCE_PROFILES = {
   max: {
     id: 'max',
     label: 'Maximo rendimiento',
-    avatarFps: 60,
+    avatarFps: 120,
     idleAvatarFps: 30,
     pixelRatioCap: 2,
     cursorFps: 30,

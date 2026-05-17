@@ -605,7 +605,7 @@ function normalizeSettings(settings) {
 
 export function updatePerformanceSettings(settings = {}) {
   const nextFps = Number(settings.avatarFps);
-  avatarTargetFps = Number.isFinite(nextFps) ? Math.max(12, Math.min(60, nextFps)) : 30;
+  avatarTargetFps = Number.isFinite(nextFps) ? Math.max(12, Math.min(120, nextFps)) : 30;
   avatarFrameIntervalMs = 1000 / avatarTargetFps;
   const nextPixelRatioCap = Number(settings.pixelRatioCap);
   avatarPixelRatioCap = Number.isFinite(nextPixelRatioCap)
