@@ -1,10 +1,16 @@
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+if os.getenv("RAINY_ROOT_DIR"):
+    ROOT_DIR = Path(os.getenv("RAINY_ROOT_DIR", "")).expanduser().resolve()
+elif getattr(sys, "frozen", False):
+    ROOT_DIR = Path(sys.executable).resolve().parents[1]
+else:
+    ROOT_DIR = Path(__file__).resolve().parents[1]
 USER_DATA_DIR = Path(os.getenv("RAINY_USER_DATA_DIR", "")).expanduser() if os.getenv("RAINY_USER_DATA_DIR") else None
 
 env_candidates = []

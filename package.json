@@ -9,9 +9,10 @@
     "dev": "electron .",
     "backend": "python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 8765",
     "backend:win": "python -m uvicorn backend.main:app --host 127.0.0.1 --port 8765",
-    "dist:portable": "electron-builder --win portable",
-    "dist:installer": "electron-builder --win nsis",
-    "dist:win": "electron-builder --win nsis portable"
+    "build:backend": "powershell.exe -ExecutionPolicy Bypass -File scripts/build-backend.ps1",
+    "dist:portable": "npm run build:backend && electron-builder --win portable",
+    "dist:installer": "npm run build:backend && electron-builder --win nsis",
+    "dist:win": "npm run build:backend && electron-builder --win nsis portable"
   },
   "devDependencies": {
     "electron": "^39.2.6",
@@ -28,7 +29,6 @@
       "app/**/*",
       "backend/**/*",
       "assets/**/*",
-      ".venv/**/*",
       "requirements.txt",
       "package.json",
       "!temp/**",
@@ -42,9 +42,18 @@
         "to": ".env"
       }
     ],
+    "extraResources": [
+      {
+        "from": "dist/asuka-backend",
+        "to": "backend/asuka-backend"
+      },
+      {
+        "from": "assets/wakeword",
+        "to": "assets/wakeword"
+      }
+    ],
     "asarUnpack": [
-      "backend/**",
-      ".venv/**"
+      "backend/**"
     ],
     "win": {
       "icon": "build/asuka.ico",

@@ -609,7 +609,7 @@ export function updatePerformanceSettings(settings = {}) {
   avatarFrameIntervalMs = 1000 / avatarTargetFps;
   const nextPixelRatioCap = Number(settings.pixelRatioCap);
   avatarPixelRatioCap = Number.isFinite(nextPixelRatioCap)
-    ? Math.max(0.75, Math.min(1.5, nextPixelRatioCap))
+    ? Math.max(0.75, Math.min(2, nextPixelRatioCap))
     : 1.25;
   avatarRenderPaused = Boolean(settings.paused);
   const container = document.getElementById('vrm-layer');

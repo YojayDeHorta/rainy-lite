@@ -6,6 +6,8 @@ venv/
 node_modules/
 dist/
 out/
+.build/
+build/backend/
 data/*.sqlite
 data/*.sqlite-*
 temp/*

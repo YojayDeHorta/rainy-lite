@@ -29,6 +29,9 @@ const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT_DIR = app.isPackaged
   ? path.join(process.resourcesPath, 'app.asar.unpacked')
   : ROOT_DIR;
+const PACKAGED_BACKEND_EXE = process.platform === 'win32'
+  ? path.join(process.resourcesPath, 'backend', 'asuka-backend', 'asuka-backend.exe')
+  : path.join(process.resourcesPath, 'backend', 'asuka-backend');
 const AVATAR_MODEL_PREFS = path.join(app.getPath('userData'), 'avatar-model.json');
 const AVATAR_WINDOW_PREFS = path.join(app.getPath('userData'), 'avatar-window-preferences.json');
 const PROFILE_PREFS = path.join(app.getPath('userData'), 'profile.json');
@@ -92,7 +95,7 @@ const PERFORMANCE_PROFILES = {
     label: 'Normal',
     avatarFps: 30,
     idleAvatarFps: 15,
-    pixelRatioCap: 1.25,
+    pixelRatioCap: 1.5,
     cursorFps: 15,
     spotifyIntervalMs: 2500,
     spotifyInactiveIntervalMs: 12000,
@@ -102,7 +105,7 @@ const PERFORMANCE_PROFILES = {
     label: 'Fluido',
     avatarFps: 60,
     idleAvatarFps: 20,
-    pixelRatioCap: 1.5,
+    pixelRatioCap: 2,
     cursorFps: 30,
     spotifyIntervalMs: 800,
     spotifyInactiveIntervalMs: 10000,
@@ -152,49 +155,44 @@ function getPythonLaunchCandidates(rootDir) {
 }
 
 function startBackend() {
-  const uvicornArgs = ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8765'];
-  const candidates = getPythonLaunchCandidates(BACKEND_ROOT_DIR);
   const userDataDir = app.getPath('userData');
   const portableEnvPath = path.join(path.dirname(process.execPath), '.env');
   const integrationPrefs = readIntegrationPreference();
   const integrationEnv = {};
   integrationEnv.WAKEWORD_ENABLED = integrationPrefs.wakewordEnabled ? '1' : '0';
+  const backendEnv = {
+    ...process.env,
+    PYTHONUNBUFFERED: '1',
+    RAINY_USER_DATA_DIR: userDataDir,
+    RAINY_ENV_PATH: portableEnvPath,
+    RAINY_ROOT_DIR: app.isPackaged ? process.resourcesPath : ROOT_DIR,
+    ...integrationEnv,
+  };
 
-  const tryLaunch = (index) => {
-    if (index >= candidates.length) {
-      console.error('[rainy-backend] No encontre un interprete de Python para iniciar el backend.');
-      return;
+  const launchPackagedBackend = () => {
+    if (!app.isPackaged) return false;
+    try {
+      fs.accessSync(PACKAGED_BACKEND_EXE);
+    } catch (_) {
+      return false;
     }
-    const candidate = candidates[index];
-    const child = spawn(
-      candidate.command,
-      [...candidate.prefixArgs, ...uvicornArgs],
-      {
-        cwd: BACKEND_ROOT_DIR,
-        env: {
-          ...process.env,
-          PYTHONUNBUFFERED: '1',
-          RAINY_USER_DATA_DIR: userDataDir,
-          RAINY_ENV_PATH: portableEnvPath,
-          ...integrationEnv,
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    );
+
+    const child = spawn(PACKAGED_BACKEND_EXE, [], {
+      cwd: path.dirname(PACKAGED_BACKEND_EXE),
+      env: backendEnv,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
 
     child.once('error', (error) => {
-      if (error?.code === 'ENOENT') {
-        console.warn(`[rainy-backend] Python no disponible con "${candidate.label}", probando siguiente...`);
-        tryLaunch(index + 1);
-        return;
-      }
-      console.error(`[rainy-backend] Error lanzando backend con "${candidate.label}": ${error.message || error}`);
-      tryLaunch(index + 1);
+      console.error(`[rainy-backend] Error lanzando backend.exe: ${error.message || error}`);
+      backendProcess = null;
+      launchPythonBackend();
     });
 
     child.once('spawn', () => {
       backendProcess = child;
-      console.log(`[rainy-backend] iniciado con ${candidate.label}`);
+      console.log('[rainy-backend] iniciado con backend.exe');
     });
 
     child.stdout.on('data', (data) => {
@@ -207,13 +205,69 @@ function startBackend() {
 
     child.on('exit', (code) => {
       if (backendProcess === child) {
-        console.log(`[rainy-backend] exited with code ${code}`);
+        console.log(`[rainy-backend] backend.exe exited with code ${code}`);
         backendProcess = null;
       }
     });
+
+    return true;
   };
 
-  tryLaunch(0);
+  const launchPythonBackend = () => {
+    const uvicornArgs = ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8765'];
+    const candidates = getPythonLaunchCandidates(BACKEND_ROOT_DIR);
+
+    const tryLaunch = (index) => {
+      if (index >= candidates.length) {
+        console.error('[rainy-backend] No encontre un interprete de Python para iniciar el backend.');
+        return;
+      }
+      const candidate = candidates[index];
+      const child = spawn(
+        candidate.command,
+        [...candidate.prefixArgs, ...uvicornArgs],
+        {
+          cwd: BACKEND_ROOT_DIR,
+          env: backendEnv,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      );
+
+      child.once('error', (error) => {
+        if (error?.code === 'ENOENT') {
+          console.warn(`[rainy-backend] Python no disponible con "${candidate.label}", probando siguiente...`);
+          tryLaunch(index + 1);
+          return;
+        }
+        console.error(`[rainy-backend] Error lanzando backend con "${candidate.label}": ${error.message || error}`);
+        tryLaunch(index + 1);
+      });
+
+      child.once('spawn', () => {
+        backendProcess = child;
+        console.log(`[rainy-backend] iniciado con ${candidate.label}`);
+      });
+
+      child.stdout.on('data', (data) => {
+        console.log(`[rainy-backend] ${data.toString().trim()}`);
+      });
+
+      child.stderr.on('data', (data) => {
+        console.error(`[rainy-backend] ${data.toString().trim()}`);
+      });
+
+      child.on('exit', (code) => {
+        if (backendProcess === child) {
+          console.log(`[rainy-backend] exited with code ${code}`);
+          backendProcess = null;
+        }
+      });
+    };
+
+    tryLaunch(0);
+  };
+
+  if (!launchPackagedBackend()) launchPythonBackend();
 }
 
 function readAvatarModelPreference() {
