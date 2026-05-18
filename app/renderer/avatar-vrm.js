@@ -104,7 +104,7 @@ const rareDanceVrmaProfiles = [
   { file: 'dance/dance4-smug.vrma' },
   { file: 'dance/dance6-dare.vrma' },
   { file: 'dance/dance7-popular.vrma' },
-  { file: 'dance/dance11-hugov2.vrma' },
+  { file: 'dance/dance11-hugov3.vrma' },
   { file: 'dance/dance12-oblivion.vrma' },
   { file: 'dance/dance13-imaginedragons.vrma' },
   { file: 'dance/dance14-bounce.vrma' },
