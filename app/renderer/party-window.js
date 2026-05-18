@@ -20,6 +20,10 @@ let spotifyTitle = '';
 let reactionTimer = null;
 let teleportTimer = null;
 let currentSpotIndex = -1;
+let nextDanceShuffleAt = 0;
+
+const PARTY_TELEPORT_INTERVAL_MS = 6500;
+const PARTY_DANCE_SHUFFLE_MS = 60000;
 
 const partyAvatarSettings = {
   x: 0,
@@ -69,6 +73,19 @@ function movePartyAvatar(force = false) {
   });
   shell?.style.setProperty('--beat-x', spot.beatX);
   shell?.style.setProperty('--beat-y', spot.beatY);
+
+  maybeShufflePartyDance();
+}
+
+function scheduleNextPartyDanceShuffle() {
+  nextDanceShuffleAt = Date.now() + PARTY_DANCE_SHUFFLE_MS;
+}
+
+function maybeShufflePartyDance() {
+  if (!spotifyPlaying || !nextDanceShuffleAt || Date.now() < nextDanceShuffleAt) return;
+  setAvatarState('idle');
+  setAvatarState('dancing');
+  scheduleNextPartyDanceShuffle();
 }
 
 function syncTeleportTimer() {
@@ -81,7 +98,8 @@ function syncTeleportTimer() {
     return;
   }
   movePartyAvatar(true);
-  teleportTimer = setInterval(() => movePartyAvatar(true), 6500);
+  scheduleNextPartyDanceShuffle();
+  teleportTimer = setInterval(() => movePartyAvatar(true), PARTY_TELEPORT_INTERVAL_MS);
 }
 
 function applyPartyState() {
@@ -137,6 +155,7 @@ window.rainyDesktop.onSpotifyTrackChanged(() => {
   if (!spotifyPlaying) return;
   setAvatarState('idle');
   setAvatarState('dancing');
+  scheduleNextPartyDanceShuffle();
 });
 
 window.rainyDesktop.onPerformancePreferences(() => {
