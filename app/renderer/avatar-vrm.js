@@ -75,12 +75,15 @@ const vrmaReactionFiles = {
   greet: 'greet.vrma',
 };
 const idleVrmaProfiles = [
+  { file: 'idle/idle0-break2.vrma' },
   { file: 'idle/Idle1-left-right.vrma', loopFor: 6 },
   { file: 'idle/idle2-heart.vrma' },
   { file: 'idle/idle3-yawn.vrma' },
   { file: 'idle/idle4-break.vrma' },
   { file: 'idle/idle5-idle-happy.vrma' },
   { file: 'idle/idle6-penguin.vrma' },
+  { file: 'idle/idle7-worm.vrma' },
+  { file: 'idle/idle8-robot.vrma' },
 ];
 const IDLE_VRMA_ENABLED = true;
 const PROCEDURAL_IDLE_PREVIEW_MODE = false;
@@ -101,16 +104,37 @@ const rareDanceVrmaProfiles = [
   { file: 'dance/dance4-smug.vrma' },
   { file: 'dance/dance6-dare.vrma' },
   { file: 'dance/dance7-popular.vrma' },
+  { file: 'dance/dance11-hugo.vrma' },
+  { file: 'dance/dance12-oblivion.vrma' },
+  { file: 'dance/dance13-imaginedragons.vrma' },
+  { file: 'dance/dance14-bounce.vrma' },
+  { file: 'dance/dance15-rickroll.vrma' },
+  { file: 'dance/dance16-spooky.vrma' },
+  { file: 'dance/dance17-swing.vrma' },
+  { file: 'dance/dance18-boogie.vrma' },
+  { file: 'dance/dance19-charleton.vrma' },
+  { file: 'dance/dance20-disco.vrma' },
+  { file: 'dance/dance21-shuffle.vrma' },
+  { file: 'dance/dance22-swing.vrma' },
+  { file: 'dance/dance23-running.vrma' },
+  { file: 'dance/dance24-sprinkler.vrma' },
+  { file: 'dance/dance25-swim.vrma' },
+  { file: 'dance/dance27-zippy.vrma' },
+  { file: 'dance/dance28-conga.vrma' },
+  { file: 'dance/dance29-kitty.vrma' },
+  { file: 'dance/dance30-hiphop.vrma' },
 ];
 const superRareDanceVrmaProfiles = [
   { file: 'dance/dance5-arona.vrma' },
   { file: 'dance/dance8-california.vrma' },
   { file: 'dance/dance9-defaultGMOD.vrma' },
+  { file: 'dance/dance10-seetinh.vrma' },
+  { file: 'dance/dance26-thanos.vrma' },
 ];
 const IDLE_VRMA_MIN_DELAY = 50;
 const IDLE_VRMA_MAX_DELAY = 75;
-const RARE_DANCE_VRMA_CHANCE = 0.28;
 const SUPER_RARE_DANCE_VRMA_CHANCE = 0.02;
+const MIN_VRMA_DANCE_CHANCE = 0.72;
 const ANGRY_CLICK_WINDOW_MS = 5000;
 const ANGRY_CLICK_THRESHOLD = 10;
 const ANGRY_REACTION_DURATION = 3.8;
@@ -983,8 +1007,27 @@ function idleSmoothStep(edge0, edge1, value) {
   return t * t * (3 - 2 * t);
 }
 
+function getAvailableDanceVrmaProfiles(profiles) {
+  return profiles.filter((profile) => !missingVrmaAnimations.has(getVrmaUrl(profile.file)));
+}
+
+function getRegularDanceVrmaProfiles() {
+  return getAvailableDanceVrmaProfiles([
+    ...normalDanceVrmaProfiles,
+    ...rareDanceVrmaProfiles,
+  ]);
+}
+
+function getVrmaDanceChance() {
+  const vrmaCount = getRegularDanceVrmaProfiles().length + getAvailableDanceVrmaProfiles(superRareDanceVrmaProfiles).length;
+  const proceduralCount = danceRoutines.length;
+  if (!vrmaCount) return 0;
+  const proportionalChance = vrmaCount / Math.max(1, vrmaCount + proceduralCount);
+  return Math.min(0.96, Math.max(MIN_VRMA_DANCE_CHANCE, proportionalChance));
+}
+
 function pickDanceVrmaFile(profiles) {
-  const available = profiles.filter((profile) => !missingVrmaAnimations.has(getVrmaUrl(profile.file)));
+  const available = getAvailableDanceVrmaProfiles(profiles);
   if (!available.length) return null;
   const pool = available.length > 1
     ? available.filter((profile) => profile.file !== lastDanceVrmaFile)
@@ -992,14 +1035,9 @@ function pickDanceVrmaFile(profiles) {
   return pool[Math.floor(Math.random() * pool.length)] || null;
 }
 
-function pickNormalDanceStyle() {
-  const options = danceRoutines.map((_, index) => ({ type: 'procedural', index }));
-  for (const profile of normalDanceVrmaProfiles) {
-    if (!missingVrmaAnimations.has(getVrmaUrl(profile.file))) {
-      options.push({ type: 'vrma', profile });
-    }
-  }
-  return options[Math.floor(Math.random() * options.length)] || { type: 'procedural', index: 0 };
+function pickProceduralDanceStyle() {
+  if (!danceRoutines.length) return { type: 'procedural', index: 0 };
+  return { type: 'procedural', index: Math.floor(Math.random() * danceRoutines.length) };
 }
 
 function selectProceduralDanceStyle(index = null) {
@@ -1025,11 +1063,11 @@ async function selectDanceStyle() {
   const superRareProfile = roll < SUPER_RARE_DANCE_VRMA_CHANCE
     ? pickDanceVrmaFile(superRareDanceVrmaProfiles)
     : null;
-  const rareProfile = !superRareProfile && roll < SUPER_RARE_DANCE_VRMA_CHANCE + RARE_DANCE_VRMA_CHANCE
-    ? pickDanceVrmaFile(rareDanceVrmaProfiles)
+  const regularProfile = !superRareProfile && roll < getVrmaDanceChance()
+    ? pickDanceVrmaFile(getRegularDanceVrmaProfiles())
     : null;
-  const normalStyle = superRareProfile || rareProfile ? null : pickNormalDanceStyle();
-  const profile = superRareProfile || rareProfile || (normalStyle?.type === 'vrma' ? normalStyle.profile : null);
+  const proceduralStyle = superRareProfile || regularProfile ? null : pickProceduralDanceStyle();
+  const profile = superRareProfile || regularProfile;
 
   if (profile?.file) {
     const played = await playVrmaFromUrl(getVrmaUrl(profile.file), { ...profile, loopUntilStopped: true });
@@ -1043,7 +1081,7 @@ async function selectDanceStyle() {
     }
   }
 
-  if (avatarState === 'dancing') selectProceduralDanceStyle(normalStyle?.index);
+  if (avatarState === 'dancing') selectProceduralDanceStyle(proceduralStyle?.index);
 }
 
 async function getVrmaModule() {
