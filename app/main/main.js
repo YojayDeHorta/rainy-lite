@@ -9,6 +9,7 @@ let chatWindow;
 let avatarWindow;
 let settingsWindow;
 let setupWindow;
+let partyWindow;
 let tray;
 let backendProcess;
 let cursorTrackingId;
@@ -24,6 +25,7 @@ let discordConnected = false;
 let discordStartTimestamp = null;
 let discordReconnectTimer = null;
 let pendingSetupWelcomeGreeting = false;
+let avatarHiddenByParty = false;
 
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const BACKEND_ROOT_DIR = app.isPackaged
@@ -803,6 +805,11 @@ function broadcastAvatarModel(modelName) {
   const send = () => avatarWindow?.webContents.send('rainy:avatar-model', payload);
   if (avatarWindow.webContents.isLoading()) avatarWindow.webContents.once('did-finish-load', send);
   else send();
+  if (partyWindow && !partyWindow.isDestroyed()) {
+    const sendParty = () => partyWindow?.webContents.send('rainy:avatar-model', payload);
+    if (partyWindow.webContents.isLoading()) partyWindow.webContents.once('did-finish-load', sendParty);
+    else sendParty();
+  }
 }
 
 function baseWindowOptions(extra = {}) {
@@ -861,6 +868,61 @@ function createAvatarWindow() {
     avatarWindow = null;
   });
   return avatarWindow;
+}
+
+function createPartyWindow() {
+  if (partyWindow && !partyWindow.isDestroyed()) {
+    partyWindow.focus();
+    return partyWindow;
+  }
+
+  const sourceBounds = avatarWindow && !avatarWindow.isDestroyed()
+    ? avatarWindow.getBounds()
+    : resolveAvatarInitialBounds(readAvatarWindowPreference().bounds);
+  const targetDisplay = screen.getDisplayMatching(sourceBounds);
+  const bounds = targetDisplay.bounds;
+  avatarHiddenByParty = Boolean(avatarWindow && !avatarWindow.isDestroyed() && avatarWindow.isVisible());
+  if (avatarHiddenByParty) avatarWindow.hide();
+
+  partyWindow = new BrowserWindow(baseWindowOptions({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    minWidth: 640,
+    minHeight: 480,
+    fullscreen: true,
+    alwaysOnTop: false,
+    skipTaskbar: false,
+    transparent: false,
+    backgroundColor: '#080814',
+    hasShadow: true,
+  }));
+
+  partyWindow.loadFile(path.join(__dirname, '..', 'renderer', 'party.html'));
+  partyWindow.webContents.once('did-finish-load', () => {
+    const model = getCurrentAvatarModelEntry();
+    if (model) partyWindow?.webContents.send('rainy:avatar-model', { model: model.name, url: model.url });
+    partyWindow?.webContents.send('rainy:spotify-playback', { isPlaying: spotifyPlaying });
+    partyWindow?.webContents.send('rainy:performance-preferences', PERFORMANCE_PROFILES.max);
+  });
+  partyWindow.on('closed', () => {
+    partyWindow = null;
+    if (avatarHiddenByParty) {
+      avatarHiddenByParty = false;
+      showAvatarWindow();
+    }
+  });
+  return partyWindow;
+}
+
+function togglePartyWindow() {
+  if (partyWindow && !partyWindow.isDestroyed()) {
+    partyWindow.close();
+    return false;
+  }
+  createPartyWindow();
+  return true;
 }
 
 function createChatWindow() {
@@ -1015,6 +1077,20 @@ function updateAvatarSettings(settings) {
   } else {
     send();
   }
+  if (partyWindow && !partyWindow.isDestroyed()) {
+    const partySettings = {
+      ...settings,
+      x: 0,
+      y: 0.85,
+      scale: 0.92,
+      cameraZ: 3.75,
+      light: 0.86,
+      motion: Math.max(1.15, Number(settings?.motion) || 1.15),
+    };
+    const sendParty = () => partyWindow?.webContents.send('rainy:avatar-settings', partySettings);
+    if (partyWindow.webContents.isLoading()) partyWindow.webContents.once('did-finish-load', sendParty);
+    else sendParty();
+  }
 }
 
 function applyAvatarWindowScale(settings) {
@@ -1078,6 +1154,11 @@ function updateAvatarSpotifyPlayback(isPlaying) {
   } else {
     send();
   }
+  if (partyWindow && !partyWindow.isDestroyed()) {
+    const sendParty = () => partyWindow?.webContents.send('rainy:spotify-playback', { isPlaying: spotifyPlaying });
+    if (partyWindow.webContents.isLoading()) partyWindow.webContents.once('did-finish-load', sendParty);
+    else sendParty();
+  }
 }
 
 function sendAvatarPerformanceSettings() {
@@ -1088,6 +1169,11 @@ function sendAvatarPerformanceSettings() {
     avatarWindow.webContents.once('did-finish-load', send);
   } else {
     send();
+  }
+  if (partyWindow && !partyWindow.isDestroyed()) {
+    const sendParty = () => partyWindow?.webContents.send('rainy:performance-preferences', PERFORMANCE_PROFILES.max);
+    if (partyWindow.webContents.isLoading()) partyWindow.webContents.once('did-finish-load', sendParty);
+    else sendParty();
   }
 }
 
@@ -1157,9 +1243,12 @@ setInterval(() => {
 }, 30000);
 
 function notifyAvatarTrackChanged() {
-  if (!avatarWindow || avatarWindow.isDestroyed()) return;
-  if (avatarWindow.webContents.isLoading()) return;
-  avatarWindow.webContents.send('rainy:spotify-track-changed');
+  if (avatarWindow && !avatarWindow.isDestroyed() && !avatarWindow.webContents.isLoading()) {
+    avatarWindow.webContents.send('rainy:spotify-track-changed');
+  }
+  if (partyWindow && !partyWindow.isDestroyed() && !partyWindow.webContents.isLoading()) {
+    partyWindow.webContents.send('rainy:spotify-track-changed');
+  }
 }
 
 function stopSpotifyMonitor() {
@@ -1806,6 +1895,11 @@ ipcMain.handle('avatar:context-menu', () => {
     {
       label: 'Configuracion',
       click: () => createSettingsWindow(),
+    },
+    { type: 'separator' },
+    {
+      label: partyWindow && !partyWindow.isDestroyed() ? 'Cerrar modo fiesta' : 'Modo fiesta',
+      click: () => togglePartyWindow(),
     },
   ]);
   menu.popup({ window: avatarWindow || undefined });

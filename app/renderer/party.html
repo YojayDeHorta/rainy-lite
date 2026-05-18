@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Modo Fiesta</title>
+    <link rel="stylesheet" href="party.css" />
+    <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.154.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.154.0/examples/jsm/",
+          "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@2.0.0/lib/three-vrm.module.js",
+          "@pixiv/three-vrm-core": "https://unpkg.com/@pixiv/three-vrm-core@3.4.5/lib/three-vrm-core.module.js",
+          "@pixiv/three-vrm-animation": "https://unpkg.com/@pixiv/three-vrm-animation@3.4.5/lib/three-vrm-animation.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="party-shell">
+      <div class="party-bg" aria-hidden="true">
+        <span class="orb orb-a"></span>
+        <span class="orb orb-b"></span>
+        <span class="orb orb-c"></span>
+        <span class="beam beam-a"></span>
+        <span class="beam beam-b"></span>
+      </div>
+
+      <header class="party-header">
+        <div>
+          <p class="party-kicker">Asuka Desktop</p>
+        </div>
+        <button id="party-close-button" class="party-close-button" title="Salir del modo fiesta">Salir</button>
+      </header>
+
+      <section class="party-stage">
+        <div id="avatar-root" class="party-avatar-root" aria-label="Avatar en modo fiesta">
+          <div id="vrm-layer" class="party-vrm-layer"></div>
+        </div>
+      </section>
+
+      <footer class="party-footer">
+        <span id="party-status">Esperando musica...</span>
+        <span>Esc para salir</span>
+      </footer>
+    </main>
+
+    <script src="party-window.js" type="module"></script>
+  </body>
+</html>

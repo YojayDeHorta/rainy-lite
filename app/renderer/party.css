@@ -1,0 +1,250 @@
+:root {
+  color-scheme: dark;
+  --text: #fff8e8;
+  --muted: rgba(255, 248, 232, 0.68);
+  --line: rgba(255, 255, 255, 0.18);
+  --hot: #ff7a2f;
+  --cyan: #58e0ff;
+  --pink: #ff6fb7;
+  --beat-x: 58vw;
+  --beat-y: 66vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #080814;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  color: var(--text);
+}
+
+.party-shell {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at var(--beat-x) var(--beat-y), rgba(255, 255, 255, 0.14), transparent 16%),
+    radial-gradient(circle at 50% 78%, rgba(255, 122, 47, 0.22), transparent 34%),
+    linear-gradient(135deg, #111232 0%, #090816 44%, #1d0e24 100%);
+}
+
+.party-shell::after {
+  content: "";
+  position: absolute;
+  inset: -8%;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 22% 28%, rgba(88, 224, 255, 0.2), transparent 24%),
+    radial-gradient(circle at 78% 36%, rgba(255, 111, 183, 0.22), transparent 26%),
+    radial-gradient(circle at 50% 88%, rgba(255, 122, 47, 0.18), transparent 28%);
+  opacity: 0.62;
+  mix-blend-mode: screen;
+}
+
+.party-bg,
+.party-stage,
+.party-header,
+.party-footer {
+  position: absolute;
+  inset: 0;
+}
+
+.party-bg {
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.party-bg::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 54px 54px;
+  transform: perspective(700px) rotateX(62deg) translateY(26%);
+  transform-origin: center bottom;
+  animation: grid-drift 7s linear infinite;
+  opacity: 0.55;
+}
+
+.orb,
+.beam {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+.orb {
+  width: 42vmin;
+  height: 42vmin;
+  border-radius: 50%;
+  filter: blur(26px);
+  mix-blend-mode: screen;
+  opacity: 0.8;
+  animation: orb-float 8s ease-in-out infinite alternate;
+}
+
+.orb-a {
+  left: 7%;
+  top: 14%;
+  background: rgba(88, 224, 255, 0.38);
+}
+
+.orb-b {
+  right: 4%;
+  top: 18%;
+  background: rgba(255, 111, 183, 0.36);
+  animation-delay: -2s;
+}
+
+.orb-c {
+  left: 36%;
+  bottom: -12%;
+  background: rgba(255, 122, 47, 0.34);
+  animation-delay: -4s;
+}
+
+.beam {
+  width: 18vmin;
+  height: 130vmax;
+  top: -15vmax;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 248, 232, 0.18), rgba(255, 255, 255, 0));
+  filter: blur(10px);
+  opacity: 0.55;
+  transform-origin: center top;
+  animation: beam-sweep 5.5s ease-in-out infinite alternate;
+}
+
+.beam-a {
+  left: 18%;
+  transform: rotate(23deg);
+}
+
+.beam-b {
+  right: 18%;
+  animation-delay: -2.5s;
+  transform: rotate(-24deg);
+}
+
+.party-header {
+  inset: 24px 28px auto 28px;
+  z-index: 5;
+  height: 58px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.party-kicker {
+  margin: 0 0 4px;
+  color: var(--muted);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.party-close-button {
+  pointer-events: auto;
+  border: 1px solid rgba(255, 248, 232, 0.4);
+  border-radius: 999px;
+  padding: 13px 22px;
+  color: var(--text);
+  background: rgba(8, 8, 20, 0.68);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.26), 0 0 22px rgba(255, 122, 47, 0.18);
+  backdrop-filter: blur(18px);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.party-stage {
+  z-index: 3;
+}
+
+.party-avatar-root,
+.party-vrm-layer,
+.party-vrm-layer canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.party-avatar-root {
+  position: relative;
+  pointer-events: none;
+}
+
+.party-vrm-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.party-vrm-layer canvas {
+  display: block;
+}
+
+.party-footer {
+  inset: auto 34px 26px 34px;
+  z-index: 6;
+  height: 34px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+body.is-dancing .party-shell {
+  animation: party-pulse 1.45s ease-in-out infinite;
+}
+
+body.is-dancing .orb {
+  animation-duration: 2.8s;
+  opacity: 0.95;
+}
+
+body.is-dancing .beam {
+  animation-duration: 2.1s;
+  opacity: 0.72;
+}
+
+body.is-dancing .party-shell::after {
+  animation: aura-spin 5s linear infinite;
+}
+
+@keyframes party-pulse {
+  0%, 100% { filter: saturate(1) brightness(1); }
+  50% { filter: saturate(1.42) brightness(1.12); }
+}
+
+@keyframes aura-spin {
+  from { transform: rotate(0deg) scale(1); }
+  to { transform: rotate(360deg) scale(1.06); }
+}
+
+@keyframes orb-float {
+  from { transform: translate3d(-2vw, -1vh, 0) scale(0.92); }
+  to { transform: translate3d(3vw, 2vh, 0) scale(1.08); }
+}
+
+@keyframes beam-sweep {
+  from { transform: rotate(18deg) translateX(-8vw); }
+  to { transform: rotate(-18deg) translateX(8vw); }
+}
+
+@keyframes grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 54px, 54px 0; }
+}
