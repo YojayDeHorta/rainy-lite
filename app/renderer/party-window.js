@@ -10,8 +10,13 @@ import {
 const status = document.getElementById('party-status');
 const closeButton = document.getElementById('party-close-button');
 const shell = document.querySelector('.party-shell');
+const trackTitle = document.getElementById('party-track-title');
+const prevButton = document.getElementById('party-prev-button');
+const playButton = document.getElementById('party-play-button');
+const nextButton = document.getElementById('party-next-button');
 
 let spotifyPlaying = false;
+let spotifyTitle = '';
 let reactionTimer = null;
 let teleportTimer = null;
 let currentSpotIndex = -1;
@@ -84,6 +89,14 @@ function applyPartyState() {
   if (status) {
     status.textContent = spotifyPlaying ? 'Musica detectada. Baile activado.' : 'Esperando musica...';
   }
+  if (trackTitle) {
+    trackTitle.textContent = spotifyTitle || (spotifyPlaying ? 'Musica detectada' : 'Esperando musica...');
+  }
+  if (playButton) {
+    playButton.classList.toggle('is-paused', !spotifyPlaying);
+    playButton.title = spotifyPlaying ? 'Pausar' : 'Reproducir';
+    playButton.setAttribute('aria-label', spotifyPlaying ? 'Pausar' : 'Reproducir');
+  }
   setAvatarState(spotifyPlaying ? 'dancing' : 'idle');
   syncTeleportTimer();
 }
@@ -116,6 +129,7 @@ window.rainyDesktop.onAvatarModel(async (payload) => {
 
 window.rainyDesktop.onSpotifyPlayback((payload) => {
   spotifyPlaying = Boolean(payload?.isPlaying);
+  spotifyTitle = String(payload?.title || '').trim();
   applyPartyState();
 });
 
@@ -127,6 +141,26 @@ window.rainyDesktop.onSpotifyTrackChanged(() => {
 
 window.rainyDesktop.onPerformancePreferences(() => {
   updatePerformanceSettings(partyPerformanceSettings);
+});
+
+async function executeMediaAction(type) {
+  try {
+    await window.rainyDesktop.executeAction({ type, payload: '' });
+  } catch (error) {
+    console.warn('No pude ejecutar el control multimedia.', error);
+  }
+}
+
+prevButton?.addEventListener('click', () => {
+  void executeMediaAction('MEDIA_PREVIOUS');
+});
+
+playButton?.addEventListener('click', () => {
+  void executeMediaAction('MEDIA_PLAY_PAUSE');
+});
+
+nextButton?.addEventListener('click', () => {
+  void executeMediaAction('MEDIA_NEXT');
 });
 
 closeButton?.addEventListener('click', () => window.rainyDesktop.close());

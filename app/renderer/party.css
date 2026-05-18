@@ -196,14 +196,121 @@ body {
 .party-footer {
   inset: auto 34px 26px 34px;
   z-index: 6;
-  height: 34px;
+  min-height: 58px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 24px;
   color: var(--muted);
   font-size: 14px;
   letter-spacing: 0.04em;
   pointer-events: none;
+}
+
+.party-player {
+  min-width: min(620px, 52vw);
+  max-width: min(760px, 58vw);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  pointer-events: auto;
+}
+
+.party-track {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.party-track-label {
+  color: rgba(255, 248, 232, 0.52);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.party-track-title {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 18px rgba(255, 248, 232, 0.22);
+  white-space: nowrap;
+}
+
+.party-controls {
+  display: flex;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.party-control-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 248, 232, 0.22);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(8, 8, 20, 0.22);
+  cursor: pointer;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.party-control-button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.party-control-button:hover {
+  border-color: rgba(255, 248, 232, 0.44);
+  background: rgba(255, 248, 232, 0.12);
+  transform: translateY(-1px);
+}
+
+.party-control-button-primary {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: #1d1020;
+  background: linear-gradient(135deg, #fff8e8, #ffb56f);
+  border-color: rgba(255, 248, 232, 0.64);
+  box-shadow: 0 0 24px rgba(255, 122, 47, 0.22);
+}
+
+.party-control-button-primary svg {
+  width: 18px;
+  height: 18px;
+}
+
+.party-control-button-primary .icon-play {
+  display: none;
+}
+
+.party-control-button-primary.is-paused .icon-pause {
+  display: none;
+}
+
+.party-control-button-primary.is-paused .icon-play {
+  display: block;
+}
+
+.party-control-button-primary:hover {
+  background: linear-gradient(135deg, #fffdf4, #ffc790);
 }
 
 body.is-dancing .party-shell {
@@ -247,4 +354,17 @@ body.is-dancing .party-shell::after {
 @keyframes grid-drift {
   from { background-position: 0 0, 0 0; }
   to { background-position: 0 54px, 54px 0; }
+}
+
+@media (max-width: 760px) {
+  .party-footer {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
+  .party-player {
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+  }
 }

@@ -43,7 +43,32 @@
 
       <footer class="party-footer">
         <span id="party-status">Esperando musica...</span>
-        <span>Esc para salir</span>
+        <section class="party-player" aria-label="Controles de musica">
+          <div class="party-track">
+            <span class="party-track-label">Sonando ahora</span>
+            <span id="party-track-title" class="party-track-title">Esperando musica...</span>
+          </div>
+          <div class="party-controls">
+            <button id="party-prev-button" class="party-control-button" type="button" title="Cancion anterior" aria-label="Cancion anterior">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 5h2v14H5V5Zm14 1v12l-9-6 9-6Z"></path>
+              </svg>
+            </button>
+            <button id="party-play-button" class="party-control-button party-control-button-primary" type="button" title="Pausar o reproducir" aria-label="Pausar o reproducir">
+              <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z"></path>
+              </svg>
+              <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 5v14l11-7L8 5Z"></path>
+              </svg>
+            </button>
+            <button id="party-next-button" class="party-control-button" type="button" title="Siguiente cancion" aria-label="Siguiente cancion">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M17 5h2v14h-2V5ZM5 6v12l9-6-9-6Z"></path>
+              </svg>
+            </button>
+          </div>
+        </section>
       </footer>
     </main>
 

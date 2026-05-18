@@ -903,7 +903,7 @@ function createPartyWindow() {
   partyWindow.webContents.once('did-finish-load', () => {
     const model = getCurrentAvatarModelEntry();
     if (model) partyWindow?.webContents.send('rainy:avatar-model', { model: model.name, url: model.url });
-    partyWindow?.webContents.send('rainy:spotify-playback', { isPlaying: spotifyPlaying });
+    partyWindow?.webContents.send('rainy:spotify-playback', { isPlaying: spotifyPlaying, title: spotifyTitle });
     partyWindow?.webContents.send('rainy:performance-preferences', PERFORMANCE_PROFILES.max);
   });
   partyWindow.on('closed', () => {
@@ -1148,14 +1148,15 @@ function updateAvatarSpotifyPlayback(isPlaying) {
   spotifyPlaying = Boolean(isPlaying);
   if (spotifyPlaying) markUserActivity();
   updateDiscordPresence();
-  const send = () => avatarWindow?.webContents.send('rainy:spotify-playback', { isPlaying: spotifyPlaying });
+  const payload = { isPlaying: spotifyPlaying, title: spotifyTitle };
+  const send = () => avatarWindow?.webContents.send('rainy:spotify-playback', payload);
   if (avatarWindow.webContents.isLoading()) {
     avatarWindow.webContents.once('did-finish-load', send);
   } else {
     send();
   }
   if (partyWindow && !partyWindow.isDestroyed()) {
-    const sendParty = () => partyWindow?.webContents.send('rainy:spotify-playback', { isPlaying: spotifyPlaying });
+    const sendParty = () => partyWindow?.webContents.send('rainy:spotify-playback', payload);
     if (partyWindow.webContents.isLoading()) partyWindow.webContents.once('did-finish-load', sendParty);
     else sendParty();
   }
@@ -1217,6 +1218,7 @@ function startSpotifyMonitor() {
       }
       if (result.playing && result.title && result.title !== spotifyTitle) {
         spotifyTitle = result.title;
+        updateAvatarSpotifyPlayback(true);
         if (spotifyPlaying) notifyAvatarTrackChanged();
       }
       if (!result.playing) spotifyTitle = '';
@@ -1608,6 +1610,10 @@ ipcMain.handle('window:close', (event) => {
   }
   if (win === avatarWindow) {
     app.quit();
+    return;
+  }
+  if (win === partyWindow) {
+    win.close();
     return;
   }
   if (win === settingsWindow) {
